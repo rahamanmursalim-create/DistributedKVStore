@@ -1,3 +1,4 @@
+
 package com.codecrafters.redis.storage;
 
 import java.io.IOException;
@@ -13,6 +14,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+/**
+ * LSM-style storage engine using a MemTable and immutable SSTables.
+ *
+ * Newer SSTables take precedence over older SSTables.
+ * Null values in storage represent deletion tombstones.
+ */
 public final class StorageEngine {
 
     private static final Pattern SSTABLE_NAME =
@@ -26,10 +33,14 @@ public final class StorageEngine {
 
     public StorageEngine(Path directory) throws IOException {
         this.directory = directory.toAbsolutePath().normalize();
+
         Files.createDirectories(this.directory);
         loadExistingSSTables();
     }
 
+    /**
+     * Loads existing SSTables in ascending ID order.
+     */
     private void loadExistingSSTables() throws IOException {
         List<Path> files;
 
@@ -46,8 +57,9 @@ public final class StorageEngine {
         for (Path file : files) {
             long id = extractTableId(file);
 
-            // Validate each table before accepting it.
             SSTable table = SSTable.open(file);
+
+            // Validate the SSTable before registering it.
             table.readAll();
 
             ssTables.add(table);
@@ -67,26 +79,69 @@ public final class StorageEngine {
         return Long.parseLong(matcher.group(1));
     }
 
+    /**
+     * Inserts or updates a key in the MemTable.
+     */
     public synchronized void put(String key, String value) {
+        if (key == null || value == null) {
+            throw new IllegalArgumentException(
+                    "Key and value cannot be null");
+        }
+
         memTable.put(key, value);
     }
 
+    /**
+     * Retrieves a value.
+     * Returns null if the key is missing or deleted.
+     */
     public synchronized String get(String key) throws IOException {
+        if (key == null) {
+            return null;
+        }
+
+        // The MemTable always contains the latest in-memory changes.
         if (memTable.containsKey(key)) {
             return memTable.get(key);
         }
 
+        // Search newest SSTables before older SSTables.
         for (int i = ssTables.size() - 1; i >= 0; i--) {
-            String value = ssTables.get(i).get(key);
+            SSTable table = ssTables.get(i);
 
-            if (value != null) {
-                return value;
+            if (table.containsKey(key)) {
+                // A null value is a tombstone.
+                // Stop searching so older values cannot reappear.
+                return table.get(key);
             }
         }
 
         return null;
     }
 
+    /**
+     * Deletes a key by inserting a tombstone.
+     *
+     * Returns true if a non-null value existed before deletion.
+     * A tombstone is recorded even if the key is already absent.
+     */
+    public synchronized boolean delete(String key) throws IOException {
+        if (key == null) {
+            throw new IllegalArgumentException(
+                    "Key cannot be null");
+        }
+
+        String previousValue = get(key);
+
+        // Store the tombstone to prevent resurrection from older tables.
+        memTable.delete(key);
+
+        return previousValue != null;
+    }
+
+    /**
+     * Flushes the MemTable into a new immutable SSTable.
+     */
     public synchronized void flush() throws IOException {
         if (memTable.isEmpty()) {
             return;
@@ -95,8 +150,9 @@ public final class StorageEngine {
         Path tablePath = directory.resolve(
                 String.format("sstable-%020d.sst", nextTableId));
 
-        Map<String, String> snapshot = memTable.snapshot();
-        SSTable written = SSTable.write(tablePath, snapshot);
+        Map<String, String> entries = memTable.snapshot();
+
+        SSTable written = SSTable.write(tablePath, entries);
 
         ssTables.add(written);
         memTable.clear();
@@ -111,16 +167,42 @@ public final class StorageEngine {
         return ssTables.size();
     }
 
+    /**
+     * Returns the visible key-value state.
+     * Tombstones remove keys from the resulting snapshot.
+     */
     public synchronized NavigableMap<String, String> snapshot()
             throws IOException {
 
         NavigableMap<String, String> result = new TreeMap<>();
 
+        // Apply older tables first, then newer tables.
         for (SSTable table : ssTables) {
-            result.putAll(table.readAll());
+            applyEntries(result, table.readAll());
         }
 
-        result.putAll(memTable.snapshot());
+        // In-memory entries override all disk entries.
+        applyEntries(result, memTable.snapshot());
+
         return result;
+    }
+
+    /**
+     * Applies entries while interpreting null values as tombstones.
+     */
+    private static void applyEntries(
+            NavigableMap<String, String> target,
+            Map<String, String> entries) {
+
+        for (Map.Entry<String, String> entry : entries.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            if (value == null) {
+                target.remove(key);
+            } else {
+                target.put(key, value);
+            }
+        }
     }
 }
