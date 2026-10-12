@@ -1,4 +1,3 @@
-
 package com.codecrafters.redis.storage;
 
 import java.io.BufferedReader;
@@ -14,7 +13,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 
 /**
- * Immutable, sorted on-disk table for the initial LSM storage engine.
+ * Immutable, sorted on-disk table for the LSM storage engine.
  * Each line contains a Base64-encoded key and value separated by a tab.
  */
 public final class SSTable {
@@ -25,6 +24,10 @@ public final class SSTable {
         this.file = file.toAbsolutePath().normalize();
     }
 
+    /**
+     * Creates a new SSTable and writes the supplied entries.
+     * Existing files at the same path will be overwritten.
+     */
     public static SSTable write(Path file, Map<String, String> entries)
             throws IOException {
 
@@ -58,6 +61,19 @@ public final class SSTable {
         return new SSTable(absolute);
     }
 
+    /**
+     * Opens an existing SSTable without modifying its contents.
+     */
+    public static SSTable open(Path file) throws IOException {
+        Path absolute = file.toAbsolutePath().normalize();
+
+        if (!Files.isRegularFile(absolute)) {
+            throw new IOException("SSTable file not found: " + absolute);
+        }
+
+        return new SSTable(absolute);
+    }
+
     public String get(String key) throws IOException {
         return readAll().get(key);
     }
@@ -65,8 +81,8 @@ public final class SSTable {
     public NavigableMap<String, String> readAll() throws IOException {
         NavigableMap<String, String> entries = new TreeMap<>();
 
-        if (!Files.exists(file)) {
-            return entries;
+        if (!Files.isRegularFile(file)) {
+            throw new IOException("SSTable file not found: " + file);
         }
 
         try (BufferedReader reader = Files.newBufferedReader(
@@ -82,7 +98,7 @@ public final class SSTable {
                 String[] parts = line.split("\t", -1);
 
                 if (parts.length != 2) {
-                    throw new IOException("Invalid SSTable record");
+                    throw new IOException("Invalid SSTable record in " + file);
                 }
 
                 try {
@@ -90,7 +106,8 @@ public final class SSTable {
                     String value = decode(parts[1]);
                     entries.put(key, value);
                 } catch (IllegalArgumentException e) {
-                    throw new IOException("Invalid SSTable encoding", e);
+                    throw new IOException(
+                            "Invalid SSTable encoding in " + file, e);
                 }
             }
         }

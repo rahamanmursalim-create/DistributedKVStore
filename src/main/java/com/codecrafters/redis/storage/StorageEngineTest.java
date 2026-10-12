@@ -5,7 +5,7 @@ import java.nio.file.Path;
 
 public class StorageEngineTest {
     public static void main(String[] args) throws Exception {
-        Path testDir = Path.of("test-data", "storage-engine");
+        Path testDir = Path.of("test-data", "restart-recovery");
 
         if (Files.exists(testDir)) {
             try (var paths = Files.walk(testDir)) {
@@ -20,38 +20,33 @@ public class StorageEngineTest {
             }
         }
 
-        StorageEngine engine = new StorageEngine(testDir);
+        // First instance: write and flush data to disk.
+        StorageEngine first = new StorageEngine(testDir);
+        first.put("name", "Mursalim");
+        first.put("language", "Java");
+        first.flush();
 
-        engine.put("name", "Mursalim");
-        engine.put("language", "Java");
-        engine.flush();
+        System.out.println("First instance: " + first.snapshot());
 
-        engine.put("name", "UpdatedName");
-        engine.put("city", "Kolkata");
-        engine.flush();
+        // Simulate restart by creating a new instance.
+        StorageEngine second = new StorageEngine(testDir);
 
-        System.out.println("Name: " + engine.get("name"));
-        System.out.println("Language: " + engine.get("language"));
-        System.out.println("City: " + engine.get("city"));
-        System.out.println("SSTable count: " + engine.sstableCount());
-        System.out.println("Snapshot: " + engine.snapshot());
+        System.out.println("Recovered name: " + second.get("name"));
+        System.out.println("Recovered language: " + second.get("language"));
+        System.out.println("Recovered SSTables: " + second.sstableCount());
 
-        if (!"UpdatedName".equals(engine.get("name"))) {
-            throw new AssertionError("Overwritten key test failed");
+        if (!"Mursalim".equals(second.get("name"))) {
+            throw new AssertionError("Name recovery failed");
         }
 
-        if (!"Java".equals(engine.get("language"))) {
-            throw new AssertionError("Older SSTable lookup failed");
+        if (!"Java".equals(second.get("language"))) {
+            throw new AssertionError("Language recovery failed");
         }
 
-        if (!"Kolkata".equals(engine.get("city"))) {
-            throw new AssertionError("Second SSTable lookup failed");
+        if (second.sstableCount() != 1) {
+            throw new AssertionError("Expected one recovered SSTable");
         }
 
-        if (engine.sstableCount() != 2) {
-            throw new AssertionError("Expected 2 SSTables");
-        }
-
-        System.out.println("ALL MULTI-SSTABLE TESTS PASSED");
+        System.out.println("ALL RESTART RECOVERY TESTS PASSED");
     }
 }
