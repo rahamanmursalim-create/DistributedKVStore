@@ -1,16 +1,14 @@
-
 package com.codecrafters.redis.storage;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
 /**
- * Thread-safe sorted in-memory table for the LSM storage engine.
- *
- * This is an initial MemTable implementation.
- * Persistence and flushing to SSTables will be handled separately.
+ * Thread-safe sorted in-memory table.
+ * A null value represents a deletion tombstone.
  */
 public final class MemTable {
 
@@ -19,7 +17,8 @@ public final class MemTable {
 
     public synchronized void put(String key, String value) {
         if (key == null || value == null) {
-            throw new IllegalArgumentException("Key and value cannot be null");
+            throw new IllegalArgumentException(
+                    "Key and value cannot be null");
         }
 
         String previous = entries.put(key, value);
@@ -32,10 +31,7 @@ public final class MemTable {
     }
 
     public synchronized String get(String key) {
-        if (key == null) {
-            return null;
-        }
-        return entries.get(key);
+        return key == null ? null : entries.get(key);
     }
 
     public synchronized boolean containsKey(String key) {
@@ -47,13 +43,14 @@ public final class MemTable {
             return null;
         }
 
-        String removed = entries.remove(key);
+        String previous = entries.put(key, null);
 
-        if (removed != null) {
-            estimatedSizeBytes -= estimateEntrySize(key, removed);
+        if (previous != null) {
+            estimatedSizeBytes -= estimateEntrySize(key, previous);
         }
 
-        return removed;
+        estimatedSizeBytes += estimateEntrySize(key, "");
+        return previous;
     }
 
     public synchronized int size() {
@@ -78,9 +75,8 @@ public final class MemTable {
     }
 
     private long estimateEntrySize(String key, String value) {
-        // Approximation for capacity decisions, not exact JVM memory usage.
         return 32L
-                + key.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-                + value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                + key.getBytes(StandardCharsets.UTF_8).length
+                + value.getBytes(StandardCharsets.UTF_8).length;
     }
 }
