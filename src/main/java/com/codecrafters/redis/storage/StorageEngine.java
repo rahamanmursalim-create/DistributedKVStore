@@ -1,3 +1,4 @@
+
 package com.codecrafters.redis.storage;
 
 import java.io.IOException;
@@ -5,9 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,6 +26,7 @@ public final class StorageEngine implements AutoCloseable {
 
     private final MemTable memTable = new MemTable();
     private final Path directory;
+    private final SSTableManifest manifest;
     private final List<SSTable> ssTables = new ArrayList<>();
 
     private long nextTableId = 1;
@@ -32,6 +36,8 @@ public final class StorageEngine implements AutoCloseable {
         this.directory = directory.toAbsolutePath().normalize();
 
         Files.createDirectories(this.directory);
+        this.manifest = new SSTableManifest(this.directory);
+
         loadExistingSSTables();
         recoverFromWalFiles();
 
@@ -43,27 +49,55 @@ public final class StorageEngine implements AutoCloseable {
                 String.format("memtable-%020d.wal", id));
     }
 
-    private void loadExistingSSTables() throws IOException {
-        List<Path> files;
+    private Path sstablePath(long id) {
+        return directory.resolve(
+                String.format("sstable-%020d.sst", id));
+    }
 
-        try (Stream<Path> paths = Files.list(directory)) {
-            files = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> SSTABLE_NAME.matcher(
-                            path.getFileName().toString()).matches())
-                    .sorted(Comparator.comparingLong(
-                            StorageEngine::extractTableId))
-                    .toList();
+    private void loadExistingSSTables() throws IOException {
+        List<Long> ids = manifest.load();
+
+        if (ids == null) {
+            // Migrate an existing directory that predates MANIFEST.
+            try (Stream<Path> paths = Files.list(directory)) {
+                ids = paths
+                        .filter(Files::isRegularFile)
+                        .filter(path -> SSTABLE_NAME.matcher(
+                                path.getFileName().toString()).matches())
+                        .map(StorageEngine::extractTableId)
+                        .sorted()
+                        .toList();
+            }
+
+            manifest.save(ids);
         }
 
-        for (Path file : files) {
-            long id = extractTableId(file);
+        Set<Long> seen = new HashSet<>();
+        long previousId = 0;
+
+        for (long id : ids) {
+            if (id <= previousId || !seen.add(id)) {
+                throw new IOException(
+                        "Manifest SSTable IDs must be unique and sorted");
+            }
+
+            Path file = sstablePath(id);
+
+            if (!Files.isRegularFile(file)) {
+                throw new IOException(
+                        "Manifest references missing SSTable: " + file);
+            }
+
             SSTable table = SSTable.open(file);
             table.readAll();
 
             ssTables.add(table);
             nextTableId = Math.max(nextTableId, id + 1);
+            previousId = id;
         }
+
+        // Do not load unreferenced SSTables. They may be leftovers
+        // from an interrupted compaction or flush.
     }
 
     private void recoverFromWalFiles() throws IOException {
@@ -82,20 +116,25 @@ public final class StorageEngine implements AutoCloseable {
         for (Path path : walFiles) {
             long id = extractWalId(path);
 
-            // A published SSTable with the same ID means
-            // this WAL's flush already completed.
+            // A WAL is obsolete only if its matching SSTable is active
+            // in the manifest. Never discard it just because a file
+            // with the same ID happens to exist.
+            boolean activeTableExists = ssTables.stream()
+                    .anyMatch(table ->
+                            extractTableId(table.getFile()) == id);
+
+            if (activeTableExists && id < nextTableId) {
+                Files.deleteIfExists(path);
+                continue;
+            }
+
             if (id < nextTableId) {
-    Path correspondingSSTable = directory.resolve(
-            String.format("sstable-%020d.sst", id));
-
-    if (Files.exists(correspondingSSTable)) {
-        Files.deleteIfExists(path);
-        continue;
-    }
-
-    throw new IOException(
-            "WAL exists without its corresponding SSTable: " + path);
-}
+                // This WAL belongs to a previously used generation.
+                // Replaying it could overwrite newer persisted data.
+                throw new IOException(
+                        "Obsolete WAL is not represented by the manifest: "
+                                + path);
+            }
 
             if (id != nextTableId) {
                 throw new IOException(
@@ -145,6 +184,13 @@ public final class StorageEngine implements AutoCloseable {
         return Long.parseLong(matcher.group(1));
     }
 
+    private List<Long> activeTableIds() {
+        return ssTables.stream()
+                .map(table -> extractTableId(table.getFile()))
+                .sorted()
+                .toList();
+    }
+
     public synchronized void put(String key, String value)
             throws IOException {
         ensureOpen();
@@ -158,8 +204,7 @@ public final class StorageEngine implements AutoCloseable {
         memTable.put(key, value);
     }
 
-    public synchronized String get(String key)
-            throws IOException {
+    public synchronized String get(String key) throws IOException {
         if (key == null) {
             return null;
         }
@@ -204,25 +249,79 @@ public final class StorageEngine implements AutoCloseable {
         }
 
         long flushedId = nextTableId;
-
-        Path tablePath = directory.resolve(
-                String.format("sstable-%020d.sst", flushedId));
-
+        Path tablePath = sstablePath(flushedId);
         Map<String, String> entries = memTable.snapshot();
 
-        // WAL stays intact until the SSTable is published.
+        // First write the immutable SSTable.
         SSTable written = SSTable.write(tablePath, entries);
+
+        // Publish its ID before changing the in-memory active set.
+        List<Long> newIds = new ArrayList<>(activeTableIds());
+        newIds.add(flushedId);
+        newIds.sort(Long::compareTo);
+
+        try {
+            manifest.save(newIds);
+        } catch (IOException e) {
+            // The manifest still defines the active set.
+            Files.deleteIfExists(tablePath);
+            throw e;
+        }
+
         ssTables.add(written);
+        ssTables.sort(Comparator.comparingLong(
+                table -> extractTableId(table.getFile())));
 
         wal.close();
         memTable.clear();
         nextTableId++;
 
-        // If deletion fails, recovery recognizes the matching
-        // SSTable and will not replay this WAL.
         Files.deleteIfExists(walPath(flushedId));
-
         wal = new WriteAheadLog(walPath(nextTableId));
+    }
+
+    /**
+     * Merges all active SSTables into one sorted SSTable.
+     * The active MemTable and WAL are not changed.
+     */
+    public synchronized void compact() throws IOException {
+        ensureOpen();
+
+        if (ssTables.size() < 2) {
+            return;
+        }
+
+        NavigableMap<String, String> merged = new TreeMap<>();
+
+        // Older tables first, newer values take precedence.
+        for (SSTable table : ssTables) {
+            merged.putAll(table.readAll());
+        }
+
+        long compactedId = nextTableId;
+        Path compactedPath = sstablePath(compactedId);
+
+        SSTable compacted = SSTable.write(compactedPath, merged);
+
+        List<SSTable> oldTables = new ArrayList<>(ssTables);
+        List<Long> newIds = List.of(compactedId);
+
+        // Atomically publish the new active table set.
+        try {
+            manifest.save(newIds);
+        } catch (IOException e) {
+            Files.deleteIfExists(compactedPath);
+            throw e;
+        }
+
+        ssTables.clear();
+        ssTables.add(compacted);
+        nextTableId++;
+
+        // Old tables are obsolete only after manifest publication.
+        for (SSTable oldTable : oldTables) {
+            Files.deleteIfExists(oldTable.getFile());
+        }
     }
 
     public synchronized int memTableSize() {

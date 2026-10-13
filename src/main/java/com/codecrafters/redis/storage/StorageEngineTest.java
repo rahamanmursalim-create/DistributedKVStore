@@ -108,6 +108,45 @@ public class StorageEngineTest {
         System.out.println("Recovered SSTables: " + third.sstableCount());
 
         System.out.println("TEST 4 PASSED: Tombstone restart recovery");
+
+        // TEST 5: Compact multiple SSTables and verify data.
+        third.put("language", "Java 21");
+        third.flush();
+
+        third.put("database", "DistributedKVStore");
+        third.flush();
+
+        int beforeCompaction = third.sstableCount();
+
+        if (beforeCompaction < 2) {
+            throw new AssertionError(
+                    "Expected multiple SSTables before compaction");
+        }
+
+        third.compact();
+
+        if (third.sstableCount() != 1) {
+            throw new AssertionError(
+                    "Expected one SSTable after compaction");
+        }
+
+        if (!"Java 21".equals(third.get("language"))) {
+            throw new AssertionError(
+                    "Latest value was lost during compaction");
+        }
+
+        if (!"DistributedKVStore".equals(third.get("database"))) {
+            throw new AssertionError(
+                    "Database value was lost during compaction");
+        }
+
+        if (third.get("name") != null) {
+            throw new AssertionError(
+                    "Deleted key reappeared after compaction");
+        }
+
+        System.out.println("TEST 5 PASSED: Compaction data integrity");
+
         System.out.println("ALL STORAGE ENGINE TESTS PASSED");
     }
 }
