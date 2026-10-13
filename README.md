@@ -1,50 +1,116 @@
-# Build Your Own Redis (Java)
+# DistributedKVStore — Java Redis-Compatible Server & Storage Engine
 
-A lightweight, concurrent Redis server implementation written in pure Java (JDK 17+) adhering strictly to the Redis Serialization Protocol (RESP) specification and CodeCrafters challenge requirements.
+A Java-based Redis-compatible server and educational persistent storage engine. The project implements the Redis Serialization Protocol (RESP), concurrent TCP client handling, key expiration, and an LSM-style storage engine with a Write-Ahead Log (WAL), MemTable, SSTables, manifest-based recovery, and compaction.
 
----
+Built with Java 17+ and the Java Standard Library.
 
-## 🚀 Features & Stages Implemented
+## Features
 
-- **Pure Java Standard Library**: Zero external third-party dependencies (`java.net`, `java.io`, `java.util.concurrent`).
-- **Stage 1 & 2 (Server Initialization & PING)**:
-  - Binds to port `6379` with `setReuseAddress(true)`.
-  - Responds to `PING` with simple string `+PONG\r\n` or custom arguments as bulk strings.
-- **Stage 3 & 4 (Concurrent Clients & ECHO)**:
-  - Multi-threaded client handling using virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`) with fallback to cached thread pool.
-  - Implements `ECHO <message>` command returning Bulk String format (`$<length>\r\n<arg>\r\n`).
-- **Stage 5 (SET & GET Commands)**:
-  - Thread-safe storage with `ConcurrentHashMap<String, ValueEntry>`.
-  - Implements `SET <key> <value>` replying with `+OK\r\n`.
-  - Implements `GET <key>` replying with Bulk String or Null Bulk String (`$-1\r\n`) if key is absent.
-- **Stage 6 (Key Expiry with PX)**:
-  - Supports `SET <key> <value> [PX <expiry_in_millis>]` and `[EX <expiry_in_seconds>]`.
-  - Passive eviction: On `GET`, evaluates if TTL has expired and evicts atomically.
-  - Active eviction: Background daemon executor periodically cleans expired keys.
-- **Robust RESP Protocol Engine**:
-  - Handles streaming TCP input, fragmented packets, and pipelining.
-  - Supports RESP Arrays (`*`), Bulk Strings (`$`), Simple Strings (`+`), Integers (`:`), and Errors (`-`).
-  - Supports raw inline command input from telnet / netcat.
+### 1. Redis Server and RESP Protocol
 
----
+- TCP server with concurrent client handling.
+- `PING` command with optional argument support.
+- `ECHO` command.
+- `SET` and `GET` commands.
+- Key expiration using `PX` and `EX`.
+- Passive and background active expiration in the in-memory store.
+- RESP parsing and serialization for arrays, bulk strings, simple strings, integers, and errors.
+- Support for fragmented TCP input and pipelined commands.
+- Handling of concurrent clients.
 
----
+### 2. Persistent Storage Engine
 
-## 💾 Persistent Storage Engine
+The project also contains a storage engine implemented in Java.
 
-The project includes an LSM-style storage engine with the following components:
+- **MemTable:** Maintains sorted in-memory entries and deletion tombstones.
+- **Write-Ahead Log (WAL):** Records PUT and DELETE operations and supports replay during recovery.
+- **SSTables:** Stores sorted-table data on disk.
+- **Manifest:** Tracks active SSTable IDs for storage-engine recovery.
+- **Flush:** Writes MemTable contents to an SSTable and updates the manifest.
+- **Compaction:** Merges active SSTables and retains the latest values and deletion state.
+- **Restart recovery:** Recovers persisted state from active SSTables and replays eligible WAL records.
+- **Orphan SSTable handling:** Avoids treating unreferenced SSTables as active storage tables.
 
-- **MemTable:** Maintains sorted in-memory key-value entries and deletion tombstones.
-- **Write-Ahead Log (WAL):** Records PUT and DELETE operations and replays complete records during recovery.
-- **SSTables:** Stores immutable sorted-table data on disk.
-- **Manifest:** Tracks active SSTable IDs during restart recovery.
-- **Flush:** Persists MemTable contents to an SSTable and updates the manifest.
-- **Compaction:** Merges active SSTables and preserves the latest values and deletion state.
-- **Recovery tests:** Cover WAL replay, restart recovery, compaction recovery, and orphan SSTable handling.
+**Important:** The storage engine is a separate component from the in-memory Redis store. The current storage-engine API does not itself implement TTL-aware persistence. This project does not claim distributed replication or consensus.
 
-### Storage Engine Test Commands
+## Technology Stack
 
-Run these commands from the project root after compiling the Java sources:
+- Java 17+
+- Java Standard Library
+- TCP sockets and Java concurrency utilities
+- RESP protocol
+- File-based persistence using WAL and SSTables
+- Git and GitHub
+
+## Project Structure
+
+```text
+DistributedKVStore/
+├── src/
+│   ├── main/
+│   │   └── java/
+│   │       ├── Main.java
+│   │       └── com/codecrafters/redis/
+│   │           ├── Server.java
+│   │           ├── ClientHandler.java
+│   │           ├── command/
+│   │           │   ├── Command.java
+│   │           │   └── CommandHandler.java
+│   │           ├── protocol/
+│   │           │   ├── RespReader.java
+│   │           │   ├── RespType.java
+│   │           │   ├── RespValue.java
+│   │           │   └── RespWriter.java
+│   │           └── storage/
+│   │               ├── MemTable.java
+│   │               ├── RedisStore.java
+│   │               ├── SSTable.java
+│   │               ├── SSTableManifest.java
+│   │               ├── StorageEngine.java
+│   │               ├── ValueEntry.java
+│   │               └── WriteAheadLog.java
+│   └── test/
+│       └── java/
+│           └── com/codecrafters/redis/
+│               ├── RedisServerTest.java
+│               └── storage/
+│                   └── WriteAheadLogTest.java
+├── README.md
+├── pom.xml
+└── spawn_redis_server.sh
+```
+
+The storage-engine-specific test classes are currently located under `src/main/java/com/codecrafters/redis/storage/`:
+
+- `StorageEngineTest.java`
+- `StorageEngineCompactionTest.java`
+- `StorageEngineOrphanSSTableTest.java`
+- `StorageEngineWalRecoveryTest.java`
+
+## Build and Run
+
+### Prerequisites
+
+- JDK 17 or later
+- PowerShell on Windows, or a compatible terminal on Linux/macOS
+
+### Compile all Java sources
+
+Run from the project root in Windows PowerShell:
+
+```powershell
+javac --release 17 -d out (Get-ChildItem .\src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+```
+
+If compilation succeeds, the command produces no output.
+
+### Run the Redis Server Test Suite
+
+```powershell
+java -cp out com.codecrafters.redis.RedisServerTest
+```
+
+### Run the Storage Engine Test Suites
 
 ```powershell
 java -cp out com.codecrafters.redis.storage.StorageEngineTest
@@ -54,59 +120,55 @@ java -cp out com.codecrafters.redis.storage.StorageEngineWalRecoveryTest
 java -cp out com.codecrafters.redis.storage.WriteAheadLogTest
 ```
 
-The storage engine and the Redis server have separate test suites. The current storage engine API does not itself implement TTL-aware persistence.
+### Start the Server
 
+The repository includes `spawn_redis_server.sh`. On a compatible Bash environment, the existing runner can be used:
 
-## 📁 Project Structure
-
-```
-redis-java-clone/
-├── src/
-│   ├── main/
-│   │   └── java/
-│   │       ├── Main.java                                # CodeCrafters entry point
-│   │       └── com/codecrafters/redis/
-│   │           ├── Server.java                          # TCP Server & connection accept loop
-│   │           ├── ClientHandler.java                   # Per-connection read/eval/write loop
-│   │           ├── protocol/
-│   │           │   ├── RespType.java                    # RESP type definitions
-│   │           │   ├── RespValue.java                   # Immutable RESP value model & encoder
-│   │           │   ├── RespReader.java                  # Streaming RESP parser
-│   │           │   └── RespWriter.java                  # Low-overhead RESP output writer
-│   │           ├── storage/
-│   │           │   ├── ValueEntry.java                  # Key value + TTL metadata
-│   │           │   └── RedisStore.java                  # Thread-safe in-memory store
-│   │           └── command/
-│   │               ├── Command.java                     # Parsed command representation
-│   │               └── CommandHandler.java              # Command dispatcher & executor
-│   └── test/
-│       └── java/
-│           └── com/codecrafters/redis/
-│               └── RedisServerTest.java                 # Comprehensive test suite (37+ tests)
-├── spawn_redis_server.sh                                # CodeCrafters runner script
-└── pom.xml                                              # Standard Maven POM
-```
-
----
-
-## 🛠️ Building and Running
-
-### Using the CodeCrafters runner script:
 ```bash
-./spawn_redis_server.sh [--port <port>]
+./spawn_redis_server.sh
 ```
 
-### Running the built-in test suite:
-```bash
-mkdir -p /tmp/test-classes
-javac -d /tmp/test-classes $(find src -name "*.java")
-java -cp /tmp/test-classes com.codecrafters.redis.RedisServerTest
-```
+Check the server's configured port in the implementation before connecting.
 
-### Connecting with `redis-cli`:
+## Example Redis Commands
+
+If the server is running on port `6379`, a Redis CLI client can be used to try:
+
 ```bash
 redis-cli -p 6379 PING
 redis-cli -p 6379 ECHO "Hello World"
-redis-cli -p 6379 SET mykey myvalue PX 5000
+redis-cli -p 6379 SET mykey myvalue
 redis-cli -p 6379 GET mykey
+redis-cli -p 6379 SET temporary value PX 5000
+redis-cli -p 6379 GET temporary
 ```
+
+The final command examples assume the server is listening on port `6379`; use the actual configured port if different.
+
+## Test Results
+
+The following test results were observed during local development:
+
+| Test suite | Observed result |
+|---|---|
+| Redis Server and RESP | 37 passed, 0 failed |
+| Storage Engine | 5 tests passed |
+| WAL Recovery | 2 tests passed |
+| WriteAheadLog | 3 tests passed |
+| Compaction Recovery | Passed |
+| Orphan SSTable Recovery | Passed |
+
+These are observed test results, not a guarantee of production-level reliability.
+
+## Current Limitations
+
+This is an educational Java server and storage-engine project, not a production-ready distributed database.
+
+- Distributed replication and consensus are not implemented as claimed features.
+- TTL-aware persistence is not provided by the current storage-engine API.
+- Full power-loss durability across every filesystem and failure point has not been formally established.
+- Performance benchmarks and production-scale reliability testing have not been documented here.
+
+## Repository
+
+GitHub: https://github.com/skmursalim9779-create/DistributedKVStore
