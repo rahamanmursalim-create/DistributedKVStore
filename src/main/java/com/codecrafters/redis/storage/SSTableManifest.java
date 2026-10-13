@@ -1,0 +1,87 @@
+
+package com.codecrafters.redis.storage;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Persists the active SSTable IDs for StorageEngine recovery.
+ */
+public final class SSTableManifest {
+
+    private final Path file;
+
+    public SSTableManifest(Path directory) {
+        this.file = directory.resolve("MANIFEST");
+    }
+
+    public List<Long> load() throws IOException {
+        if (!Files.exists(file)) {
+            return null;
+        }
+
+        List<Long> ids = new ArrayList<>();
+
+        for (String line : Files.readAllLines(
+                file, StandardCharsets.UTF_8)) {
+            String value = line.trim();
+
+            if (value.isEmpty()) {
+                continue;
+            }
+
+            try {
+                long id = Long.parseLong(value);
+
+                if (id < 1) {
+                    throw new IOException(
+                            "Invalid SSTable ID in manifest: " + value);
+                }
+
+                ids.add(id);
+            } catch (NumberFormatException e) {
+                throw new IOException(
+                        "Invalid manifest entry: " + value, e);
+            }
+        }
+
+        return ids;
+    }
+
+    public void save(List<Long> ids) throws IOException {
+        Path temp = Files.createTempFile(
+                file.getParent(), "MANIFEST-", ".tmp");
+
+        boolean published = false;
+
+        try {
+            List<String> lines = ids.stream()
+                    .map(String::valueOf)
+                    .toList();
+
+            Files.write(temp, lines, StandardCharsets.UTF_8);
+
+            try {
+                Files.move(
+                        temp, file,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(
+                        temp, file,
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            published = true;
+        } finally {
+            if (!published) {
+                Files.deleteIfExists(temp);
+            }
+        }
+    }
+}
