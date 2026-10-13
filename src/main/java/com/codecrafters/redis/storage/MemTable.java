@@ -21,12 +21,15 @@ public final class MemTable {
                     "Key and value cannot be null");
         }
 
-        String previous = entries.put(key, value);
+        boolean existed = entries.containsKey(key);
+        String previous = entries.get(key);
 
-        if (previous != null) {
-            estimatedSizeBytes -= estimateEntrySize(key, previous);
+        if (existed) {
+            estimatedSizeBytes -= estimateEntrySize(
+                    key, previous == null ? "" : previous);
         }
 
+        entries.put(key, value);
         estimatedSizeBytes += estimateEntrySize(key, value);
     }
 
@@ -43,13 +46,17 @@ public final class MemTable {
             return null;
         }
 
-        String previous = entries.put(key, null);
+        boolean existed = entries.containsKey(key);
+        String previous = entries.get(key);
 
-        if (previous != null) {
-            estimatedSizeBytes -= estimateEntrySize(key, previous);
+        if (existed) {
+            estimatedSizeBytes -= estimateEntrySize(
+                    key, previous == null ? "" : previous);
         }
 
+        entries.put(key, null);
         estimatedSizeBytes += estimateEntrySize(key, "");
+
         return previous;
     }
 

@@ -47,46 +47,65 @@ public final class SSTable {
             Files.createDirectories(parent);
         }
 
-        NavigableMap<String, String> sorted =
-                new TreeMap<>(entries);
+        Path temp = Files.createTempFile(
+                parent, absolute.getFileName().toString(), ".tmp");
 
-        try (BufferedWriter writer = Files.newBufferedWriter(
-                absolute,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE)) {
+        boolean published = false;
 
-            for (Map.Entry<String, String> entry
-                    : sorted.entrySet()) {
+        try {
+            NavigableMap<String, String> sorted = new TreeMap<>(entries);
 
-                String key = entry.getKey();
-                String value = entry.getValue();
+            try (var channel = java.nio.channels.FileChannel.open(
+                    temp,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+                 var output = new java.io.BufferedOutputStream(
+                    java.nio.channels.Channels.newOutputStream(channel));
+                 var writer = new java.io.BufferedWriter(
+                    new java.io.OutputStreamWriter(
+                    output, StandardCharsets.UTF_8))) {
 
-                if (key == null) {
-                    throw new IOException(
-                            "SSTable key cannot be null");
+                for (Map.Entry<String, String> entry : sorted.entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+
+                    if (key == null) {
+                        throw new IOException("SSTable key cannot be null");
+                    }
+
+                    writer.write(encode(key));
+                    writer.write('\t');
+
+                    if (value == null) {
+                        writer.write("D:");
+                    } else {
+                        writer.write("V:");
+                        writer.write(encode(value));
+                    }
+
+                    writer.newLine();
                 }
 
-                writer.write(encode(key));
-                writer.write('\t');
+                writer.flush();
+                channel.force(true);
+            }
 
-                if (value == null) {
-                    // Tombstone: this key was deleted.
-                    writer.write("D:");
-                } else {
-                    // Normal value, including an empty string.
-                    writer.write("V:");
-                    writer.write(encode(value));
-                }
+            try {
+                Files.move(temp, absolute,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(temp, absolute);
+            }
 
-                writer.newLine();
+            published = true;
+            return new SSTable(absolute);
+
+        } finally {
+            if (!published) {
+                Files.deleteIfExists(temp);
             }
         }
-
-        return new SSTable(absolute);
     }
-
     /**
      * Opens an existing SSTable.
      */
