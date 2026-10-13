@@ -86,6 +86,43 @@ public class WriteAheadLogTest {
             System.out.println("TEST 3 PASSED: Incomplete tail recovery");
         }
 
+
+        // TEST 4: Corrupted checksummed record must be rejected.
+        try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
+            wal.appendPut("checksumKey", "checksumValue", -1L);
+        }
+
+        byte[] corrupted = Files.readAllBytes(walPath);
+        String encodedValue = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("checksumValue".getBytes(StandardCharsets.UTF_8));
+        byte[] needle = encodedValue.getBytes(StandardCharsets.UTF_8);
+
+        int position = -1;
+        outer:
+        for (int i = corrupted.length - needle.length; i >= 0; i--) {
+            for (int j = 0; j < needle.length; j++) {
+                if (corrupted[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            position = i;
+            break;
+        }
+
+        check(position >= 0, "Could not locate test value in WAL");
+        corrupted[position] = (byte) (corrupted[position] == 'A' ? 'B' : 'A');
+        Files.write(walPath, corrupted);
+
+        boolean checksumRejected = false;
+        try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
+            wal.replay();
+        } catch (IOException expected) {
+            checksumRejected = expected.getMessage().contains("checksum mismatch");
+        }
+
+        check(checksumRejected, "Corrupted WAL record was not rejected");
+        System.out.println("TEST 4 PASSED: Checksum corruption detected");
+
         System.out.println("ALL WAL TESTS PASSED");
     }
 

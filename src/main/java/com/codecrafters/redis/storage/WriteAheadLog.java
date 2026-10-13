@@ -10,6 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.zip.CRC32;
 
 /**
  * Append-only write-ahead log.
@@ -23,6 +24,8 @@ import java.util.List;
 public final class WriteAheadLog implements AutoCloseable {
     private static final String PUT = "PUT";
     private static final String DEL = "DEL";
+    private static final String PUT_CHECKSUM = "PUT2";
+    private static final String DEL_CHECKSUM = "DEL2";
 
     private final Path path;
     private FileChannel channel;
@@ -45,13 +48,14 @@ public final class WriteAheadLog implements AutoCloseable {
 
     public synchronized void appendPut(String key, String value, long expiryEpochMillis)
             throws IOException {
-        String line = PUT + "\t" + encode(key) + "\t" + encode(value) + "\t"
-                + expiryEpochMillis + "\n";
-        appendAndSync(line);
+        String body = PUT_CHECKSUM + "\t" + encode(key) + "\t"
+                + encode(value) + "\t" + expiryEpochMillis;
+        appendAndSync(body + "\t" + checksum(body) + "\n");
     }
 
     public synchronized void appendDelete(String key) throws IOException {
-        appendAndSync(DEL + "\t" + encode(key) + "\n");
+        String body = DEL_CHECKSUM + "\t" + encode(key);
+        appendAndSync(body + "\t" + checksum(body) + "\n");
     }
 
     private void appendAndSync(String line) throws IOException {
@@ -93,7 +97,23 @@ public final class WriteAheadLog implements AutoCloseable {
             }
             String[] fields = line.split("\t", -1);
             try {
-                if (fields.length == 4 && PUT.equals(fields[0])) {
+                if (fields.length == 5 && PUT_CHECKSUM.equals(fields[0])) {
+                    verifyChecksum(line, fields[4]);
+                    records.add(new Record(
+                            Operation.PUT,
+                            decode(fields[1]),
+                            decode(fields[2]),
+                            Long.parseLong(fields[3])
+                    ));
+                } else if (fields.length == 3 && DEL_CHECKSUM.equals(fields[0])) {
+                    verifyChecksum(line, fields[2]);
+                    records.add(new Record(
+                            Operation.DELETE,
+                            decode(fields[1]),
+                            null,
+                            -1L
+                    ));
+                } else if (fields.length == 4 && PUT.equals(fields[0])) {
                     records.add(new Record(
                             Operation.PUT,
                             decode(fields[1]),
@@ -119,6 +139,20 @@ public final class WriteAheadLog implements AutoCloseable {
 
     public Path getPath() {
         return path;
+    }
+
+    private static String checksum(String payload) {
+        CRC32 crc = new CRC32();
+        crc.update(payload.getBytes(StandardCharsets.UTF_8));
+        return String.format("%08x", crc.getValue());
+    }
+
+    private static void verifyChecksum(String line, String expected)
+            throws IOException {
+        int separator = line.lastIndexOf('\t');
+        if (separator < 0 || !checksum(line.substring(0, separator)).equals(expected)) {
+            throw new IOException("WAL checksum mismatch");
+        }
     }
 
     private static String encode(String value) {
