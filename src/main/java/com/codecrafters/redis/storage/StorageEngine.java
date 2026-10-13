@@ -1,4 +1,3 @@
-
 package com.codecrafters.redis.storage;
 
 import java.io.IOException;
@@ -96,8 +95,8 @@ public final class StorageEngine implements AutoCloseable {
             previousId = id;
         }
 
-        // Do not load unreferenced SSTables. They may be leftovers
-        // from an interrupted compaction or flush.
+        // Unreferenced SSTables are ignored. They may be leftovers
+        // from an interrupted flush or compaction.
     }
 
     private void recoverFromWalFiles() throws IOException {
@@ -116,21 +115,17 @@ public final class StorageEngine implements AutoCloseable {
         for (Path path : walFiles) {
             long id = extractWalId(path);
 
-            // A WAL is obsolete only if its matching SSTable is active
-            // in the manifest. Never discard it just because a file
-            // with the same ID happens to exist.
             boolean activeTableExists = ssTables.stream()
                     .anyMatch(table ->
                             extractTableId(table.getFile()) == id);
 
+            // A WAL is obsolete only when its matching SSTable is active.
             if (activeTableExists && id < nextTableId) {
                 Files.deleteIfExists(path);
                 continue;
             }
 
             if (id < nextTableId) {
-                // This WAL belongs to a previously used generation.
-                // Replaying it could overwrite newer persisted data.
                 throw new IOException(
                         "Obsolete WAL is not represented by the manifest: "
                                 + path);
@@ -141,16 +136,12 @@ public final class StorageEngine implements AutoCloseable {
                         "Unexpected WAL generation: " + path);
             }
 
-            try (WriteAheadLog recoveryWal =
-                         new WriteAheadLog(path)) {
-                for (WriteAheadLog.Record record :
-                        recoveryWal.replay()) {
-
+            try (WriteAheadLog recoveryWal = new WriteAheadLog(path)) {
+                for (WriteAheadLog.Record record : recoveryWal.replay()) {
                     if (record.getOperation()
                             == WriteAheadLog.Operation.PUT) {
                         memTable.put(
                                 record.getKey(), record.getValue());
-
                     } else if (record.getOperation()
                             == WriteAheadLog.Operation.DELETE) {
                         memTable.delete(record.getKey());
@@ -252,18 +243,17 @@ public final class StorageEngine implements AutoCloseable {
         Path tablePath = sstablePath(flushedId);
         Map<String, String> entries = memTable.snapshot();
 
-        // First write the immutable SSTable.
+        // Write the immutable SSTable first.
         SSTable written = SSTable.write(tablePath, entries);
 
-        // Publish its ID before changing the in-memory active set.
         List<Long> newIds = new ArrayList<>(activeTableIds());
         newIds.add(flushedId);
         newIds.sort(Long::compareTo);
 
+        // Publish the new active set before changing in-memory state.
         try {
             manifest.save(newIds);
         } catch (IOException e) {
-            // The manifest still defines the active set.
             Files.deleteIfExists(tablePath);
             throw e;
         }
@@ -272,7 +262,9 @@ public final class StorageEngine implements AutoCloseable {
         ssTables.sort(Comparator.comparingLong(
                 table -> extractTableId(table.getFile())));
 
+        // The SSTable now contains all entries from this WAL generation.
         wal.close();
+        wal = null;
         memTable.clear();
         nextTableId++;
 
@@ -282,7 +274,7 @@ public final class StorageEngine implements AutoCloseable {
 
     /**
      * Merges all active SSTables into one sorted SSTable.
-     * The active MemTable and WAL are not changed.
+     * Pending MemTable writes are flushed before compaction.
      */
     public synchronized void compact() throws IOException {
         ensureOpen();
@@ -291,9 +283,16 @@ public final class StorageEngine implements AutoCloseable {
             return;
         }
 
+        // CRITICAL: persist pending writes before changing table IDs.
+        // This prevents unflushed WAL data from being mistaken for
+        // an obsolete WAL after compaction and restart.
+        if (!memTable.isEmpty()) {
+            flush();
+        }
+
         NavigableMap<String, String> merged = new TreeMap<>();
 
-        // Older tables first, newer values take precedence.
+        // Older tables first; newer values take precedence.
         for (SSTable table : ssTables) {
             merged.putAll(table.readAll());
         }
@@ -301,26 +300,54 @@ public final class StorageEngine implements AutoCloseable {
         long compactedId = nextTableId;
         Path compactedPath = sstablePath(compactedId);
 
-        SSTable compacted = SSTable.write(compactedPath, merged);
-
         List<SSTable> oldTables = new ArrayList<>(ssTables);
         List<Long> newIds = List.of(compactedId);
 
-        // Atomically publish the new active table set.
+        // This ID is being reused for the compacted SSTable.
+        // Close its empty WAL before publishing the new table.
+        wal.close();
+        wal = null;
+
+        boolean published = false;
+
         try {
+            SSTable compacted = SSTable.write(compactedPath, merged);
+
+            // Publish the new active set before deleting old SSTables.
             manifest.save(newIds);
+            published = true;
+
+            ssTables.clear();
+            ssTables.add(compacted);
+            nextTableId++;
+
+            // The next WAL must have a different ID from the new SSTable.
+            wal = new WriteAheadLog(walPath(nextTableId));
+
+            // Delete old tables only after manifest publication.
+            for (SSTable oldTable : oldTables) {
+                Files.deleteIfExists(oldTable.getFile());
+            }
+
         } catch (IOException e) {
-            Files.deleteIfExists(compactedPath);
+            if (!published) {
+                try {
+                    Files.deleteIfExists(compactedPath);
+                } catch (IOException cleanupError) {
+                    e.addSuppressed(cleanupError);
+                }
+            }
+
+            // Try to restore a usable WAL if opening it failed.
+            if (wal == null) {
+                try {
+                    wal = new WriteAheadLog(walPath(nextTableId));
+                } catch (IOException reopenError) {
+                    e.addSuppressed(reopenError);
+                }
+            }
+
             throw e;
-        }
-
-        ssTables.clear();
-        ssTables.add(compacted);
-        nextTableId++;
-
-        // Old tables are obsolete only after manifest publication.
-        for (SSTable oldTable : oldTables) {
-            Files.deleteIfExists(oldTable.getFile());
         }
     }
 
@@ -348,8 +375,7 @@ public final class StorageEngine implements AutoCloseable {
             NavigableMap<String, String> target,
             Map<String, String> entries) {
 
-        for (Map.Entry<String, String> entry :
-                entries.entrySet()) {
+        for (Map.Entry<String, String> entry : entries.entrySet()) {
             if (entry.getValue() == null) {
                 target.remove(entry.getKey());
             } else {
