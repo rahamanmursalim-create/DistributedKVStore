@@ -122,7 +122,31 @@ public class WriteAheadLogTest {
 
         check(checksumRejected, "Corrupted WAL record was not rejected");
         System.out.println("TEST 4 PASSED: Checksum corruption detected");
+        // TEST 5: Legacy WAL records remain readable.
+        Path legacyPath = testDir.resolve("legacy.log");
+        String legacyPut = "PUT\t"
+                + java.util.Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString("oldKey".getBytes(StandardCharsets.UTF_8))
+                + "\t"
+                + java.util.Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString("oldValue".getBytes(StandardCharsets.UTF_8))
+                + "\t-1\n";
+        String legacyDelete = "DEL\t"
+                + java.util.Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString("deletedKey".getBytes(StandardCharsets.UTF_8))
+                + "\n";
+        Files.writeString(legacyPath, legacyPut + legacyDelete, StandardCharsets.UTF_8);
 
+        try (WriteAheadLog wal = new WriteAheadLog(legacyPath)) {
+            List<WriteAheadLog.Record> records = wal.replay();
+            check(records.size() == 2, "Legacy records were not recovered");
+            check("oldKey".equals(records.get(0).getKey()), "Legacy PUT key mismatch");
+            check("oldValue".equals(records.get(0).getValue()), "Legacy PUT value mismatch");
+            check(records.get(1).getOperation() == WriteAheadLog.Operation.DELETE,
+                    "Legacy DEL operation mismatch");
+            check("deletedKey".equals(records.get(1).getKey()), "Legacy DEL key mismatch");
+            System.out.println("TEST 5 PASSED: Legacy WAL compatibility");
+        }
         System.out.println("ALL WAL TESTS PASSED");
     }
 
