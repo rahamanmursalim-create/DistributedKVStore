@@ -28,6 +28,35 @@ A lightweight, concurrent Redis server implementation written in pure Java (JDK 
 
 ---
 
+---
+
+## 💾 Persistent Storage Engine
+
+The project includes an LSM-style storage engine with the following components:
+
+- **MemTable:** Maintains sorted in-memory key-value entries and deletion tombstones.
+- **Write-Ahead Log (WAL):** Records PUT and DELETE operations and replays complete records during recovery.
+- **SSTables:** Stores immutable sorted-table data on disk.
+- **Manifest:** Tracks active SSTable IDs during restart recovery.
+- **Flush:** Persists MemTable contents to an SSTable and updates the manifest.
+- **Compaction:** Merges active SSTables and preserves the latest values and deletion state.
+- **Recovery tests:** Cover WAL replay, restart recovery, compaction recovery, and orphan SSTable handling.
+
+### Storage Engine Test Commands
+
+Run these commands from the project root after compiling the Java sources:
+
+```powershell
+java -cp out com.codecrafters.redis.storage.StorageEngineTest
+java -cp out com.codecrafters.redis.storage.StorageEngineCompactionTest
+java -cp out com.codecrafters.redis.storage.StorageEngineOrphanSSTableTest
+java -cp out com.codecrafters.redis.storage.StorageEngineWalRecoveryTest
+java -cp out com.codecrafters.redis.storage.WriteAheadLogTest
+```
+
+The storage engine and the Redis server have separate test suites. The current storage engine API does not itself implement TTL-aware persistence.
+
+
 ## 📁 Project Structure
 
 ```
