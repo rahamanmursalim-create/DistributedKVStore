@@ -147,19 +147,18 @@ The final command examples assume the server is listening on port `6379`; use th
 
 ## Test Results
 
-The following test results were observed during local development:
+The following results were verified locally:
 
-| Test suite | Observed result |
+| Test suite | Result |
 |---|---|
 | Redis Server and RESP | 37 passed, 0 failed |
-| Storage Engine | 5 tests passed |
-| WAL Recovery | 2 tests passed |
-| WriteAheadLog | 3 tests passed |
-| Compaction Recovery | Passed |
-| Orphan SSTable Recovery | Passed |
+| WriteAheadLog | 5 tests passed |
+| SSTable Manifest | 8 tests passed |
+| Compaction manifest crash checkpoint | Recovery passed; exit code 73 |
+| Flush manifest crash checkpoint | Recovery passed; exit code 75 |
+| Old SSTable deletion crash checkpoint | Recovery passed; exit code 74 |
 
-These are observed test results, not a guarantee of production-level reliability.
-
+The crash-recovery checks cover specific checkpoints, not every possible crash or power-loss scenario. These results do not establish production-level reliability.
 ## Current Limitations
 
 This is an educational Java server and storage-engine project, not a production-ready distributed database.
