@@ -4,6 +4,7 @@ package com.codecrafters.redis.storage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ import java.util.TreeMap;
 public final class SSTable {
 
     private final Path file;
+    private volatile NavigableMap<String, Long> keyOffsets;
 
     private SSTable(Path file) {
         this.file = file.toAbsolutePath().normalize();
@@ -127,7 +129,15 @@ public final class SSTable {
      * Use containsKey() to distinguish these cases.
      */
     public String get(String key) throws IOException {
-        return readAll().get(key);
+        if (key == null || !containsKey(key)) {
+            return null;
+        }
+
+        long offset = keyOffsets.get(key);
+        try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
+            raf.seek(offset);
+            return parseRecord(raf.readLine()).getValue();
+        }
     }
 
     /**
@@ -135,7 +145,80 @@ public final class SSTable {
      * Returns true for tombstones as well.
      */
     public boolean containsKey(String key) throws IOException {
-        return readAll().containsKey(key);
+        if (key == null) {
+            return false;
+        }
+        ensureIndex();
+        return keyOffsets.containsKey(key);
+    }
+
+    private void ensureIndex() throws IOException {
+        if (keyOffsets != null) {
+            return;
+        }
+
+        synchronized (this) {
+            if (keyOffsets != null) {
+                return;
+            }
+
+            NavigableMap<String, Long> index = new TreeMap<>();
+
+            if (!Files.isRegularFile(file)) {
+                throw new IOException("SSTable file not found: " + file);
+            }
+
+            try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
+                String line;
+
+                while (true) {
+                    long offset = raf.getFilePointer();
+                    line = raf.readLine();
+
+                    if (line == null) {
+                        break;
+                    }
+                    if (line.isEmpty()) {
+                        continue;
+                    }
+
+                    Map.Entry<String, String> record = parseRecord(line);
+                    index.put(record.getKey(), offset);
+                }
+            }
+
+            keyOffsets = index;
+        }
+    }
+
+    private Map.Entry<String, String> parseRecord(String line)
+            throws IOException {
+        if (line == null) {
+            throw new IOException("Unexpected end of SSTable: " + file);
+        }
+
+        String[] parts = line.split("\\t", -1);
+        if (parts.length != 2) {
+            throw new IOException("Invalid SSTable record in " + file);
+        }
+
+        try {
+            String key = decode(parts[0]);
+            String encodedValue = parts[1];
+            String value;
+
+            if (encodedValue.startsWith("D:")) {
+                value = null;
+            } else if (encodedValue.startsWith("V:")) {
+                value = decode(encodedValue.substring(2));
+            } else {
+                value = decode(encodedValue);
+            }
+
+            return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Invalid SSTable encoding in " + file, e);
+        }
     }
 
     /**
