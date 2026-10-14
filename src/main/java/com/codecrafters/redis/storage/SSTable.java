@@ -194,11 +194,10 @@ public final class SSTable {
             }
 
             NavigableMap<String, Long> sparseIndex = new TreeMap<>();
-            java.util.List<String> allKeys = new java.util.ArrayList<>();
+            int recordCount = 0;
 
             try (RandomAccessFile raf =
                          new RandomAccessFile(file.toFile(), "r")) {
-                int recordCount = 0;
                 String line;
 
                 while (true) {
@@ -213,8 +212,6 @@ public final class SSTable {
                     }
 
                     Map.Entry<String, String> record = parseRecord(line);
-                    allKeys.add(record.getKey());
-
                     if (recordCount % SPARSE_INDEX_INTERVAL == 0) {
                         sparseIndex.put(record.getKey(), offset);
                     }
@@ -222,7 +219,17 @@ public final class SSTable {
                 }
             }
 
-            BloomFilter filter = new BloomFilter(allKeys);
+            BloomFilter filter = new BloomFilter(
+                    Math.max(1, recordCount));
+            try (RandomAccessFile raf =
+                         new RandomAccessFile(file.toFile(), "r")) {
+                String line;
+                while ((line = raf.readLine()) != null) {
+                    if (!line.isEmpty()) {
+                        filter.add(parseRecord(line).getKey());
+                    }
+                }
+            }
             bloomFilter = filter;
             keyOffsets = sparseIndex;
         }
