@@ -86,6 +86,18 @@ public class WriteAheadLogTest {
             System.out.println("TEST 3 PASSED: Incomplete tail recovery");
         }
 
+        // TEST 3B: Recovered WAL remains valid after another restart.
+        try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
+            List<WriteAheadLog.Record> records = wal.replay();
+
+            check(records.size() == 4,
+                    "Records lost after recovery restart");
+            check("afterCrash".equals(records.get(3).getKey()),
+                    "Recovered append missing after restart");
+
+            System.out.println(
+                    "TEST 3B PASSED: Recovery survives another restart");
+        }
 
         // TEST 4: Corrupted checksummed record must be rejected.
         try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
@@ -147,6 +159,31 @@ public class WriteAheadLogTest {
             check("deletedKey".equals(records.get(1).getKey()), "Legacy DEL key mismatch");
             System.out.println("TEST 5 PASSED: Legacy WAL compatibility");
         }
+
+        // TEST 6: Operations after close must fail clearly.
+        WriteAheadLog closedWal = new WriteAheadLog(
+                testDir.resolve("closed.log"));
+        closedWal.close();
+
+        boolean appendRejected = false;
+        try {
+            closedWal.appendPut("key", "value", -1L);
+        } catch (IOException expected) {
+            appendRejected = expected.getMessage().contains("closed");
+        }
+        check(appendRejected, "Append after close must be rejected");
+
+        boolean replayRejected = false;
+        try {
+            closedWal.replay();
+        } catch (IOException expected) {
+            replayRejected = expected.getMessage().contains("closed");
+        }
+        check(replayRejected, "Replay after close must be rejected");
+
+        closedWal.close();
+        System.out.println("TEST 6 PASSED: Closed WAL rejects operations");
+
         System.out.println("ALL WAL TESTS PASSED");
     }
 
