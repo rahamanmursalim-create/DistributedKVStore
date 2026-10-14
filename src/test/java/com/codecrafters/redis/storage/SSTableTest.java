@@ -3,6 +3,7 @@ package com.codecrafters.redis.storage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class SSTableTest {
     public static void main(String[] args) throws Exception {
@@ -27,6 +28,27 @@ public class SSTableTest {
             throw new AssertionError("Missing key should return null");
         }
 
+
+        Map<String, String> largeData = new TreeMap<>();
+        for (int i = 0; i < 1000; i++) {
+            largeData.put(String.format("key-%04d", i), "value-" + i);
+        }
+
+        SSTable largeTable = SSTable.write(
+                dir.resolve("large.sst"), largeData);
+
+        for (int i = 0; i < 1000; i++) {
+            String key = String.format("key-%04d", i);
+            if (!("value-" + i).equals(largeTable.get(key))) {
+                throw new AssertionError("Lookup failed for " + key);
+            }
+        }
+
+        if (largeTable.containsKey("key-1000")) {
+            throw new AssertionError("Nonexistent key found");
+        }
+
+        System.out.println("PASS: 1,000-key sparse-index lookups");
         System.out.println("SSTable baseline tests passed");
     }
 }
