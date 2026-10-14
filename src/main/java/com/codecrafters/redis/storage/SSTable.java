@@ -28,6 +28,7 @@ public final class SSTable {
 
     private final Path file;
     private volatile NavigableMap<String, Long> keyOffsets;
+    private volatile BloomFilter bloomFilter;
 
     private SSTable(Path file) {
         this.file = file.toAbsolutePath().normalize();
@@ -149,6 +150,9 @@ public final class SSTable {
             return false;
         }
         ensureIndex();
+        if (!bloomFilter.mightContain(key)) {
+            return false;
+        }
         return keyOffsets.containsKey(key);
     }
 
@@ -188,6 +192,7 @@ public final class SSTable {
             }
 
             keyOffsets = index;
+            bloomFilter = new BloomFilter(index.keySet());
         }
     }
 
