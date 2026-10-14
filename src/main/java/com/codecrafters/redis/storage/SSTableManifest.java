@@ -26,6 +26,7 @@ public final class SSTableManifest {
         }
 
         List<Long> ids = new ArrayList<>();
+        java.util.Set<Long> uniqueIds = new java.util.HashSet<>();
 
         for (String line : Files.readAllLines(
                 file, StandardCharsets.UTF_8)) {
@@ -43,6 +44,11 @@ public final class SSTableManifest {
                             "Invalid SSTable ID in manifest: " + value);
                 }
 
+                if (!uniqueIds.add(id)) {
+                    throw new IOException(
+                            "Duplicate SSTable ID in manifest: " + id);
+                }
+
                 ids.add(id);
             } catch (NumberFormatException e) {
                 throw new IOException(
@@ -54,6 +60,21 @@ public final class SSTableManifest {
     }
 
     public void save(List<Long> ids) throws IOException {
+        if (ids == null) {
+            throw new IllegalArgumentException("SSTable IDs must not be null");
+        }
+        java.util.Set<Long> uniqueIds = new java.util.HashSet<>();
+        for (Long id : ids) {
+            if (id == null || id < 1) {
+                throw new IllegalArgumentException(
+                        "SSTable IDs must be positive and non-null");
+            }
+            if (!uniqueIds.add(id)) {
+                throw new IllegalArgumentException(
+                        "Duplicate SSTable ID: " + id);
+            }
+        }
+
         Path temp = Files.createTempFile(
                 file.getParent(), "MANIFEST-", ".tmp");
 
