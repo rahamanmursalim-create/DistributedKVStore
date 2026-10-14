@@ -27,6 +27,7 @@ import java.util.TreeMap;
 public final class SSTable {
 
     private final Path file;
+    private static final int SPARSE_INDEX_INTERVAL = 128;
     private volatile NavigableMap<String, Long> keyOffsets;
     private volatile BloomFilter bloomFilter;
 
@@ -130,30 +131,52 @@ public final class SSTable {
      * Use containsKey() to distinguish these cases.
      */
     public String get(String key) throws IOException {
-        if (key == null || !containsKey(key)) {
+        Map.Entry<String, String> record = findRecord(key);
+        return record == null ? null : record.getValue();
+    }
+
+    public boolean containsKey(String key) throws IOException {
+        return findRecord(key) != null;
+    }
+
+    private Map.Entry<String, String> findRecord(String key)
+            throws IOException {
+        if (key == null) {
             return null;
         }
 
-        long offset = keyOffsets.get(key);
-        try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
-            raf.seek(offset);
-            return parseRecord(raf.readLine()).getValue();
-        }
-    }
-
-    /**
-     * Checks whether a key has a record in this SSTable.
-     * Returns true for tombstones as well.
-     */
-    public boolean containsKey(String key) throws IOException {
-        if (key == null) {
-            return false;
-        }
         ensureIndex();
+
         if (!bloomFilter.mightContain(key)) {
-            return false;
+            return null;
         }
-        return keyOffsets.containsKey(key);
+
+        Map.Entry<String, Long> floor = keyOffsets.floorEntry(key);
+        long offset = floor == null ? 0L : floor.getValue();
+
+        try (RandomAccessFile raf =
+                     new RandomAccessFile(file.toFile(), "r")) {
+            raf.seek(offset);
+
+            String line;
+            while ((line = raf.readLine()) != null) {
+                if (line.isEmpty()) {
+                    continue;
+                }
+
+                Map.Entry<String, String> record = parseRecord(line);
+                int comparison = record.getKey().compareTo(key);
+
+                if (comparison == 0) {
+                    return record;
+                }
+                if (comparison > 0) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
     }
 
     private void ensureIndex() throws IOException {
@@ -166,13 +189,16 @@ public final class SSTable {
                 return;
             }
 
-            NavigableMap<String, Long> index = new TreeMap<>();
-
             if (!Files.isRegularFile(file)) {
                 throw new IOException("SSTable file not found: " + file);
             }
 
-            try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
+            NavigableMap<String, Long> sparseIndex = new TreeMap<>();
+            java.util.List<String> allKeys = new java.util.ArrayList<>();
+
+            try (RandomAccessFile raf =
+                         new RandomAccessFile(file.toFile(), "r")) {
+                int recordCount = 0;
                 String line;
 
                 while (true) {
@@ -187,12 +213,18 @@ public final class SSTable {
                     }
 
                     Map.Entry<String, String> record = parseRecord(line);
-                    index.put(record.getKey(), offset);
+                    allKeys.add(record.getKey());
+
+                    if (recordCount % SPARSE_INDEX_INTERVAL == 0) {
+                        sparseIndex.put(record.getKey(), offset);
+                    }
+                    recordCount++;
                 }
             }
 
-            keyOffsets = index;
-            bloomFilter = new BloomFilter(index.keySet());
+            BloomFilter filter = new BloomFilter(allKeys);
+            bloomFilter = filter;
+            keyOffsets = sparseIndex;
         }
     }
 
