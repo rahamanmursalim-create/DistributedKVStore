@@ -19,6 +19,9 @@ public final class BloomFilter {
     }
 
     public boolean mightContain(String key) {
+        if (key == null) {
+            return false;
+        }
         long[] hashes = hashes(key);
         int bitCount = bits.length * 8;
 
@@ -57,3 +60,4 @@ public final class BloomFilter {
         return new long[]{first, second};
     }
 }
+
