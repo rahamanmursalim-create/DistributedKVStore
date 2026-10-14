@@ -8,12 +8,21 @@ public final class BloomFilter {
     private final int hashCount;
 
     public BloomFilter(Collection<String> keys) {
-        int count = Math.max(1, keys.size());
+        this(Math.max(1, keys.size()));
+        for (String key : keys) {
+            add(key);
+        }
+    }
+
+    public BloomFilter(int expectedKeys) {
+        int count = Math.max(1, expectedKeys);
         int bitCount = Math.max(64, count * 10);
         bits = new byte[(bitCount + 7) / 8];
         hashCount = 7;
+    }
 
-        for (String key : keys) {
+    public void add(String key) {
+        if (key != null) {
             update(key, true);
         }
     }
