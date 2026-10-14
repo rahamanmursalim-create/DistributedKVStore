@@ -139,6 +139,14 @@ public final class SSTable {
         return findRecord(key) != null;
     }
 
+    /**
+     * Returns the stored record, or null when the key is absent.
+     * A returned entry with a null value represents a tombstone.
+     */
+    public Map.Entry<String, String> lookup(String key) throws IOException {
+        return findRecord(key);
+    }
+
     private Map.Entry<String, String> findRecord(String key)
             throws IOException {
         if (key == null) {

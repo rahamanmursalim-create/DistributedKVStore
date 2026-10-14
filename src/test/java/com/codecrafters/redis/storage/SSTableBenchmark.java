@@ -17,12 +17,17 @@ public class SSTableBenchmark {
                 data.put(String.format("key-%08d", i), "value-" + i);
             }
 
+            String[] keys = new String[size];
+            for (int i = 0; i < size; i++) {
+                keys[i] = String.format("key-%08d", i);
+            }
+
             Path file = dir.resolve("benchmark-" + size + ".sst");
             SSTable table = SSTable.write(file, data);
 
             // First lookup builds the index and Bloom Filter.
             long initStart = System.nanoTime();
-            table.get(String.format("key-%08d", size / 2));
+            table.get(keys[size / 2]);
             long initNanos = System.nanoTime() - initStart;
 
             int warmup = 500;
@@ -30,7 +35,7 @@ public class SSTableBenchmark {
 
             for (int i = 0; i < warmup; i++) {
                 int keyNumber = (i * 31) % size;
-                table.get(String.format("key-%08d", keyNumber));
+                table.get(keys[keyNumber]);
             }
 
             long[] latencies = new long[lookups];
@@ -38,7 +43,7 @@ public class SSTableBenchmark {
 
             for (int i = 0; i < lookups; i++) {
                 int keyNumber = (i * 31) % size;
-                String key = String.format("key-%08d", keyNumber);
+                String key = keys[keyNumber];
 
                 long start = System.nanoTime();
                 String value = table.get(key);

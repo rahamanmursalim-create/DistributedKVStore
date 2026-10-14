@@ -207,8 +207,9 @@ public final class StorageEngine implements AutoCloseable {
         for (int i = ssTables.size() - 1; i >= 0; i--) {
             SSTable table = ssTables.get(i);
 
-            if (table.containsKey(key)) {
-                return table.get(key);
+            Map.Entry<String, String> record = table.lookup(key);
+            if (record != null) {
+                return record.getValue();
             }
         }
 
