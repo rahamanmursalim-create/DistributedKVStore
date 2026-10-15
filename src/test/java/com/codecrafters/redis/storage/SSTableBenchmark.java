@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class SSTableBenchmark {
+
     public static void main(String[] args) throws Exception {
         int[] sizes = {1_000, 10_000, 50_000};
         Path dir = Path.of("test-data", "sstable-benchmark");
@@ -13,11 +14,13 @@ public class SSTableBenchmark {
 
         for (int size : sizes) {
             Map<String, String> data = new TreeMap<>();
+
             for (int i = 0; i < size; i++) {
                 data.put(String.format("key-%08d", i), "value-" + i);
             }
 
             String[] keys = new String[size];
+
             for (int i = 0; i < size; i++) {
                 keys[i] = String.format("key-%08d", i);
             }
@@ -25,7 +28,7 @@ public class SSTableBenchmark {
             Path file = dir.resolve("benchmark-" + size + ".sst");
             SSTable table = SSTable.write(file, data);
 
-            // First lookup builds the index and Bloom Filter.
+            // Initialize the sparse index and Bloom filter.
             long initStart = System.nanoTime();
             table.get(keys[size / 2]);
             long initNanos = System.nanoTime() - initStart;
@@ -33,39 +36,51 @@ public class SSTableBenchmark {
             int warmup = 500;
             int lookups = 5_000;
 
+            // Benchmark 1: Repeated lookups of one cached key.
+            String hotKey = keys[size / 2];
+
             for (int i = 0; i < warmup; i++) {
-                int keyNumber = (i * 31) % size;
-                table.get(keys[keyNumber]);
+                table.get(hotKey);
             }
 
-            long[] latencies = new long[lookups];
-            long lookupStart = System.nanoTime();
+            long hotStart = System.nanoTime();
 
             for (int i = 0; i < lookups; i++) {
-                int keyNumber = (i * 31) % size;
-                String key = keys[keyNumber];
+                if (table.get(hotKey) == null) {
+                    throw new AssertionError("Missing key: " + hotKey);
+                }
+            }
 
-                long start = System.nanoTime();
-                String value = table.get(key);
-                latencies[i] = System.nanoTime() - start;
+            long hotNanos = System.nanoTime() - hotStart;
 
-                if (value == null) {
+            // Benchmark 2: Lookups across a larger working set.
+            int workingSet = Math.min(size, 10_000);
+
+            for (int i = 0; i < warmup; i++) {
+                table.get(keys[(i * 31) % workingSet]);
+            }
+
+            long mixedStart = System.nanoTime();
+
+            for (int i = 0; i < lookups; i++) {
+                String key = keys[(i * 31) % workingSet];
+
+                if (table.get(key) == null) {
                     throw new AssertionError("Missing key: " + key);
                 }
             }
 
-            long lookupNanos = System.nanoTime() - lookupStart;
-            java.util.Arrays.sort(latencies);
+            long mixedNanos = System.nanoTime() - mixedStart;
 
             System.out.printf(
-                "Keys: %,d | Index build + first lookup: %.2f ms | "
-                + "Average: %.3f us | Median: %.3f us | "
-                + "Throughput: %.0f lookups/sec%n",
+                "Keys: %,d | Initialization: %.2f ms | "
+                    + "Hot-key average: %.3f us | "
+                    + "Working set (%d keys) average: %.3f us%n",
                 size,
                 initNanos / 1_000_000.0,
-                lookupNanos / (double) lookups / 1_000.0,
-                latencies[lookups / 2] / 1_000.0,
-                lookups / (lookupNanos / 1_000_000_000.0)
+                hotNanos / (double) lookups / 1_000.0,
+                workingSet,
+                mixedNanos / (double) lookups / 1_000.0
             );
         }
     }
