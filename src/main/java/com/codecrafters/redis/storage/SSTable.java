@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -30,6 +31,17 @@ public final class SSTable {
     private static final int SPARSE_INDEX_INTERVAL = 128;
     private volatile NavigableMap<String, Long> keyOffsets;
     private volatile BloomFilter bloomFilter;
+
+    private static final int LRU_CACHE_CAPACITY = 1000;
+
+    private final Map<String, Map.Entry<String, String>> recordCache =
+            new LinkedHashMap<>(128, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(
+                        Map.Entry<String, Map.Entry<String, String>> eldest) {
+                    return size() > LRU_CACHE_CAPACITY;
+                }
+            };
 
     private SSTable(Path file) {
         this.file = file.toAbsolutePath().normalize();
@@ -153,6 +165,13 @@ public final class SSTable {
             return null;
         }
 
+        synchronized (recordCache) {
+            Map.Entry<String, String> cached = recordCache.get(key);
+            if (cached != null) {
+                return cached;
+            }
+        }
+
         ensureIndex();
 
         if (!bloomFilter.mightContain(key)) {
@@ -176,6 +195,9 @@ public final class SSTable {
                 int comparison = record.getKey().compareTo(key);
 
                 if (comparison == 0) {
+                    synchronized (recordCache) {
+                        recordCache.put(key, record);
+                    }
                     return record;
                 }
                 if (comparison > 0) {

@@ -49,6 +49,35 @@ public class SSTableTest {
         }
 
         System.out.println("PASS: 1,000-key sparse-index lookups");
+
+        // Verify LRU cache capacity and least-recently-used eviction.
+        java.lang.reflect.Field cacheField =
+                SSTable.class.getDeclaredField("recordCache");
+        cacheField.setAccessible(true);
+        Map<String, Map.Entry<String, String>> cache =
+                (Map<String, Map.Entry<String, String>>) cacheField.get(largeTable);
+        if (cache.size() != 1000) {
+            throw new AssertionError("Expected 1000 cached records, got " + cache.size());
+        }
+
+        Map<String, String> evictionData = new TreeMap<>();
+        for (int i = 0; i <= 1000; i++) {
+            evictionData.put(String.format("key-%04d", i), "value-" + i);
+        }
+        SSTable evictionTable = SSTable.write(dir.resolve("eviction.sst"), evictionData);
+        for (int i = 0; i <= 1000; i++) {
+            evictionTable.get(String.format("key-%04d", i));
+        }
+        Map<String, Map.Entry<String, String>> evictionCache =
+                (Map<String, Map.Entry<String, String>>) cacheField.get(evictionTable);
+        if (evictionCache.size() != 1000) {
+            throw new AssertionError("LRU cache exceeded capacity: " + evictionCache.size());
+        }
+        if (evictionCache.containsKey("key-0000")) {
+            throw new AssertionError("Least recently used entry was not evicted");
+        }
+        System.out.println("PASS: LRU cache capacity and eviction");
+
         System.out.println("SSTable baseline tests passed");
     }
 }
