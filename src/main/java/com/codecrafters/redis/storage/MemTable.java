@@ -8,32 +8,33 @@ import java.util.TreeMap;
 
 /**
  * Thread-safe sorted in-memory table.
- * A null value represents a deletion tombstone.
+ * A null record represents a deletion tombstone.
  */
 public final class MemTable {
 
-    private final NavigableMap<String, String> entries = new TreeMap<>();
+    private final NavigableMap<String, StorageRecord> entries = new TreeMap<>();
     private long estimatedSizeBytes = 0;
 
     public synchronized void put(String key, String value) {
+        put(key, value, -1L);
+    }
+
+    public synchronized void put(
+            String key, String value, long expiryEpochMillis) {
         if (key == null || value == null) {
-            throw new IllegalArgumentException(
-                    "Key and value cannot be null");
+            throw new IllegalArgumentException("Key and value cannot be null");
         }
 
-        boolean existed = entries.containsKey(key);
-        String previous = entries.get(key);
-
-        if (existed) {
-            estimatedSizeBytes -= estimateEntrySize(
-                    key, previous == null ? "" : previous);
-        }
-
-        entries.put(key, value);
-        estimatedSizeBytes += estimateEntrySize(key, value);
+        StorageRecord record = new StorageRecord(value, expiryEpochMillis);
+        replaceEntry(key, record, value);
     }
 
     public synchronized String get(String key) {
+        StorageRecord record = getRecord(key);
+        return record == null || record.isExpired() ? null : record.getValue();
+    }
+
+    public synchronized StorageRecord getRecord(String key) {
         return key == null ? null : entries.get(key);
     }
 
@@ -46,18 +47,24 @@ public final class MemTable {
             return null;
         }
 
+        StorageRecord previous = entries.get(key);
+        String previousValue = previous == null ? null : previous.getValue();
+
+        replaceEntry(key, null, "");
+        return previousValue;
+    }
+
+    private void replaceEntry(String key, StorageRecord record, String sizeValue) {
         boolean existed = entries.containsKey(key);
-        String previous = entries.get(key);
+        StorageRecord previous = entries.get(key);
 
         if (existed) {
             estimatedSizeBytes -= estimateEntrySize(
-                    key, previous == null ? "" : previous);
+                    key, previous == null ? "" : previous.getValue());
         }
 
-        entries.put(key, null);
-        estimatedSizeBytes += estimateEntrySize(key, "");
-
-        return previous;
+        entries.put(key, record);
+        estimatedSizeBytes += estimateEntrySize(key, sizeValue);
     }
 
     public synchronized int size() {
@@ -72,7 +79,20 @@ public final class MemTable {
         return estimatedSizeBytes;
     }
 
+    /**
+     * Compatibility snapshot: values and null tombstones, without expiry metadata.
+     */
     public synchronized Map<String, String> snapshot() {
+        Map<String, String> result = new TreeMap<>();
+        entries.forEach((key, record) ->
+                result.put(key, record == null ? null : record.getValue()));
+        return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Snapshot including expiry metadata and tombstones.
+     */
+    public synchronized Map<String, StorageRecord> snapshotRecords() {
         return Collections.unmodifiableMap(new TreeMap<>(entries));
     }
 

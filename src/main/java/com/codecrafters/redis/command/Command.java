@@ -55,6 +55,10 @@ public final class Command {
         return null;
     }
 
+    public static Command of(String name, String... args) {
+        return new Command(name, List.of(args));
+    }
+
     public String getName() {
         return name;
     }
