@@ -332,25 +332,65 @@ Do not use the current free deployment as the only copy of important data.
 ## Project layout
 
 ```text
+
 DistributedKVStore/
+├── .gitignore
 ├── Dockerfile
+├── LICENSE
 ├── pom.xml
 ├── README.md
 ├── docs/
 │   └── images/
 │       └── distributedkvstore-architecture.png
 └── src/
-    ├── main/java/
-    │   ├── Main.java
-    │   └── com/codecrafters/redis/
-    │       ├── Server.java
-    │       ├── ClientHandler.java
-    │       ├── command/
-    │       ├── protocol/
-    │       ├── storage/
-    │       └── web/
-    └── test/java/
-        └── com/codecrafters/redis/
+    ├── main/
+    │   └── java/
+    │       ├── Main.java
+    │       └── com/codecrafters/redis/
+    │           ├── Server.java
+    │           ├── ClientHandler.java
+    │           ├── command/
+    │           │   ├── Command.java
+    │           │   └── CommandHandler.java
+    │           ├── protocol/
+    │           │   ├── RespReader.java
+    │           │   ├── RespType.java
+    │           │   ├── RespValue.java
+    │           │   └── RespWriter.java
+    │           ├── storage/
+    │           │   ├── BloomFilter.java
+    │           │   ├── MemTable.java
+    │           │   ├── RedisStore.java
+    │           │   ├── SSTable.java
+    │           │   ├── SSTableManifest.java
+    │           │   ├── StorageEngine.java
+    │           │   ├── ValueEntry.java
+    │           │   └── WriteAheadLog.java
+    │           └── web/
+    │               └── WebServer.java
+    └── test/
+        └── java/
+            └── com/codecrafters/redis/
+                ├── AllTestsRunner.java
+                ├── RedisServerTest.java
+                ├── web/
+                │   └── WebServerIntegrationTest.java
+                └── storage/
+                    ├── BloomFilterTest.java
+                    ├── RedisStoreRecoveryTest.java
+                    ├── SSTableBenchmark.java
+                    ├── SSTableManifestTest.java
+                    ├── SSTableTest.java
+                    ├── StorageEngineCompactionTest.java
+                    ├── StorageEngineCompactionWalTest.java
+                    ├── StorageEngineConcurrencyTest.java
+                    ├── StorageEngineConcurrentDeleteTest.java
+                    ├── StorageEngineCrashRecoveryRunner.java
+                    ├── StorageEngineOrphanSSTableTest.java
+                    ├── StorageEngineTest.java
+                    ├── StorageEngineWalRecoveryTest.java
+                    └── WriteAheadLogTest.java
+
 ```
 
 ## Tests
