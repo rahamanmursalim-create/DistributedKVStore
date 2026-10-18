@@ -1,259 +1,389 @@
-# DistributedKVStore — Java Redis-Compatible Server & Storage Engine
+# DistributedKVStore
 
-A Java-based Redis-compatible server and educational persistent storage engine. The project implements the Redis Serialization Protocol (RESP), concurrent TCP client handling, key expiration, and an LSM-style storage engine with a Write-Ahead Log (WAL), MemTable, SSTables, manifest-based recovery, and compaction.
+A Java 17 key-value server with a Redis-style RESP-over-TCP interface, an HTTP dashboard/API, and a separately implemented LSM-style storage-engine component.
 
-Built with Java 17+ and the Java Standard Library.
+**Live dashboard:** <https://distributedkvstore.onrender.com>  
+**Health endpoint:** <https://distributedkvstore.onrender.com/api/health>  
+**Repository:** <https://github.com/rahamanmursalim-create/DistributedKVStore>
 
-## Features
+> **Scope note:** Despite the project name, the current implementation does **not** provide a multi-node distributed cluster, replication, consensus, sharding, or automatic failover. It is a single-process key-value server and storage-engine learning project. The TCP server and HTTP API currently share `RedisStore` (an in-memory map backed by a WAL). The `StorageEngine` LSM-style component is implemented separately and is not yet wired into the live server's request path.
 
-### 1. Redis Server and RESP Protocol
+## Contents
+
+- [Highlights](#highlights)
+- [Architecture](#architecture)
+- [Implemented commands](#implemented-tcp-commands)
+- [HTTP API](#http-api)
+- [Technology stack](#technology-stack)
+- [Run locally](#run-locally)
+- [Test the API](#test-the-api)
+- [Docker](#docker)
+- [Deploy to Render](#deploy-to-render)
+- [Storage and persistence caveats](#storage-and-persistence-caveats)
+- [Security notes](#security-notes)
+- [Project layout](#project-layout)
+- [Tests](#tests)
+- [Roadmap](#roadmap)
+- [References](#references)
+- [License](#license)
+
+## Highlights
+
+### TCP server and RESP protocol
 
 - TCP server with concurrent client handling.
-- `PING` command with optional argument support.
-- `ECHO` command.
-- `SET` and `GET` commands.
-- Key expiration using `PX` and `EX`.
-- Passive and background active expiration in the in-memory store.
-- RESP parsing and serialization for arrays, bulk strings, simple strings, integers, and errors.
-- Support for fragmented TCP input and pipelined commands.
-- Handling of concurrent clients.
+- RESP request parsing and response serialization.
+- Handles fragmented input and pipelined requests.
+- Implements a useful Redis-style command subset, including `PING`, `ECHO`, `SET`, `GET`, `DEL`, and `EXISTS`.
+- `SET` supports expiration with `EX` (seconds) and `PX` (milliseconds).
+- Supports background and access-triggered expiration in `RedisStore`.
 
-### 2. Persistent Storage Engine
+### HTTP dashboard and REST API
 
-The project also contains a storage engine implemented in Java.
+- Embedded dashboard served at `/`.
+- JSON health and key-list endpoints.
+- CRUD endpoints for creating/updating, reading, and deleting keys.
+- Dark neumorphic UI with motion effects, search/filtering, loading skeletons, toast feedback, clipboard helpers, JSON formatting, and a delete-confirmation dialog.
+- No external frontend framework or CDN is required by the embedded dashboard.
 
-- **MemTable:** Maintains sorted in-memory entries and deletion tombstones.
-- **Write-Ahead Log (WAL):** Records PUT and DELETE operations and supports replay during recovery.
-- **SSTables:** Stores sorted-table data on disk.
-- **Manifest:** Tracks active SSTable IDs for storage-engine recovery.
-- **Flush:** Writes MemTable contents to an SSTable and updates the manifest.
-- **Compaction:** Merges active SSTables and retains the latest values and deletion state.
-- **Restart recovery:** Recovers persisted state from active SSTables and replays eligible WAL records.
-- **Orphan SSTable handling:** Avoids treating unreferenced SSTables as active storage tables.
+### Storage-engine learning components
 
-**Important:** The storage engine is a separate component from the in-memory Redis store. The current storage-engine API does not itself implement TTL-aware persistence. This project does not claim distributed replication or consensus.
+The separate `StorageEngine` package demonstrates several LSM-style storage ideas:
 
-## Technology Stack
+- Sorted in-memory `MemTable` with deletion tombstones.
+- Append-only WAL records with checksum verification and replay.
+- Immutable, sorted SSTable files.
+- Manifest-based tracking and recovery of active SSTables.
+- Sparse-index lookups, a Bloom filter, and a bounded LRU record cache.
+- Flush and compaction workflows, with tests for restart recovery and interrupted-operation scenarios.
 
-- Java 17+
-- Java Standard Library
-- TCP sockets and Java concurrency utilities
-- RESP protocol
-- File-based persistence using WAL and SSTables
-- Git and GitHub
+The standalone storage engine and the live server store are currently separate components. See [Architecture](#architecture) and [Storage and persistence caveats](#storage-and-persistence-caveats).
 
-## Project Structure
+## Architecture
+
+![DistributedKVStore architecture diagram](docs/images/distributedkvstore-architecture.png)
+
+*Architecture image provided with this project.*
+
+### Runtime request path
+
+**TCP client**
+
+1. `Server` accepts a TCP connection.
+2. `ClientHandler` reads RESP messages using `RespReader`.
+3. `Command` and `CommandHandler` parse and execute the command.
+4. `RespWriter` serializes the response.
+5. The command handler reads or updates the shared `RedisStore`.
+
+**Dashboard / HTTP client**
+
+1. `WebServer` serves the dashboard and REST API.
+2. The HTTP handlers read or update the same `RedisStore` used by the TCP server.
+3. The API returns JSON responses and HTTP status codes.
+
+**Live-server storage path**
+
+- `RedisStore` keeps current values in a concurrent in-memory map.
+- `WriteAheadLog` appends and syncs mutations before publishing the corresponding in-memory update.
+- At startup, `Main` reads `DATA_DIR` and passes the selected `wal.log` path to `RedisStore`.
+
+**Separate LSM-style storage path**
+
+- `StorageEngine` uses a `MemTable`, per-generation WAL files, SSTables, and a `MANIFEST`.
+- It supports recovery, flush, and compaction through its own API.
+- The current `Main` wiring does not use this `StorageEngine` for the live TCP/HTTP requests. The provided diagram is therefore a conceptual component view, not proof that every pictured arrow represents an active runtime call.
+
+## Implemented TCP commands
+
+The server implements this command subset; it is **not** a complete Redis replacement.
+
+| Command | Purpose | Notes |
+|---|---|---|
+| `PING` | Check connectivity | Optional single argument is supported |
+| `ECHO <message>` | Return a message | One argument |
+| `SET <key> <value>` | Create or replace a value | Also supports `EX <seconds>` and `PX <milliseconds>` |
+| `PUT <key> <value>` | Create or replace a value | Alias-style custom command |
+| `GET <key>` | Read a value | Missing values return a RESP null bulk string |
+| `DEL <key> [key ...]` | Delete keys | `DELETE` is also accepted |
+| `EXISTS <key>` | Check if a key exists | |
+| `KEYS [pattern]` | List matching keys | Supports `*` and `?` glob characters |
+| `COMMAND` | Command metadata/help response | Limited implementation |
+| `INFO` | Server information | Limited implementation |
+| `CONFIG` | Configuration command | Limited implementation |
+
+Example interactive commands:
+
+```text
+PING
+ECHO hello
+SET user:1 Mursalim
+GET user:1
+SET session:demo active EX 60
+EXISTS user:1
+KEYS user:*
+DEL user:1
+```
+
+## HTTP API
+
+The web dashboard and API are served by the same Java HTTP server.
+
+| Method | Endpoint | Behavior |
+|---|---|---|
+| `GET` | `/` | Serves the dashboard |
+| `GET` | `/api/health` | Returns service status and current key count |
+| `GET` | `/api/keys` | Returns a JSON array of keys |
+| `GET` | `/api/keys/{key}` | Returns a key and its value; returns `404` if missing |
+| `PUT` | `/api/keys/{key}` | Creates/replaces a key using the raw request body as the value |
+| `DELETE` | `/api/keys/{key}` | Deletes a key |
+
+### Example responses
+
+Health check:
+
+```json
+{"status":"ok","keys":0}
+```
+
+Read a key:
+
+```json
+{"key":"user:1","value":"Mursalim"}
+```
+
+For `PUT`, the request body is stored as text. JSON can be stored as a value by sending the JSON document as the raw body; the API does not require the body itself to be a JSON object.
+
+## Technology stack
+
+- **Language:** Java 17+
+- **Build:** Apache Maven
+- **Networking:** Java TCP sockets and `com.sun.net.httpserver.HttpServer`
+- **Protocol:** RESP-compatible subset over TCP
+- **Persistence used by the live server:** Append-only WAL + in-memory map
+- **Separate storage-engine components:** MemTable, WAL, SSTables, manifest, Bloom filter, sparse index, LRU cache
+- **Packaging / deployment:** Docker
+- **Hosting:** Render Web Service
+
+## Run locally
+
+### Prerequisites
+
+- JDK 17 or later
+- Apache Maven 3.8+
+- Git
+- Optional: Docker Desktop to run the container locally
+
+### Build and test
+
+From the repository root:
+
+```bash
+mvn clean test
+```
+
+The Maven test phase runs the project's custom `AllTestsRunner`, which discovers `*Test` classes and runs them with JVM assertions enabled.
+
+Build the executable JAR:
+
+```bash
+mvn clean package
+```
+
+The expected artifact is:
+
+```text
+target/redis-java-clone-1.0.0.jar
+```
+
+Run the server:
+
+```bash
+java -jar target/redis-java-clone-1.0.0.jar
+```
+
+By default, the HTTP dashboard/API listens on port `8080` and the RESP TCP server listens on port `6379`. `PORT` and `TCP_PORT` can override these values through environment variables.
+
+Open the dashboard at <http://localhost:8080>.
+
+### Windows PowerShell
+
+```powershell
+$env:MAVEN_HOME = "$env:USERPROFILE\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0"
+$env:Path = "$env:MAVEN_HOME\bin;$env:Path"
+
+mvn clean test
+mvn clean package
+java -jar .\target\redis-java-clone-1.0.0.jar
+```
+
+If Maven is already on your `PATH`, you can skip the first two lines.
+
+## Test the API
+
+The examples below use `curl`. In Windows PowerShell, use `curl.exe` to call the real curl executable.
+
+Set a value:
+
+```bash
+curl -i -X PUT "http://localhost:8080/api/keys/user%3A1" \
+  -H "Content-Type: text/plain; charset=utf-8" \
+  --data-binary "Mursalim"
+```
+
+Read it:
+
+```bash
+curl -i "http://localhost:8080/api/keys/user%3A1"
+```
+
+List keys:
+
+```bash
+curl -i "http://localhost:8080/api/keys"
+```
+
+Delete it:
+
+```bash
+curl -i -X DELETE "http://localhost:8080/api/keys/user%3A1"
+```
+
+Check health:
+
+```bash
+curl -i "http://localhost:8080/api/health"
+```
+
+Replace `http://localhost:8080` with the live Render URL to test the deployed HTTP API. The first request after inactivity may take longer on a free Render instance because free web services spin down when idle.
+
+## Docker
+
+The repository includes a multi-stage `Dockerfile` that builds the application using Maven/Java 17 and runs it using a Java 17 JRE image.
+
+Build the image:
+
+```bash
+docker build -t distributedkvstore .
+```
+
+Run it locally:
+
+```bash
+docker run --rm \
+  -p 8080:8080 \
+  -p 6379:6379 \
+  -e PORT=8080 \
+  -e TCP_PORT=6379 \
+  -e DATA_DIR=/var/data \
+  -v "${PWD}/data:/var/data" \
+  distributedkvstore
+```
+
+The volume mount above preserves data in the local `./data` directory on your Docker host. Ensure Docker Desktop is running before executing these commands.
+
+## Deploy to Render
+
+This project uses **Docker** because Render's native language list does not include Java/JVM runtimes. Render supports Dockerfiles for Java-based services.
+
+1. Push the latest code to the `main` branch on GitHub.
+2. In Render, create a **Web Service** and select the `DistributedKVStore` repository.
+3. Set **Language** to `Docker`.
+4. Set **Dockerfile Path** to `./Dockerfile`.
+5. Leave **Root Directory** blank.
+6. Select the compute plan you intend to use and review its limitations before deploying.
+7. Deploy and review the build/runtime logs.
+8. Verify the deployment by opening `/api/health`, then test `PUT`, `GET`, list, and `DELETE` operations.
+
+### Render environment variables
+
+| Variable | Default in application / image | Purpose |
+|---|---|---|
+| `PORT` | Image sets `8080`; app fallback is `8080` | HTTP dashboard/API port; Render supplies the service port |
+| `TCP_PORT` | `6379` | TCP RESP server port |
+| `DATA_DIR` | Image sets `/var/data`; app fallback is `./data` | Directory used for the live server's `wal.log` |
+
+**Important Render limitations:**
+
+- Render services have an ephemeral filesystem by default. On Free web services, files can be lost when the service restarts, redeploys, or spins down; Free instances do not support persistent disks.
+- Persistent disks are available on eligible paid services. If you add one, mount it at `/var/data` and keep `DATA_DIR=/var/data`.
+- The current `DATA_DIR` setting directs the live `RedisStore` WAL to `DATA_DIR/wal.log`. It does **not** automatically migrate the separate `StorageEngine` files or integrate that engine into the live server.
+- A Render Web Service's public URL serves HTTP/HTTPS. `EXPOSE 6379` in the Dockerfile does not, by itself, make the RESP TCP port publicly reachable through that URL. Use an appropriate TCP-capable hosting/networking setup if remote Redis-protocol clients are a requirement.
+- Free web services spin down after inactivity, so the first request after a quiet period may be delayed.
+
+See the [Render Docker docs](https://render.com/docs/docker), [Render Free instance limitations](https://render.com/docs/free), and [Render persistent disk docs](https://render.com/docs/disks) before choosing a deployment plan.
+
+## Storage and persistence caveats
+
+Understand these distinctions before using the project for real data:
+
+1. **Live TCP/HTTP store:** `Main` constructs `RedisStore` with a WAL path. Keys are held in memory while the process runs, and mutations are recorded in that WAL.
+2. **Separate LSM storage engine:** `StorageEngine` has its own MemTable, generation WALs, SSTable files, manifest, recovery, flush, and compaction logic. It is not currently the backing store for the HTTP/TCP server.
+3. **Hosting persistence:** Writing to `/var/data` only survives deployment/restart if the hosting platform preserves that directory. Render Free web services do not provide persistent disks.
+4. **Single-instance design:** The application does not implement distributed replication, consensus, sharding, or multi-node data synchronization.
+
+Do not use the current free deployment as the only copy of important data.
+
+## Security notes
+
+- The public demo exposes write and delete endpoints without authentication. Anyone who discovers the URL may be able to read, create, update, or delete keys.
+- Do not store passwords, API keys, personal data, or other secrets in the public demo.
+- Before using this beyond a demonstration, add authentication/authorization, request limits, stricter input validation, logging/monitoring, and a persistence/backup strategy.
+
+## Project layout
 
 ```text
 DistributedKVStore/
-├── src/
-│   ├── main/
-│   │   └── java/
-│   │       ├── Main.java
-│   │       └── com/codecrafters/redis/
-│   │           ├── Server.java
-│   │           ├── ClientHandler.java
-│   │           ├── command/
-│   │           │   ├── Command.java
-│   │           │   └── CommandHandler.java
-│   │           ├── protocol/
-│   │           │   ├── RespReader.java
-│   │           │   ├── RespType.java
-│   │           │   ├── RespValue.java
-│   │           │   └── RespWriter.java
-│   │           └── storage/
-│   │               ├── MemTable.java
-│   │               ├── RedisStore.java
-│   │               ├── SSTable.java
-│   │               ├── SSTableManifest.java
-│   │               ├── StorageEngine.java
-│   │               ├── ValueEntry.java
-│   │               └── WriteAheadLog.java
-│   └── test/
-│       └── java/
-│           └── com/codecrafters/redis/
-│               ├── RedisServerTest.java
-│               └── storage/
-│                   └── WriteAheadLogTest.java
-├── README.md
+├── Dockerfile
 ├── pom.xml
-└── spawn_redis_server.sh
+├── README.md
+├── docs/
+│   └── images/
+│       └── distributedkvstore-architecture.png
+└── src/
+    ├── main/java/
+    │   ├── Main.java
+    │   └── com/codecrafters/redis/
+    │       ├── Server.java
+    │       ├── ClientHandler.java
+    │       ├── command/
+    │       ├── protocol/
+    │       ├── storage/
+    │       └── web/
+    └── test/java/
+        └── com/codecrafters/redis/
 ```
 
-The storage-engine-specific test classes are currently located under `src/main/java/com/codecrafters/redis/storage/`:
+## Tests
 
-- `StorageEngineTest.java`
-- `StorageEngineCompactionTest.java`
-- `StorageEngineOrphanSSTableTest.java`
-- `StorageEngineWalRecoveryTest.java`
+Tests cover areas including:
 
-## Build and Run
+- RESP parsing, serialization, pipelining, fragmented input, and concurrent clients.
+- WAL writes, replay, incomplete tails, and checksum validation.
+- TTL/recovery behavior in `RedisStore`.
+- SSTable lookups, sparse indexes, Bloom filters, and LRU cache behavior.
+- Manifest validation, compaction, orphan SSTables, and concurrent storage operations.
+- HTTP dashboard delivery and REST API health/CRUD integration.
 
-### Prerequisites
+Run the suite locally with `mvn clean test`; use the actual command output as the source of truth for pass/fail status.
 
-- JDK 17 or later
-- PowerShell on Windows, or a compatible terminal on Linux/macOS
+## Roadmap
 
-### Compile all Java sources
+Potential next steps (not yet claimed as implemented):
 
-Run from the project root in Windows PowerShell:
+- Integrate the standalone LSM `StorageEngine` behind the live TCP and HTTP interfaces.
+- Add API authentication, authorization, and request limits.
+- Add persistent storage and a documented backup/restore workflow.
+- Add automated CI for build, tests, and Docker image validation.
+- Add replication, partitioning, and coordination only if the project is intentionally extended into a distributed system.
+- Add metrics and structured operational logs.
 
-```powershell
-javac --release 17 -d out (Get-ChildItem .\src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
-```
+## References
 
-If compilation succeeds, the command produces no output.
+- [Render: Docker deployments](https://render.com/docs/docker)
+- [Render: Free instance limitations](https://render.com/docs/free)
+- [Render: Persistent disks](https://render.com/docs/disks)
+- [GitHub Docs: README files and relative image paths](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
 
-### Run the Redis Server Test Suite
+## License
 
-```powershell
-java -cp out com.codecrafters.redis.RedisServerTest
-```
-
-### Run the Storage Engine Test Suites
-
-```powershell
-java -cp out com.codecrafters.redis.storage.StorageEngineTest
-java -cp out com.codecrafters.redis.storage.StorageEngineCompactionTest
-java -cp out com.codecrafters.redis.storage.StorageEngineOrphanSSTableTest
-java -cp out com.codecrafters.redis.storage.StorageEngineWalRecoveryTest
-java -cp out com.codecrafters.redis.storage.WriteAheadLogTest
-```
-
-### 3. Dark Neumorphic Web Dashboard & REST API
-
-The application includes an embedded HTTP web dashboard and RESTful JSON API running alongside the Redis TCP server:
-
-- **Dark Neumorphic Dashboard:** Modern `#0b0f17` dark canvas with `#121824` raised cards, dual soft convex/inset shadows, and glowing cyan/emerald accents.
-- **Micro-Interactions & Spring Physics:** Natural fluid easing (`cubic-bezier(0.16, 1, 0.3, 1)`), staggered entrance animations, card hover lift, and tactile button presses.
-- **Fluid Modal Dialogs:** Native `<dialog>` confirmation modal for key deletion with blurred backdrop (`backdrop-filter: blur(8px)`), backdrop click dismiss, and `@starting-style` transitions.
-- **Loading Skeletons & Toasts:** Shimmer loading state during key catalog retrieval and floating toast notification alerts.
-- **Search & Filtering:** Real-time client-side search filtering across stored keys with instantaneous counter updates.
-- **Developer Utilities:** In-browser JSON payload formatting and multi-format clipboard copy (with fallback for non-secure HTTP contexts).
-- **Accessibility & Motion Preference:** WCAG AAA color contrast, full keyboard navigation, and `@media (prefers-reduced-motion: reduce)` support.
-
-#### REST API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Serves the interactive Dark Neumorphic Web Dashboard |
-| `GET` | `/api/health` | Healthcheck returning `{ "status": "ok", "keys": <count> }` |
-| `GET` | `/api/keys` | Returns a JSON array of all stored keys |
-| `GET` | `/api/keys/{key}` | Retrieves key metadata and value payload |
-| `PUT` | `/api/keys/{key}` | Stores or updates a key with request body content |
-| `DELETE` | `/api/keys/{key}` | Purges key from store and appends tombstone |
-
-## Deployment & Configuration (Render / Cloud Platforms)
-
-DistributedKVStore is optimized for cloud deployment on platforms like Render, Railway, or Fly.io with zero third-party runtime dependencies.
-
-### Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `8080` | HTTP port for the Web Dashboard and REST API (automatically provided by Render). |
-| `TCP_PORT` | `6379` | Port for the Redis RESP TCP server. |
-| `DATA_DIR` | `./data` | Directory where WAL, SSTables, and manifest files are stored. |
-
-### Render Deployment & Persistent Storage Requirements
-
-> [!IMPORTANT]
-> **Render Persistent Disk Mounting**
-> Render Web Services use an ephemeral filesystem by default; files written to `./data` will be erased whenever the service restarts, scales down, or redeploys.
-> To persist WAL records and SSTable data across restarts:
-> 1. In your Render Dashboard, navigate to your Web Service -> **Disks** -> **Add Disk**.
-> 2. Set the **Mount Path** to `/var/data` (e.g. 1 GB size).
-> 3. In the **Environment Variables** tab, add:
->    - `DATA_DIR` = `/var/data`
->    - `PORT` = `8080` (or Render's automatic `$PORT`)
-> 4. Set the **Build Command** to:
->    ```bash
->    mvn clean package -DskipTests
->    ```
-> 5. Set the **Start Command** to:
->    ```bash
->    java -jar target/redis-java-clone-1.0.0.jar
->    ```
-
-## Build and Run
-
-### Prerequisites
-
-- JDK 17 or later
-- Apache Maven 3.8+ (or compile with `javac`)
-
-### Maven Workflow (Recommended)
-
-1. **Run Full Test Suite:**
-   ```bash
-   mvn clean test
-   ```
-   Executes all 14 test classes (Redis RESP protocol, storage engine, manifest recovery, WAL corruption recovery, multi-threaded concurrency, and HTTP integration) with JVM assertions (`-ea`) enabled.
-
-2. **Package Standalone JAR:**
-   ```bash
-   mvn clean package
-   ```
-   Builds the executable JAR at `target/redis-java-clone-1.0.0.jar`.
-
-3. **Run the Server:**
-   ```bash
-   java -jar target/redis-java-clone-1.0.0.jar
-   ```
-
-### Manual Compilation (Alternative)
-
-Run from the project root in Windows PowerShell:
-
-```powershell
-javac --release 17 -d out (Get-ChildItem .\src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
-java -cp out Main
-```
-
-## Example Redis Commands
-
-Connect via standard `redis-cli` or any Redis client library:
-
-```bash
-redis-cli -p 6379 PING
-redis-cli -p 6379 ECHO "Hello World"
-redis-cli -p 6379 SET user:1001 '{"name":"Alice","role":"admin"}'
-redis-cli -p 6379 GET user:1001
-redis-cli -p 6379 SET session:temp "active" PX 5000
-redis-cli -p 6379 GET session:temp
-```
-
-## Test Results
-
-The full test suite execution verified via `mvn clean test`:
-
-| Test Suite | Result |
-|---|---|
-| `RedisServerTest` | 37 tests passed, 0 failed (RESP, TCP streams, TTL expiry, 50 parallel clients) |
-| `BloomFilterTest` | Passed (100% true-positive accuracy for existing keys) |
-| `RedisStoreRecoveryTest` | Passed (Survives restart, expired keys passively evicted) |
-| `SSTableManifestTest` | 8 tests passed (Manifest round-trip, invalid IDs, corrupted entry, duplicate detection) |
-| `SSTableTest` | Passed (1,000-key sparse-index lookups + LRU cache capacity and eviction) |
-| `StorageEngineCompactionTest` | Passed (Compaction restart recovery with single-table merge) |
-| `StorageEngineCompactionWalTest` | Passed (Compaction preserves unflushed WAL records) |
-| `StorageEngineConcurrencyTest` | Passed (8 concurrent workers, 800 keys, parallel writes/reads/flushes) |
-| `StorageEngineConcurrentDeleteTest` | Passed (400 concurrent deletes, flushes, and restart recovery) |
-| `StorageEngineOrphanSSTableTest` | Passed (Orphan SSTable recovery and subsequent flush) |
-| `StorageEngineTest` | 5 tests passed (Restart recovery, delete & snapshot, tombstone flush/recovery) |
-| `StorageEngineWalRecoveryTest` | Passed (Unflushed PUT and DELETE recovery) |
-| `WriteAheadLogTest` | 7 tests passed (Replay, restart recovery, incomplete tail, CRC32 corruption detection) |
-| `WebServerIntegrationTest` | Passed (HTML served, CSS/JS verified, health API, PUT, GET, keys list, DELETE) |
-| **Overall Summary** | **14 / 14 Passed (0 Failures, 100% Pass Rate)** |
-
-## Current Limitations
-
-This is an educational Java server and storage-engine project:
-
-- Distributed consensus algorithms (e.g. Raft/Paxos) are not implemented.
-- Storage engine compaction is currently single-generation rather than tiered/leveled LSM.
-- Full power-loss durability across every filesystem condition requires hardware-level write barriers (`fsync` tuning).
-
-## Repository
-
-GitHub: https://github.com/rahamanmursalim-create/DistributedKVStore
-
+See [LICENSE](LICENSE) for the license and copyright notice included with this repository.
