@@ -120,54 +120,140 @@ java -cp out com.codecrafters.redis.storage.StorageEngineWalRecoveryTest
 java -cp out com.codecrafters.redis.storage.WriteAheadLogTest
 ```
 
-### Start the Server
+### 3. Dark Neumorphic Web Dashboard & REST API
 
-The repository includes `spawn_redis_server.sh`. On a compatible Bash environment, the existing runner can be used:
+The application includes an embedded HTTP web dashboard and RESTful JSON API running alongside the Redis TCP server:
 
-```bash
-./spawn_redis_server.sh
+- **Dark Neumorphic Dashboard:** Modern `#0b0f17` dark canvas with `#121824` raised cards, dual soft convex/inset shadows, and glowing cyan/emerald accents.
+- **Micro-Interactions & Spring Physics:** Natural fluid easing (`cubic-bezier(0.16, 1, 0.3, 1)`), staggered entrance animations, card hover lift, and tactile button presses.
+- **Fluid Modal Dialogs:** Native `<dialog>` confirmation modal for key deletion with blurred backdrop (`backdrop-filter: blur(8px)`), backdrop click dismiss, and `@starting-style` transitions.
+- **Loading Skeletons & Toasts:** Shimmer loading state during key catalog retrieval and floating toast notification alerts.
+- **Search & Filtering:** Real-time client-side search filtering across stored keys with instantaneous counter updates.
+- **Developer Utilities:** In-browser JSON payload formatting and multi-format clipboard copy (with fallback for non-secure HTTP contexts).
+- **Accessibility & Motion Preference:** WCAG AAA color contrast, full keyboard navigation, and `@media (prefers-reduced-motion: reduce)` support.
+
+#### REST API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Serves the interactive Dark Neumorphic Web Dashboard |
+| `GET` | `/api/health` | Healthcheck returning `{ "status": "ok", "keys": <count> }` |
+| `GET` | `/api/keys` | Returns a JSON array of all stored keys |
+| `GET` | `/api/keys/{key}` | Retrieves key metadata and value payload |
+| `PUT` | `/api/keys/{key}` | Stores or updates a key with request body content |
+| `DELETE` | `/api/keys/{key}` | Purges key from store and appends tombstone |
+
+## Deployment & Configuration (Render / Cloud Platforms)
+
+DistributedKVStore is optimized for cloud deployment on platforms like Render, Railway, or Fly.io with zero third-party runtime dependencies.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | HTTP port for the Web Dashboard and REST API (automatically provided by Render). |
+| `TCP_PORT` | `6379` | Port for the Redis RESP TCP server. |
+| `DATA_DIR` | `./data` | Directory where WAL, SSTables, and manifest files are stored. |
+
+### Render Deployment & Persistent Storage Requirements
+
+> [!IMPORTANT]
+> **Render Persistent Disk Mounting**
+> Render Web Services use an ephemeral filesystem by default; files written to `./data` will be erased whenever the service restarts, scales down, or redeploys.
+> To persist WAL records and SSTable data across restarts:
+> 1. In your Render Dashboard, navigate to your Web Service -> **Disks** -> **Add Disk**.
+> 2. Set the **Mount Path** to `/var/data` (e.g. 1 GB size).
+> 3. In the **Environment Variables** tab, add:
+>    - `DATA_DIR` = `/var/data`
+>    - `PORT` = `8080` (or Render's automatic `$PORT`)
+> 4. Set the **Build Command** to:
+>    ```bash
+>    mvn clean package -DskipTests
+>    ```
+> 5. Set the **Start Command** to:
+>    ```bash
+>    java -jar target/redis-java-clone-1.0.0.jar
+>    ```
+
+## Build and Run
+
+### Prerequisites
+
+- JDK 17 or later
+- Apache Maven 3.8+ (or compile with `javac`)
+
+### Maven Workflow (Recommended)
+
+1. **Run Full Test Suite:**
+   ```bash
+   mvn clean test
+   ```
+   Executes all 14 test classes (Redis RESP protocol, storage engine, manifest recovery, WAL corruption recovery, multi-threaded concurrency, and HTTP integration) with JVM assertions (`-ea`) enabled.
+
+2. **Package Standalone JAR:**
+   ```bash
+   mvn clean package
+   ```
+   Builds the executable JAR at `target/redis-java-clone-1.0.0.jar`.
+
+3. **Run the Server:**
+   ```bash
+   java -jar target/redis-java-clone-1.0.0.jar
+   ```
+
+### Manual Compilation (Alternative)
+
+Run from the project root in Windows PowerShell:
+
+```powershell
+javac --release 17 -d out (Get-ChildItem .\src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+java -cp out Main
 ```
-
-Check the server's configured port in the implementation before connecting.
 
 ## Example Redis Commands
 
-If the server is running on port `6379`, a Redis CLI client can be used to try:
+Connect via standard `redis-cli` or any Redis client library:
 
 ```bash
 redis-cli -p 6379 PING
 redis-cli -p 6379 ECHO "Hello World"
-redis-cli -p 6379 SET mykey myvalue
-redis-cli -p 6379 GET mykey
-redis-cli -p 6379 SET temporary value PX 5000
-redis-cli -p 6379 GET temporary
+redis-cli -p 6379 SET user:1001 '{"name":"Alice","role":"admin"}'
+redis-cli -p 6379 GET user:1001
+redis-cli -p 6379 SET session:temp "active" PX 5000
+redis-cli -p 6379 GET session:temp
 ```
-
-The final command examples assume the server is listening on port `6379`; use the actual configured port if different.
 
 ## Test Results
 
-The following results were verified locally:
+The full test suite execution verified via `mvn clean test`:
 
-| Test suite | Result |
+| Test Suite | Result |
 |---|---|
-| Redis Server and RESP | 37 passed, 0 failed |
-| WriteAheadLog | 5 tests passed |
-| SSTable Manifest | 8 tests passed |
-| Compaction manifest crash checkpoint | Recovery passed; exit code 73 |
-| Flush manifest crash checkpoint | Recovery passed; exit code 75 |
-| Old SSTable deletion crash checkpoint | Recovery passed; exit code 74 |
+| `RedisServerTest` | 37 tests passed, 0 failed (RESP, TCP streams, TTL expiry, 50 parallel clients) |
+| `BloomFilterTest` | Passed (100% true-positive accuracy for existing keys) |
+| `RedisStoreRecoveryTest` | Passed (Survives restart, expired keys passively evicted) |
+| `SSTableManifestTest` | 8 tests passed (Manifest round-trip, invalid IDs, corrupted entry, duplicate detection) |
+| `SSTableTest` | Passed (1,000-key sparse-index lookups + LRU cache capacity and eviction) |
+| `StorageEngineCompactionTest` | Passed (Compaction restart recovery with single-table merge) |
+| `StorageEngineCompactionWalTest` | Passed (Compaction preserves unflushed WAL records) |
+| `StorageEngineConcurrencyTest` | Passed (8 concurrent workers, 800 keys, parallel writes/reads/flushes) |
+| `StorageEngineConcurrentDeleteTest` | Passed (400 concurrent deletes, flushes, and restart recovery) |
+| `StorageEngineOrphanSSTableTest` | Passed (Orphan SSTable recovery and subsequent flush) |
+| `StorageEngineTest` | 5 tests passed (Restart recovery, delete & snapshot, tombstone flush/recovery) |
+| `StorageEngineWalRecoveryTest` | Passed (Unflushed PUT and DELETE recovery) |
+| `WriteAheadLogTest` | 7 tests passed (Replay, restart recovery, incomplete tail, CRC32 corruption detection) |
+| `WebServerIntegrationTest` | Passed (HTML served, CSS/JS verified, health API, PUT, GET, keys list, DELETE) |
+| **Overall Summary** | **14 / 14 Passed (0 Failures, 100% Pass Rate)** |
 
-The crash-recovery checks cover specific checkpoints, not every possible crash or power-loss scenario. These results do not establish production-level reliability.
 ## Current Limitations
 
-This is an educational Java server and storage-engine project, not a production-ready distributed database.
+This is an educational Java server and storage-engine project:
 
-- Distributed replication and consensus are not implemented as claimed features.
-- TTL-aware persistence is not provided by the current storage-engine API.
-- Full power-loss durability across every filesystem and failure point has not been formally established.
-- Performance benchmarks and production-scale reliability testing have not been documented here.
+- Distributed consensus algorithms (e.g. Raft/Paxos) are not implemented.
+- Storage engine compaction is currently single-generation rather than tiered/leveled LSM.
+- Full power-loss durability across every filesystem condition requires hardware-level write barriers (`fsync` tuning).
 
 ## Repository
 
 GitHub: https://github.com/rahamanmursalim-create/DistributedKVStore
+

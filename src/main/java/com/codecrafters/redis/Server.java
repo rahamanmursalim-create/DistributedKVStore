@@ -1,3 +1,4 @@
+
 package com.codecrafters.redis;
 
 import com.codecrafters.redis.command.CommandHandler;
@@ -12,13 +13,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Multi-threaded TCP Redis Server.
- */
 public class Server implements AutoCloseable {
     public static final int DEFAULT_PORT = 6379;
+
     private final int port;
     private final RedisStore store;
+    private final boolean ownsStore;
     private final CommandHandler commandHandler;
     private final ExecutorService executor;
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -29,27 +29,33 @@ public class Server implements AutoCloseable {
     }
 
     public Server(int port) {
+        this(port, new RedisStore(), true);
+    }
+
+    public Server(int port, RedisStore store) {
+        this(port, store, false);
+    }
+
+    private Server(int port, RedisStore store, boolean ownsStore) {
         this.port = port;
-        this.store = new RedisStore();
+        this.store = store;
+        this.ownsStore = ownsStore;
         this.commandHandler = new CommandHandler(store);
         this.executor = createExecutorService();
     }
 
     private static ExecutorService createExecutorService() {
         try {
-            // Check if Java 21+ Virtual Threads are available
             return (ExecutorService) Executors.class
                     .getMethod("newVirtualThreadPerTaskExecutor")
                     .invoke(null);
         } catch (Throwable ignored) {
-            // Fallback to standard cached thread pool for older JDKs
             return Executors.newCachedThreadPool();
         }
     }
 
     public void start() throws IOException {
         serverSocket = new ServerSocket();
-        // Mandatory requirement: setReuseAddress(true) before binding
         serverSocket.setReuseAddress(true);
         serverSocket.bind(new InetSocketAddress(port));
         running.set(true);
@@ -84,12 +90,14 @@ public class Server implements AutoCloseable {
     @Override
     public void close() {
         running.set(false);
+
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {
                 serverSocket.close();
             } catch (IOException ignored) {
             }
         }
+
         executor.shutdown();
         try {
             if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
@@ -99,7 +107,10 @@ public class Server implements AutoCloseable {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        store.close();
+
+        if (ownsStore) {
+            store.close();
+        }
     }
 
     public RedisStore getStore() {

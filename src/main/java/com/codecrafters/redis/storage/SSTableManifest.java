@@ -1,4 +1,3 @@
-
 package com.codecrafters.redis.storage;
 
 import java.io.IOException;
@@ -59,7 +58,7 @@ public final class SSTableManifest {
         return ids;
     }
 
-    public void save(List<Long> ids) throws IOException {
+    public synchronized void save(List<Long> ids) throws IOException {
         if (ids == null) {
             throw new IllegalArgumentException("SSTable IDs must not be null");
         }
@@ -87,18 +86,35 @@ public final class SSTableManifest {
 
             Files.write(temp, lines, StandardCharsets.UTF_8);
 
-            try {
-                Files.move(
-                        temp, file,
-                        StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING);
-            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-                Files.move(
-                        temp, file,
-                        StandardCopyOption.REPLACE_EXISTING);
+            IOException lastEx = null;
+            for (int attempt = 0; attempt < 10; attempt++) {
+                try {
+                    try {
+                        Files.move(
+                                temp, file,
+                                StandardCopyOption.ATOMIC_MOVE,
+                                StandardCopyOption.REPLACE_EXISTING);
+                    } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                        Files.move(
+                                temp, file,
+                                StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    published = true;
+                    break;
+                } catch (IOException e) {
+                    lastEx = e;
+                    try {
+                        Thread.sleep(15);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Interrupted while renaming manifest", ie);
+                    }
+                }
             }
 
-            published = true;
+            if (!published && lastEx != null) {
+                throw lastEx;
+            }
         } finally {
             if (!published) {
                 Files.deleteIfExists(temp);
