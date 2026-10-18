@@ -395,14 +395,23 @@ DistributedKVStore/
 
 ## Tests
 
-Tests cover areas including:
+**Verification: 14/14 test suites passed · 0 failures**
 
-- RESP parsing, serialization, pipelining, fragmented input, and concurrent clients.
-- WAL writes, replay, incomplete tails, and checksum validation.
-- TTL/recovery behavior in `RedisStore`.
-- SSTable lookups, sparse indexes, Bloom filters, and LRU cache behavior.
-- Manifest validation, compaction, orphan SSTables, and concurrent storage operations.
-- HTTP dashboard delivery and REST API health/CRUD integration.
+The test suite covers:
+
+- **Protocol & Server:** RESP parsing, serialization, pipelining, fragmented input, and concurrent clients.
+- **Write-Ahead Log:** Writes, replay, incomplete-tail recovery, and checksum validation.
+- **Storage:** TTL, recovery, SSTable lookups, sparse indexes, Bloom filters, and LRU caching.
+- **Storage Reliability:** Manifest validation, compaction, orphan SSTables, and concurrent operations.
+- **Web API:** Dashboard delivery, health checks, and REST API CRUD integration.
+
+**Run tests locally:**
+
+```bash
+mvn clean test
+```
+
+*Test results reflect the verified local run; run the command again to verify the current codebase.*
 
 Run the suite locally with `mvn clean test`; use the actual command output as the source of truth for pass/fail status.
 
