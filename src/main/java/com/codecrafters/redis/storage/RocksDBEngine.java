@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -796,7 +797,6 @@ public class RocksDBEngine implements StorageEngine {
             super(start, end);
         }
     }
-}
 
     @Override
     public Iterator<Map.Entry<byte[], byte[]>> rangeIterator(byte[] startKey, byte[] endKey) {
@@ -825,3 +825,6 @@ public class RocksDBEngine implements StorageEngine {
                 iter.next();
                 return new AbstractMap.SimpleImmutableEntry<>(key, value);
             }
+        };
+    }
+}

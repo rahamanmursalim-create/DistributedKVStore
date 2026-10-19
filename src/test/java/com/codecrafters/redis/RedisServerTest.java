@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -34,6 +36,7 @@ public class RedisServerTest {
         testRespSerialization();
         testRespParsing();
         testRespFragmentedParsing();
+        testRespRejectsOversizedLengths();
         testRedisStoreBasic();
         testRedisStoreExpiry();
         testLiveServerStages();
@@ -146,9 +149,29 @@ public class RedisServerTest {
         assertEquals("Parsed fragmented arg", "hello world", val.getArrayValue().get(1).getStringValue());
     }
 
-    private static void testRedisStoreBasic() {
+    private static void testRespRejectsOversizedLengths() throws IOException {
+        System.out.println("\n--- Test RESP Input Limits ---");
+
+        assertRespRejected("oversized bulk string", "$67108865\\r\\n");
+        assertRespRejected("oversized array", "*1000001\\r\\n");
+        assertRespRejected("malformed length", "$not-a-number\\r\\n");
+        assertRespRejected("oversized line", "+" + "x".repeat(65_537) + "\\r\\n");
+    }
+
+    private static void assertRespRejected(String name, String input) throws IOException {
+        try {
+            new RespReader(new ByteArrayInputStream(
+                    input.getBytes(StandardCharsets.UTF_8))).read();
+            assertTrue("Reject " + name, false, "Input was accepted");
+        } catch (IOException expected) {
+            assertTrue("Reject " + name, true, "");
+        }
+    }
+
+    private static void testRedisStoreBasic() throws IOException {
         System.out.println("\n--- Test RedisStore In-Memory & Commands ---");
-        try (RedisStore store = new RedisStore(false)) {
+        try (RedisStore store = new RedisStore(
+                Files.createTempDirectory("redis-store-basic-").resolve("wal.log"), false)) {
             store.set("foo", "bar");
             assertEquals("Get existing key", "bar", store.get("foo"));
             assertEquals("Get non-existing key", null, store.get("nonexistent"));
@@ -158,9 +181,10 @@ public class RedisServerTest {
         }
     }
 
-    private static void testRedisStoreExpiry() throws InterruptedException {
+    private static void testRedisStoreExpiry() throws IOException, InterruptedException {
         System.out.println("\n--- Test RedisStore Key Expiry (PX) ---");
-        try (RedisStore store = new RedisStore(false)) {
+        try (RedisStore store = new RedisStore(
+                Files.createTempDirectory("redis-store-expiry-").resolve("wal.log"), false)) {
             // Set with 100ms expiry
             store.set("tempKey", "tempValue", 100);
             assertEquals("Get before expiry", "tempValue", store.get("tempKey"));
@@ -177,7 +201,9 @@ public class RedisServerTest {
         System.out.println("\n--- Test Live Server End-to-End Across All Stages ---");
 
         int testPort = 6380;
-        Server server = new Server(testPort);
+        RedisStore serverStore = new RedisStore(
+                Files.createTempDirectory("redis-server-integration-").resolve("wal.log"), false);
+        Server server = new Server(testPort, serverStore);
 
         Thread serverThread = new Thread(() -> {
             try {
@@ -326,6 +352,7 @@ public class RedisServerTest {
         } finally {
             server.stop();
             serverThread.join(2000);
+            serverStore.close();
         }
     }
 }

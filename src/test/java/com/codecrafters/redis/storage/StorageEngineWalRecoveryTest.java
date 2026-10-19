@@ -2,25 +2,11 @@ package com.codecrafters.redis.storage;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 
 public class StorageEngineWalRecoveryTest {
 
     public static void main(String[] args) throws Exception {
-        Path dir = Path.of("test-data", "wal-recovery");
-
-        if (Files.exists(dir)) {
-            try (var paths = Files.walk(dir)) {
-                paths.sorted(Comparator.reverseOrder())
-                        .forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-            }
-        }
+        Path dir = Files.createTempDirectory("storage-engine-wal-recovery-");
 
         // Write data without flushing the MemTable.
         StorageEngine first = new StorageEngine(dir);
@@ -52,6 +38,25 @@ public class StorageEngineWalRecoveryTest {
         System.out.println("TEST 2 PASSED: Unflushed DELETE recovery");
 
         third.close();
+
+        // An expired WAL value must not reappear on restart, including when
+        // an older SSTable contains a value for the same key.
+        Path expiryDir = dir.resolve("expiry");
+        StorageEngine expiryWriter = new StorageEngine(expiryDir);
+        expiryWriter.put("expired", "old");
+        expiryWriter.flush();
+        expiryWriter.close();
+        try (WriteAheadLog expiryWal = new WriteAheadLog(
+                expiryDir.resolve("memtable-00000000000000000002.wal"))) {
+            expiryWal.appendPut("expired", "short-lived",
+                    System.currentTimeMillis() - 1);
+        }
+
+        StorageEngine expiryReader = new StorageEngine(expiryDir);
+        check(expiryReader.get("expired") == null,
+                "Expired WAL value resurrected an older SSTable value");
+        expiryReader.close();
+
         System.out.println("ALL STORAGE ENGINE WAL RECOVERY TESTS PASSED");
     }
 

@@ -140,8 +140,14 @@ public final class StorageEngine implements AutoCloseable {
                 for (WriteAheadLog.Record record : recoveryWal.replay()) {
                     if (record.getOperation()
                             == WriteAheadLog.Operation.PUT) {
-                        memTable.put(
-                                record.getKey(), record.getValue());
+                        long expiry = record.getExpiryEpochMillis();
+                        if (expiry >= 0 && expiry <= System.currentTimeMillis()) {
+                            // Preserve expiration as a tombstone so an older
+                            // SSTable value cannot reappear after restart.
+                            memTable.delete(record.getKey());
+                        } else {
+                            memTable.put(record.getKey(), record.getValue());
+                        }
                     } else if (record.getOperation()
                             == WriteAheadLog.Operation.DELETE) {
                         memTable.delete(record.getKey());

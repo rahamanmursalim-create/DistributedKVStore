@@ -30,6 +30,9 @@ public class AllTestsRunner {
         String classpath = testClassesPath + File.pathSeparator + classesPath + File.pathSeparator + System.getProperty("java.class.path");
 
         List<String> testClasses = discoverTestClasses();
+        // #region agent log
+        debugLog("D", "AllTestsRunner.java:discover", "discovered tests", "{\"count\":" + testClasses.size() + "}");
+        // #endregion
         if (testClasses.isEmpty()) {
             System.err.println("No test classes found to execute!");
             System.exit(1);
@@ -60,10 +63,16 @@ public class AllTestsRunner {
             if (exitCode == 0) {
                 passed++;
                 System.out.println("   [PASS] " + className + " (" + duration + "ms)");
+                // #region agent log
+                debugLog("D", "AllTestsRunner.java:pass", "test passed", "{\"className\":\"" + className + "\",\"durationMs\":" + duration + "}");
+                // #endregion
             } else {
                 failed++;
                 failedNames.add(className);
                 System.err.println("   [FAIL] " + className + " (exit code " + exitCode + ")");
+                // #region agent log
+                debugLog("D", "AllTestsRunner.java:fail", "test failed", "{\"className\":\"" + className + "\",\"exitCode\":" + exitCode + ",\"durationMs\":" + duration + "}");
+                // #endregion
             }
         }
 
@@ -73,12 +82,28 @@ public class AllTestsRunner {
         System.out.println("Total:  " + testClasses.size());
         System.out.println("Passed: " + passed);
         System.out.println("Failed: " + failed);
+        // #region agent log
+        debugLog("D", "AllTestsRunner.java:summary", "test summary", "{\"total\":" + testClasses.size() + ",\"passed\":" + passed + ",\"failed\":" + failed + "}");
+        // #endregion
 
         if (failed > 0) {
             System.err.println("Failed classes: " + failedNames);
             System.exit(1);
         }
     }
+
+    // #region agent log
+    private static void debugLog(String hypothesisId, String location, String message, String dataJson) {
+        try {
+            String line = "{\"sessionId\":\"2c6764\",\"runId\":\"pre-fix\",\"hypothesisId\":\"" + hypothesisId
+                    + "\",\"location\":\"" + location + "\",\"message\":\"" + message
+                    + "\",\"data\":" + dataJson + ",\"timestamp\":" + System.currentTimeMillis() + "}\n";
+            Files.writeString(Path.of("C:\\Users\\mursa\\Downloads\\DistributedKVStore\\debug-2c6764.log"),
+                    line, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (Exception ignored) {
+        }
+    }
+    // #endregion
 
     private static List<String> discoverTestClasses() {
         List<String> result = new ArrayList<>();

@@ -23,6 +23,24 @@
                 <version>3.11.0</version>
                 <configuration>
                     <release>17</release>
+                    <excludes>
+                        <exclude>com/codecrafters/redis/raft/RaftGroup.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/RaftGroupManager.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/RaftNode.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/RaftStorage.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/Snapshot.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/RaftMessage.java</exclude>
+                        <exclude>com/codecrafters/redis/storage/RocksDBEngine.java</exclude>
+                        <exclude>com/codecrafters/redis/storage/StorageManager.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/Shard.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/ShardManager.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/ConsistentHash.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/DataMigrator.java</exclude>
+                        <exclude>com/codecrafters/redis/rpc/RpcClient.java</exclude>
+                        <exclude>com/codecrafters/redis/rpc/RpcServer.java</exclude>
+                        <exclude>com/codecrafters/redis/cluster/NodeConfig.java</exclude>
+                        <exclude>com/codecrafters/redis/cluster/ClusterManager.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 

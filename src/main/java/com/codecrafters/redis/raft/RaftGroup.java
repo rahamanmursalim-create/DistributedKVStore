@@ -174,6 +174,105 @@ public class RaftGroup {
 
         try {
             // Create command
+            byte[] command = KVStateMachine.createPutCommand(key, value);
+
+            // Append to log
+            return raftNode.appendEntry(command)
+                    .thenApply(result -> {
+                        metrics.counter("put.success").inc();
+                        return Result.success(null);
+                    })
+                    .exceptionally(ex -> {
+                        metrics.counter("put.failure").inc();
+                        LOGGER.log(Level.WARNING, "Failed to put key", ex);
+                        return Result.failure("Failed to put key: " + ex.getMessage());
+                    });
+        } catch (Exception e) {
+            metrics.counter("put.error").inc();
+            LOGGER.log(Level.WARNING, "Error creating put command", e);
+            return CompletableFuture.completedFuture(
+                    Result.failure("Error creating put command: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Gets the value for a key using the ReadIndex protocol.
+     *
+     * @param key The key
+     * @return A future that completes with a result containing the value or an error
+     */
+    public CompletableFuture<Result<byte[]>> get(byte[] key) {
+        if (!running.get()) {
+            return CompletableFuture.completedFuture(
+                    Result.failure("Group is not running"));
+        }
+
+        metrics.counter("get").inc();
+
+        return raftNode.readWithReadIndex(key)
+                .thenApply(value -> {
+                    if (value == null) {
+                        metrics.counter("get.notfound").inc();
+                        return Result.success(null);
+                    } else {
+                        metrics.counter("get.success").inc();
+                        return Result.success(value);
+                    }
+                })
+                .exceptionally(ex -> {
+                    metrics.counter("get.failure").inc();
+                    LOGGER.log(Level.WARNING, "Failed to get key", ex);
+                    return Result.failure("Failed to get key: " + ex.getMessage());
+                });
+    }
+
+    /**
+     * Gets the value for a key using the FollowerRead protocol.
+     *
+     * @param key The key
+     * @return A future that completes with a result containing the value or an error
+     */
+    public CompletableFuture<Result<byte[]>> getWithFollowerRead(byte[] key) {
+        if (!running.get()) {
+            return CompletableFuture.completedFuture(
+                    Result.failure("Group is not running"));
+        }
+
+        metrics.counter("get.followerread").inc();
+
+        return raftNode.readWithFollowerRead(key)
+                .thenApply(value -> {
+                    if (value == null) {
+                        metrics.counter("get.followerread.notfound").inc();
+                        return Result.success(null);
+                    } else {
+                        metrics.counter("get.followerread.success").inc();
+                        return Result.success(value);
+                    }
+                })
+                .exceptionally(ex -> {
+                    metrics.counter("get.followerread.failure").inc();
+                    LOGGER.log(Level.WARNING, "Failed to get key with follower read", ex);
+                    return Result.failure("Failed to get key with follower read: " + ex.getMessage());
+                });
+    }
+
+    /**
+     * Deletes a key.
+     *
+     * @param key The key
+     * @return A future that completes with a result indicating success or failure
+     */
+    public CompletableFuture<Result<Boolean>> delete(byte[] key) {
+        if (!running.get()) {
+            return CompletableFuture.completedFuture(
+                    Result.failure("Group is not running"));
+        }
+
+        metrics.counter("delete").inc();
+
+        try {
+            // Create command
             byte[] command = KVStateMachine.createDeleteCommand(key);
 
             // Append to log
@@ -340,103 +439,4 @@ public class RaftGroup {
             return System.currentTimeMillis() - lastActivityTime > timeoutMs;
         }
     }
-}.createPutCommand(key, value);
-
-            // Append to log
-            return raftNode.appendEntry(command)
-                    .thenApply(result -> {
-                        metrics.counter("put.success").inc();
-                        return Result.success(null);
-                    })
-                    .exceptionally(ex -> {
-                        metrics.counter("put.failure").inc();
-                        LOGGER.log(Level.WARNING, "Failed to put key", ex);
-                        return Result.failure("Failed to put key: " + ex.getMessage());
-                    });
-        } catch (Exception e) {
-            metrics.counter("put.error").inc();
-            LOGGER.log(Level.WARNING, "Error creating put command", e);
-            return CompletableFuture.completedFuture(
-                    Result.failure("Error creating put command: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Gets the value for a key using the ReadIndex protocol.
-     *
-     * @param key The key
-     * @return A future that completes with a result containing the value or an error
-     */
-    public CompletableFuture<Result<byte[]>> get(byte[] key) {
-        if (!running.get()) {
-            return CompletableFuture.completedFuture(
-                    Result.failure("Group is not running"));
-        }
-
-        metrics.counter("get").inc();
-
-        return raftNode.readWithReadIndex(key)
-                .thenApply(value -> {
-                    if (value == null) {
-                        metrics.counter("get.notfound").inc();
-                        return Result.success(null);
-                    } else {
-                        metrics.counter("get.success").inc();
-                        return Result.success(value);
-                    }
-                })
-                .exceptionally(ex -> {
-                    metrics.counter("get.failure").inc();
-                    LOGGER.log(Level.WARNING, "Failed to get key", ex);
-                    return Result.failure("Failed to get key: " + ex.getMessage());
-                });
-    }
-
-    /**
-     * Gets the value for a key using the FollowerRead protocol.
-     *
-     * @param key The key
-     * @return A future that completes with a result containing the value or an error
-     */
-    public CompletableFuture<Result<byte[]>> getWithFollowerRead(byte[] key) {
-        if (!running.get()) {
-            return CompletableFuture.completedFuture(
-                    Result.failure("Group is not running"));
-        }
-
-        metrics.counter("get.followerread").inc();
-
-        return raftNode.readWithFollowerRead(key)
-                .thenApply(value -> {
-                    if (value == null) {
-                        metrics.counter("get.followerread.notfound").inc();
-                        return Result.success(null);
-                    } else {
-                        metrics.counter("get.followerread.success").inc();
-                        return Result.success(value);
-                    }
-                })
-                .exceptionally(ex -> {
-                    metrics.counter("get.followerread.failure").inc();
-                    LOGGER.log(Level.WARNING, "Failed to get key with follower read", ex);
-                    return Result.failure("Failed to get key with follower read: " + ex.getMessage());
-                });
-    }
-
-    /**
-     * Deletes a key.
-     *
-     * @param key The key
-     * @return A future that completes with a result indicating success or failure
-     */
-    public CompletableFuture<Result<Boolean>> delete(byte[] key) {
-        if (!running.get()) {
-            return CompletableFuture.completedFuture(
-                    Result.failure("Group is not running"));
-        }
-
-        metrics.counter("delete").inc();
-
-        try {
-            // Create command
-            byte[] command = KVStateMachine
+}

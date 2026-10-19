@@ -14,6 +14,9 @@ import java.util.List;
  * as well as inline commands (e.g. from netcat / telnet).
  */
 public class RespReader {
+    private static final int MAX_LINE_BYTES = 64 * 1024;
+    private static final int MAX_BULK_STRING_BYTES = 64 * 1024 * 1024;
+    private static final int MAX_ARRAY_ELEMENTS = 1_000_000;
     private final InputStream in;
 
     public RespReader(InputStream in) {
@@ -52,12 +55,15 @@ public class RespReader {
 
     private RespValue readBulkString() throws IOException {
         String lengthLine = readLine();
-        int length = Integer.parseInt(lengthLine);
+        int length = parseLength(lengthLine, "bulk string");
         if (length == -1) {
             return RespValue.nullBulkString();
         }
         if (length < 0) {
             throw new IOException("Invalid bulk string length: " + length);
+        }
+        if (length > MAX_BULK_STRING_BYTES) {
+            throw new IOException("Bulk string exceeds maximum size");
         }
 
         byte[] buffer = readExactNBytes(length);
@@ -79,12 +85,15 @@ public class RespReader {
 
     private RespValue readArray() throws IOException {
         String countLine = readLine();
-        int count = Integer.parseInt(countLine);
+        int count = parseLength(countLine, "array");
         if (count == -1) {
             return RespValue.array(null);
         }
         if (count < 0) {
             throw new IOException("Invalid array length: " + count);
+        }
+        if (count > MAX_ARRAY_ELEMENTS) {
+            throw new IOException("Array exceeds maximum element count");
         }
 
         List<RespValue> elements = new ArrayList<>(count);
@@ -150,11 +159,22 @@ public class RespReader {
                 break;
             }
             buffer.write(b);
+            if (buffer.size() > MAX_LINE_BYTES) {
+                throw new IOException("RESP line exceeds maximum size");
+            }
         }
         if (b == -1 && buffer.size() == 0) {
             throw new EOFException("Unexpected EOF while reading line");
         }
         return buffer.toString(StandardCharsets.UTF_8);
+    }
+
+    private static int parseLength(String value, String kind) throws IOException {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IOException("Invalid " + kind + " length: " + value, e);
+        }
     }
 
     /**
