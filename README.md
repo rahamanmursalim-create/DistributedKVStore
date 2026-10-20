@@ -1,10 +1,6 @@
 # Distributed Key-Value Store
 
-A Java-based key-value storage project exploring persistent storage,
-Redis-style request handling, replication, sharding, and distributed
-coordination. The repository contains storage-engine components,
-network/protocol code, Raft-related components, shard management, a web
-API, and automated tests.
+DistributedKVStore is a Java-based key-value storage project focused on persistent storage, Redis-style request handling, replication, sharding, and distributed coordination. It brings together storage-engine components, networking and protocol handling, Raft-related components, and a web interface to explore the design of a distributed storage system.
 
 > **Project status:** This is an engineering and learning
 > implementation. The presence of a component in the repository does
@@ -36,6 +32,50 @@ persistent key-value database and related distributed-system components.
 Its code is organized around storage, client/server networking, protocol
 handling, replication/consensus, sharding, cluster management, and a web
 interface.
+
+## Features
+
+### TCP Server and Redis-Style Protocol
+- Concurrent TCP client handling with RESP request parsing and response serialization
+- Support for fragmented input and pipelined requests
+- Redis-style commands, including `PING`, `ECHO`, `SET`, `GET`, `DEL`, and `EXISTS`
+- Key expiration using `EX` and `PX` options
+- Additional commands for key listing, server information, and command metadata
+
+### Persistent Storage Engine
+- Write-Ahead Logging (WAL) with checksums and recovery
+- In-memory MemTable and sorted, immutable SSTables
+- Manifest-based SSTable tracking and recovery
+- Sparse-index lookups and Bloom filters
+- Bounded LRU record caching
+- Flush and compaction workflows
+- Tests for concurrent operations, deletion, restart recovery, and interrupted operations
+
+### HTTP Dashboard and REST API
+- Embedded web dashboard for interacting with stored key-value data
+- JSON health and key-list endpoints
+- REST operations for creating, reading, updating, and deleting keys
+- Search and filtering with loading feedback, notifications, and delete confirmation
+- Shared key-value access between the TCP service and HTTP API
+
+### Database and Storage Concepts
+- Key-value data access and expiration management
+- MVCC-related transaction components
+- RocksDB integration components
+- Separate storage-engine implementation for exploring LSM-style persistence
+
+### Distributed-System Components
+- Raft log and consensus-related components
+- Multi-Raft and replication-related code
+- RPC messaging, encoding, and validation
+- Cluster membership and node-management components
+- Consistent hashing, shard metadata, and data-migration components
+
+### Testing and Reliability
+- Unit and integration tests for protocol handling, networking, storage, and the HTTP API
+- WAL replay, checksum validation, and recovery tests
+- Storage concurrency, compaction, and deletion-recovery tests
+- Tests for Raft logs, RPC codecs, cluster membership, and shard metadata
 
 ## Architecture
 
@@ -104,12 +144,20 @@ every component is enabled in a default run.
 
 ## Technology Stack
 
--   **Language:** Java
--   **Build:** Apache Maven
--   **Storage:** custom storage classes and RocksDB integration classes
--   **Networking/protocol:** TCP/Netty-related code, RESP-style protocol
-    classes, RPC/message codecs
--   **Testing:** test classes under `src/test/java`
+## Technology Stack
+
+- **Programming Language:** Java
+- **Build Tool:** Apache Maven
+- **Distributed Systems:** Replication, Raft consensus, Multi-Raft, distributed coordination
+- **Sharding and Partitioning:** Consistent hashing, shard management, shard migration, and rebalancing
+- **Storage Technologies:** RocksDB, B+ Tree, LSM-tree-oriented storage, MemTable, SSTables, Write-Ahead Log (WAL), and storage manifests
+- **Database Concepts:** Key-value storage, MVCC, snapshot management, and transaction conflict handling
+- **Read/Write Optimization:** Asynchronous write batching, ReadIndex, and follower reads
+- **Networking:** TCP, Netty-related client/server components, connection handling, and RPC transport
+- **Protocols and Serialization:** RESP-style protocol, RPC messaging, message codecs, and Protobuf integration
+- **Cluster Management:** Cluster membership, node configuration, node status, and runtime configuration
+- **Observability:** Metrics, metrics registry, and HTTP dashboard/API
+- **Testing and Benchmarking:** Unit tests, integration tests, concurrency and recovery tests, and benchmark-oriented classes
 
 See [`pom.xml`](pom.xml) for configured dependencies, Java version, and
 build settings.
