@@ -4,12 +4,18 @@ A Java-based key-value storage project exploring persistent storage,
 Redis-style request handling, replication, sharding, and distributed
 coordination. The repository contains storage-engine components,
 network/protocol code, Raft-related components, shard management, a web
-API, and tests.
+API, and automated tests.
 
 > **Project status:** This is an engineering and learning
 > implementation. The presence of a component in the repository does
 > not, by itself, prove production readiness, a particular consistency
 > guarantee, or a specific performance level.
+
+Live Demo: Open DistributedKVStore Dashboard
+
+Health Check: View API Health Status
+
+Source Code: GitHub Repository
 
 ## Table of Contents
 
