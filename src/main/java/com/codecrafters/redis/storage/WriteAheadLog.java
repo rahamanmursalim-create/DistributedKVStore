@@ -26,6 +26,7 @@ public final class WriteAheadLog implements AutoCloseable {
     private static final String DEL = "DEL";
     private static final String PUT_CHECKSUM = "PUT2";
     private static final String DEL_CHECKSUM = "DEL2";
+    private static final String TXN_CHECKSUM = "TXN2";
 
     private final Path path;
     private FileChannel channel;
@@ -50,6 +51,40 @@ public final class WriteAheadLog implements AutoCloseable {
             throws IOException {
         String body = PUT_CHECKSUM + "\t" + encode(key) + "\t"
                 + encode(value) + "\t" + expiryEpochMillis;
+        appendAndSync(body + "\t" + checksum(body) + "\n");
+    }
+
+    /** Appends several PUT records and forces the WAL once for the entire batch. */
+    public synchronized void appendPuts(List<PutRecord> records) throws IOException {
+        ensureOpen();
+        if (records == null || records.isEmpty()) return;
+        StringBuilder batch = new StringBuilder();
+        for (PutRecord record : records) {
+            String body = PUT_CHECKSUM + "\t" + encode(record.key) + "\t"
+                    + encode(record.value) + "\t" + record.expiryEpochMillis;
+            batch.append(body).append('\t').append(checksum(body)).append('\n');
+        }
+        ByteBuffer buffer = StandardCharsets.UTF_8.encode(batch.toString());
+        while (buffer.hasRemaining()) channel.write(buffer);
+        channel.force(true);
+    }
+
+    /** Appends a complete atomic transaction as one checksummed WAL record. */
+    public synchronized void appendTransaction(java.util.Map<String, String> changes)
+            throws IOException {
+        ensureOpen();
+        if (changes == null || changes.isEmpty()) return;
+        StringBuilder payload = new StringBuilder();
+        for (java.util.Map.Entry<String, String> change : changes.entrySet()) {
+            if (change.getKey() == null) throw new IllegalArgumentException("Key cannot be null");
+            if (change.getValue() == null) {
+                payload.append("D\t").append(encode(change.getKey())).append('\n');
+            } else {
+                payload.append("P\t").append(encode(change.getKey())).append('\t')
+                        .append(encode(change.getValue())).append('\n');
+            }
+        }
+        String body = TXN_CHECKSUM + "\t" + encode(payload.toString());
         appendAndSync(body + "\t" + checksum(body) + "\n");
     }
 
@@ -105,6 +140,20 @@ public final class WriteAheadLog implements AutoCloseable {
                             decode(fields[2]),
                             Long.parseLong(fields[3])
                     ));
+                } else if (fields.length == 3 && TXN_CHECKSUM.equals(fields[0])) {
+                    verifyChecksum(line, fields[2]);
+                    String payload = decode(fields[1]);
+                    for (String operation : payload.split("\n")) {
+                        if (operation.isEmpty()) continue;
+                        String[] parts = operation.split("\t", -1);
+                        if (parts.length == 2 && "D".equals(parts[0])) {
+                            records.add(new Record(Operation.DELETE, decode(parts[1]), null, -1L));
+                        } else if (parts.length == 3 && "P".equals(parts[0])) {
+                            records.add(new Record(Operation.PUT, decode(parts[1]), decode(parts[2]), -1L));
+                        } else {
+                            throw new IOException("Invalid WAL transaction record");
+                        }
+                    }
                 } else if (fields.length == 3 && DEL_CHECKSUM.equals(fields[0])) {
                     verifyChecksum(line, fields[2]);
                     records.add(new Record(
@@ -180,6 +229,19 @@ public final class WriteAheadLog implements AutoCloseable {
 
     public enum Operation {
         PUT, DELETE
+    }
+
+    public static final class PutRecord {
+        private final String key;
+        private final String value;
+        private final long expiryEpochMillis;
+
+        public PutRecord(String key, String value, long expiryEpochMillis) {
+            if (key == null || value == null) throw new IllegalArgumentException("Key and value cannot be null");
+            this.key = key;
+            this.value = value;
+            this.expiryEpochMillis = expiryEpochMillis;
+        }
     }
 
     public static final class Record {

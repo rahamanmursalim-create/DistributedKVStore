@@ -6,22 +6,25 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
- * Thread-safe key-value store with TTL and WAL-backed restart recovery.
+ * Thread-safe key-value store with TTL and selectable WAL or RocksDB persistence.
  *
  * The WAL is written and synced before an in-memory mutation is published.
  * Default WAL location: ./data/wal.log (relative to the process working directory).
  */
-public class RedisStore implements AutoCloseable {
-    private final ConcurrentHashMap<String, ValueEntry> store = new ConcurrentHashMap<>();
+public class RedisStore implements AutoCloseable, KeyValueAccess {
+    private final BPlusTree<ValueEntry> store = new BPlusTree<>();
+    private final Map<String, Long> keyVersions = new HashMap<>();
+    private long commitVersion;
     private final ScheduledExecutorService cleanupExecutor;
     private final WriteAheadLog wal;
+    private final RocksDBBPlusTreeStore rocksDb;
 
     public RedisStore() {
         this(true);
@@ -32,11 +35,23 @@ public class RedisStore implements AutoCloseable {
     }
 
     public RedisStore(Path walPath, boolean enableBackgroundCleanup) {
+        this(openWal(walPath), null, enableBackgroundCleanup);
+    }
+
+    public static RedisStore usingRocksDB(Path directory, boolean enableBackgroundCleanup) {
+        try { return new RedisStore(null, new RocksDBBPlusTreeStore(directory), enableBackgroundCleanup); }
+        catch (IOException e) { throw new UncheckedIOException("Could not open RocksDB at " + directory, e); }
+    }
+
+    private RedisStore(WriteAheadLog wal, RocksDBBPlusTreeStore rocksDb, boolean enableBackgroundCleanup) {
+        this.wal = wal;
+        this.rocksDb = rocksDb;
         try {
-            this.wal = new WriteAheadLog(walPath);
-            recoverFromWal();
+            recoverFromStorage();
         } catch (IOException e) {
-            throw new UncheckedIOException("Could not open/recover WAL at " + walPath, e);
+            if (wal != null) try { wal.close(); } catch (IOException ignored) { }
+            if (rocksDb != null) rocksDb.close();
+            throw new UncheckedIOException("Could not recover storage", e);
         }
 
         if (enableBackgroundCleanup) {
@@ -52,9 +67,25 @@ public class RedisStore implements AutoCloseable {
         }
     }
 
-    private void recoverFromWal() throws IOException {
+    private static WriteAheadLog openWal(Path walPath) {
+        try { return new WriteAheadLog(walPath); }
+        catch (IOException e) { throw new UncheckedIOException("Could not open WAL at " + walPath, e); }
+    }
+
+    private void recoverFromStorage() throws IOException {
         long now = System.currentTimeMillis();
+        if (rocksDb != null) {
+            for (Map.Entry<String, ValueEntry> entry : rocksDb.entriesSnapshot().entrySet()) {
+                commitVersion++;
+                keyVersions.put(entry.getKey(), commitVersion);
+                if (entry.getValue().isExpired()) rocksDb.delete(entry.getKey());
+                else store.put(entry.getKey(), entry.getValue());
+            }
+            return;
+        }
         for (WriteAheadLog.Record record : wal.replay()) {
+            commitVersion++;
+            keyVersions.put(record.getKey(), commitVersion);
             if (record.getOperation() == WriteAheadLog.Operation.DELETE) {
                 store.remove(record.getKey());
             } else {
@@ -75,6 +106,28 @@ public class RedisStore implements AutoCloseable {
     public synchronized void set(String key, String value) {
         appendPut(key, value, -1L);
         store.put(key, new ValueEntry(value));
+        recordMutation(key);
+    }
+
+    /** Durably writes a batch with one WAL force, then publishes all values. */
+    public synchronized void setBatch(Map<String, String> values) {
+        if (values == null || values.isEmpty()) return;
+        List<WriteAheadLog.PutRecord> records = new ArrayList<>(values.size());
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null)
+                throw new IllegalArgumentException("Key and value cannot be null");
+            records.add(new WriteAheadLog.PutRecord(entry.getKey(), entry.getValue(), -1L));
+        }
+        try {
+            if (rocksDb != null) {
+                Map<String, ValueEntry> puts = new java.util.LinkedHashMap<>();
+                values.forEach((key, value) -> puts.put(key, new ValueEntry(value)));
+                rocksDb.applyBatch(puts, List.of());
+            } else wal.appendPuts(records);
+        } catch (IOException e) { throw new UncheckedIOException("Could not persist PUT batch", e); }
+        for (Map.Entry<String, String> entry : values.entrySet())
+            store.put(entry.getKey(), new ValueEntry(entry.getValue()));
+        recordMutations(values.keySet());
     }
 
     /** Stores a key with TTL relative to now, in milliseconds. */
@@ -86,6 +139,7 @@ public class RedisStore implements AutoCloseable {
         long expiryTimestamp = Math.addExact(System.currentTimeMillis(), expiryMillis);
         appendPut(key, value, expiryTimestamp);
         store.put(key, new ValueEntry(value, expiryTimestamp));
+        recordMutation(key);
     }
 
     /** Stores a key with an absolute Unix expiry timestamp in milliseconds. */
@@ -97,35 +151,39 @@ public class RedisStore implements AutoCloseable {
         }
         appendPut(key, value, expiryTimestampMillis);
         store.put(key, new ValueEntry(value, expiryTimestampMillis));
+        recordMutation(key);
     }
 
     private void appendPut(String key, String value, long expiryTimestamp) {
         try {
-            wal.appendPut(key, value, expiryTimestamp);
+            if (rocksDb != null) rocksDb.putEntry(key, new ValueEntry(value, expiryTimestamp));
+            else wal.appendPut(key, value, expiryTimestamp);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not persist PUT for key " + key, e);
         }
     }
 
-    public synchronized String get(String key) {
+    public String get(String key) {
         ValueEntry entry = store.get(key);
         if (entry == null) {
             return null;
         }
         if (entry.isExpired()) {
-            store.remove(key, entry);
+            store.removeIfSame(key, entry);
+            // The durable value retains its absolute expiry; avoid deleting a concurrent replacement.
             return null;
         }
         return entry.getValue();
     }
 
-    public synchronized ValueEntry getEntry(String key) {
+    public ValueEntry getEntry(String key) {
         ValueEntry entry = store.get(key);
         if (entry == null) {
             return null;
         }
         if (entry.isExpired()) {
-            store.remove(key, entry);
+            store.removeIfSame(key, entry);
+            // The durable value retains its absolute expiry; avoid deleting a concurrent replacement.
             return null;
         }
         return entry;
@@ -140,12 +198,9 @@ public class RedisStore implements AutoCloseable {
         for (String key : keys) {
             // Record the delete even when the key is absent, so an older PUT
             // cannot be resurrected during replay.
-            try {
-                wal.appendDelete(key);
-            } catch (IOException e) {
-                throw new UncheckedIOException("Could not persist DELETE for key " + key, e);
-            }
+            appendDelete(key);
             ValueEntry removed = store.remove(key);
+            recordMutation(key);
             if (removed != null && !removed.isExpired()) {
                 count++;
             }
@@ -153,15 +208,66 @@ public class RedisStore implements AutoCloseable {
         return count;
     }
 
+    /** Starts a repeatable-read snapshot transaction. */
+    public synchronized MVCCTransaction beginTransaction() {
+        Map<String, String> snapshot = new HashMap<>();
+        for (Map.Entry<String, ValueEntry> entry : store.snapshot().entrySet()) {
+            ValueEntry value = entry.getValue();
+            if (value.isExpired()) {
+                store.remove(entry.getKey());
+                deleteExpiredFromRocksDb(entry.getKey());
+            } else {
+                snapshot.put(entry.getKey(), value.getValue());
+            }
+        }
+        return new MVCCTransaction(this, commitVersion, Map.copyOf(snapshot));
+    }
+
+    synchronized void commitTransaction(long snapshotVersion, Map<String, String> changes) {
+        for (String key : changes.keySet()) {
+            if (keyVersions.getOrDefault(key, 0L) > snapshotVersion) {
+                throw new TransactionConflictException(key);
+            }
+        }
+        if (changes.isEmpty()) return;
+        try {
+            if (rocksDb != null) {
+                Map<String, ValueEntry> puts = new java.util.LinkedHashMap<>();
+                List<String> deletes = new ArrayList<>();
+                changes.forEach((key, value) -> {
+                    if (value == null) deletes.add(key); else puts.put(key, new ValueEntry(value));
+                });
+                rocksDb.applyBatch(puts, deletes);
+            } else wal.appendTransaction(changes);
+        } catch (IOException e) { throw new UncheckedIOException("Could not persist transaction", e); }
+
+        long transactionVersion = ++commitVersion;
+        for (Map.Entry<String, String> change : changes.entrySet()) {
+            keyVersions.put(change.getKey(), transactionVersion);
+            if (change.getValue() == null) store.remove(change.getKey());
+            else store.put(change.getKey(), new ValueEntry(change.getValue()));
+        }
+    }
+
+    private void recordMutation(String key) {
+        keyVersions.put(key, ++commitVersion);
+    }
+
+    private void recordMutations(java.util.Collection<String> keys) {
+        long version = ++commitVersion;
+        for (String key : keys) keyVersions.put(key, version);
+    }
+
     public synchronized List<String> keys(String pattern) {
         Pattern regex = globToRegex(pattern);
         List<String> matchedKeys = new ArrayList<>();
         long now = System.currentTimeMillis();
 
-        for (Map.Entry<String, ValueEntry> e : store.entrySet()) {
+        for (Map.Entry<String, ValueEntry> e : store.snapshot().entrySet()) {
             ValueEntry entry = e.getValue();
             if (entry.hasExpiry() && entry.getExpiryTimestampMillis() <= now) {
-                store.remove(e.getKey(), entry);
+                store.remove(e.getKey());
+                deleteExpiredFromRocksDb(e.getKey());
                 continue;
             }
             if (regex.matcher(e.getKey()).matches()) {
@@ -171,23 +277,24 @@ public class RedisStore implements AutoCloseable {
         return matchedKeys;
     }
 
-    public void cleanupExpiredKeys() {
+    public synchronized void cleanupExpiredKeys() {
         long now = System.currentTimeMillis();
-        for (Map.Entry<String, ValueEntry> entry : store.entrySet()) {
+        for (Map.Entry<String, ValueEntry> entry : store.snapshot().entrySet()) {
             ValueEntry value = entry.getValue();
             if (value.hasExpiry() && value.getExpiryTimestampMillis() <= now) {
-                store.remove(entry.getKey(), value);
+                store.remove(entry.getKey());
+                deleteExpiredFromRocksDb(entry.getKey());
             }
         }
     }
 
-    public int size() {
+    public synchronized int size() {
         cleanupExpiredKeys();
         return store.size();
     }
 
     public synchronized void clear() {
-        del(store.keySet().toArray(new String[0]));
+        del(store.snapshot().keySet().toArray(new String[0]));
     }
 
     private static Pattern globToRegex(String glob) {
@@ -233,10 +340,18 @@ public class RedisStore implements AutoCloseable {
                 Thread.currentThread().interrupt();
             }
         }
+        if (rocksDb != null) rocksDb.close();
+        else try { wal.close(); }
+        catch (IOException e) { throw new UncheckedIOException("Could not close WAL", e); }
+    }
+
+    private void appendDelete(String key) {
         try {
-            wal.close();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Could not close WAL", e);
-        }
+            if (rocksDb != null) rocksDb.delete(key); else wal.appendDelete(key);
+        } catch (IOException e) { throw new UncheckedIOException("Could not persist DELETE for key " + key, e); }
+    }
+
+    private void deleteExpiredFromRocksDb(String key) {
+        if (rocksDb != null) appendDelete(key);
     }
 }

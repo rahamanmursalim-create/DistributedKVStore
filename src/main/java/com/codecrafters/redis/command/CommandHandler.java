@@ -3,10 +3,15 @@ package com.codecrafters.redis.command;
 
 import com.codecrafters.redis.protocol.RespValue;
 import com.codecrafters.redis.storage.RedisStore;
+import com.codecrafters.redis.storage.KeyValueAccess;
+import com.codecrafters.redis.storage.AsyncWriteBatcher;
+import com.codecrafters.redis.raft.RaftGroup;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Executes Redis-compatible commands for DistributedKVStore.
@@ -14,9 +19,31 @@ import java.util.Locale;
 public class CommandHandler {
 
     private final RedisStore store;
+    private final KeyValueAccess access;
+    private final AsyncWriteBatcher writeBatcher;
+    private final RaftGroup raftGroup;
+    private final boolean followerReads;
 
     public CommandHandler(RedisStore store) {
+        this(store, null);
+    }
+
+    public CommandHandler(RedisStore store, AsyncWriteBatcher writeBatcher) {
+        this(store, writeBatcher, null, false);
+    }
+
+    public CommandHandler(RedisStore store, AsyncWriteBatcher writeBatcher,
+                          RaftGroup raftGroup, boolean followerReads) {
+        this(store, store, writeBatcher, raftGroup, followerReads);
+    }
+
+    public CommandHandler(RedisStore store, KeyValueAccess access, AsyncWriteBatcher writeBatcher,
+                          RaftGroup raftGroup, boolean followerReads) {
         this.store = store;
+        this.access = access;
+        this.writeBatcher = writeBatcher;
+        this.raftGroup = raftGroup;
+        this.followerReads = followerReads;
     }
 
     public RespValue execute(Command command) {
@@ -107,7 +134,7 @@ public class CommandHandler {
         String key = command.getArg(0);
         String value = command.getArg(1);
 
-        store.set(key, value);
+        if (!write(key, value)) return RespValue.error("ERR write failed");
 
         return RespValue.simpleString("OK");
     }
@@ -177,12 +204,39 @@ public class CommandHandler {
         }
 
         if (expiryMillis == null) {
-            store.set(key, value);
+            if (!write(key, value)) return RespValue.error("ERR write failed");
         } else {
-            store.set(key, value, expiryMillis);
+            try {
+                if (raftGroup == null) access.set(key, value, expiryMillis);
+                else raftGroup.setWithExpiry(key, value.getBytes(java.nio.charset.StandardCharsets.UTF_8), expiryMillis);
+            } catch (IOException e) {
+                return RespValue.error("ERR replicated write failed: " + e.getMessage());
+            } catch (RuntimeException e) {
+                return RespValue.error("ERR write failed");
+            }
         }
 
         return RespValue.simpleString("OK");
+    }
+
+    private boolean write(String key, String value) {
+        if (raftGroup != null) {
+            try { raftGroup.put(key, value.getBytes(java.nio.charset.StandardCharsets.UTF_8)); return true; }
+            catch (IOException | RuntimeException e) { return false; }
+        }
+        if (writeBatcher == null) {
+            try { store.set(key, value); return true; }
+            catch (RuntimeException e) { return false; }
+        }
+        try {
+            writeBatcher.submit(key, value).get();
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (ExecutionException | RuntimeException e) {
+            return false;
+        }
     }
 
     private RespValue handleGet(Command command) {
@@ -192,7 +246,9 @@ public class CommandHandler {
             );
         }
 
-        String value = store.get(command.getArg(0));
+        String value;
+        try { value = read(command.getArg(0)); }
+        catch (IOException e) { return RespValue.error("ERR replicated read failed: " + e.getMessage()); }
 
         if (value == null) {
             return RespValue.nullBulkString();
@@ -212,8 +268,11 @@ public class CommandHandler {
         }
 
         String[] keys = command.getArgs().toArray(new String[0]);
-
-        return RespValue.integer(store.del(keys));
+        if (raftGroup == null) return RespValue.integer(access.delete(keys));
+        int deleted = 0;
+        try { for (String key : keys) if (raftGroup.delete(key)) deleted++; }
+        catch (IOException e) { return RespValue.error("ERR replicated delete failed: " + e.getMessage()); }
+        return RespValue.integer(deleted);
     }
 
     private RespValue handleExists(Command command) {
@@ -223,9 +282,8 @@ public class CommandHandler {
             );
         }
 
-        return RespValue.integer(
-            store.exists(command.getArg(0)) ? 1 : 0
-        );
+        try { return RespValue.integer(read(command.getArg(0)) != null ? 1 : 0); }
+        catch (IOException e) { return RespValue.error("ERR replicated read failed: " + e.getMessage()); }
     }
 
     private RespValue handleKeys(Command command) {
@@ -241,11 +299,24 @@ public class CommandHandler {
 
         List<RespValue> elements = new ArrayList<>();
 
-        for (String key : store.keys(pattern)) {
+        List<String> keys;
+        try {
+            if (raftGroup == null) keys = access.keys(pattern);
+            else if (followerReads && !raftGroup.isLeader()) keys = raftGroup.keysFollowerRead(pattern);
+            else keys = raftGroup.keysWithReadIndex(pattern);
+        } catch (IOException e) { return RespValue.error("ERR replicated read failed: " + e.getMessage()); }
+        for (String key : keys) {
             elements.add(RespValue.bulkString(key));
         }
 
         return RespValue.array(elements);
+    }
+
+    private String read(String key) throws IOException {
+        if (raftGroup == null) return access.get(key);
+        byte[] value = followerReads && !raftGroup.isLeader()
+                ? raftGroup.getFollowerRead(key) : raftGroup.getWithReadIndex(key);
+        return value == null ? null : new String(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private RespValue handleCommand() {

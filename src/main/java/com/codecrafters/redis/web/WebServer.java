@@ -2,6 +2,9 @@
 package com.codecrafters.redis.web;
 
 import com.codecrafters.redis.storage.RedisStore;
+import com.codecrafters.redis.storage.KeyValueAccess;
+import com.codecrafters.redis.raft.RaftGroup;
+import com.codecrafters.redis.sharding.ShardAdminService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -14,15 +17,38 @@ import java.util.concurrent.Executors;
 
 public final class WebServer implements AutoCloseable {
     private final RedisStore store;
+    private final KeyValueAccess access;
+    private final RaftGroup raftGroup;
+    private final boolean followerReads;
+    private final ShardAdminService shardAdmin;
     private final HttpServer server;
 
     public WebServer(RedisStore store, int port) throws IOException {
+        this(store, port, null, false);
+    }
+
+    public WebServer(RedisStore store, int port, RaftGroup raftGroup, boolean followerReads) throws IOException {
+        this(store, store, port, raftGroup, followerReads);
+    }
+
+    public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
+                     boolean followerReads) throws IOException {
+        this(store, access, port, raftGroup, followerReads, null);
+    }
+
+    public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
+                     boolean followerReads, ShardAdminService shardAdmin) throws IOException {
         this.store = store;
+        this.access = access;
+        this.raftGroup = raftGroup;
+        this.followerReads = followerReads;
+        this.shardAdmin = shardAdmin;
         this.server = HttpServer.create(
                 new InetSocketAddress("0.0.0.0", port), 0);
 
         server.createContext("/api/health", this::health);
         server.createContext("/api/keys", this::keys);
+        server.createContext("/api/shards", this::shards);
         server.createContext("/", this::dashboard);
 
         server.setExecutor(Executors.newCachedThreadPool(r -> {
@@ -44,7 +70,7 @@ public final class WebServer implements AutoCloseable {
             return;
         }
         send(exchange, 200, "application/json",
-                "{\"status\":\"ok\",\"keys\":" + store.size() + "}");
+                "{\"status\":\"ok\",\"keys\":" + access.size() + "}");
     }
 
     private void keys(HttpExchange exchange) throws IOException {
@@ -57,7 +83,9 @@ public final class WebServer implements AutoCloseable {
                 return;
             }
 
-            List<String> keys = store.keys("*");
+            List<String> keys;
+            try { keys = readKeys("*"); }
+            catch (IOException e) { send(exchange, 503, "application/json", errorJson(e)); return; }
             StringBuilder json = new StringBuilder("[");
             for (int i = 0; i < keys.size(); i++) {
                 if (i > 0) json.append(',');
@@ -79,7 +107,9 @@ public final class WebServer implements AutoCloseable {
 
         switch (method) {
             case "GET": {
-                String value = store.get(key);
+                String value;
+                try { value = readValue(key); }
+                catch (IOException e) { send(exchange, 503, "application/json", errorJson(e)); break; }
                 if (value == null) {
                     send(exchange, 404, "application/json",
                             "{\"error\":\"Key not found\"}");
@@ -94,14 +124,21 @@ public final class WebServer implements AutoCloseable {
                 String value = new String(
                         exchange.getRequestBody().readAllBytes(),
                         StandardCharsets.UTF_8);
-                store.set(key, value);
+                try {
+                    if (raftGroup == null) access.set(key, value);
+                    else raftGroup.put(key, value.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException e) { send(exchange, 503, "application/json", errorJson(e)); break; }
                 send(exchange, 200, "application/json",
                         "{\"status\":\"saved\",\"key\":\""
                                 + escape(key) + "\"}");
                 break;
             }
             case "DELETE": {
-                int deleted = store.del(key);
+                int deleted;
+                try {
+                    if (raftGroup == null) deleted = access.delete(key);
+                    else deleted = raftGroup.delete(key) ? 1 : 0;
+                } catch (IOException e) { send(exchange, 503, "application/json", errorJson(e)); break; }
                 if (deleted == 0) {
                     send(exchange, 404, "application/json",
                             "{\"error\":\"Key not found\"}");
@@ -114,6 +151,73 @@ public final class WebServer implements AutoCloseable {
             default:
                 send(exchange, 405, "text/plain", "Method not allowed");
         }
+    }
+
+    private void shards(HttpExchange exchange) throws IOException {
+        if (shardAdmin == null) {
+            send(exchange, 404, "application/json", "{\"error\":\"Shard administration is disabled\"}");
+            return;
+        }
+        if (!shardAdmin.isAuthorized(exchange.getRequestHeaders().getFirst("Authorization"))) {
+            exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer");
+            send(exchange, 401, "application/json", "{\"error\":\"Authentication required\"}");
+            return;
+        }
+
+        String path = exchange.getRequestURI().getRawPath();
+        String prefix = "/api/shards/";
+        String encodedId = path.startsWith(prefix) ? path.substring(prefix.length()) : "";
+        String nodeId;
+        try { nodeId = URLDecoder.decode(encodedId.replace("+", "%2B"), StandardCharsets.UTF_8); }
+        catch (IllegalArgumentException e) {
+            send(exchange, 400, "application/json", "{\"error\":\"Invalid shard ID\"}");
+            return;
+        }
+
+        try {
+            if ("GET".equals(exchange.getRequestMethod()) && nodeId.isEmpty()) {
+                StringBuilder json = new StringBuilder("{\"shards\":[");
+                List<String> ids = shardAdmin.nodeIds();
+                for (int i = 0; i < ids.size(); i++) {
+                    if (i > 0) json.append(',');
+                    json.append('\"').append(escape(ids.get(i))).append('\"');
+                }
+                send(exchange, 200, "application/json", json.append("]}").toString());
+            } else if ("POST".equals(exchange.getRequestMethod()) && !nodeId.isEmpty()) {
+                shardAdmin.addNode(nodeId);
+                send(exchange, 201, "application/json", "{\"status\":\"added\",\"shard\":\"" + escape(nodeId) + "\"}");
+            } else if ("DELETE".equals(exchange.getRequestMethod()) && !nodeId.isEmpty()) {
+                shardAdmin.removeNode(nodeId);
+                send(exchange, 200, "application/json", "{\"status\":\"removed\",\"shard\":\"" + escape(nodeId) + "\"}");
+            } else {
+                send(exchange, 405, "application/json", "{\"error\":\"Unsupported shard operation\"}");
+            }
+        } catch (IllegalArgumentException e) {
+            send(exchange, 400, "application/json", "{\"error\":\"" + escape(e.getMessage()) + "\"}");
+        } catch (IllegalStateException e) {
+            send(exchange, 409, "application/json", "{\"error\":\"" + escape(e.getMessage()) + "\"}");
+        } catch (java.io.UncheckedIOException e) {
+            send(exchange, 503, "application/json", errorJson(new IOException(e.getMessage(), e)));
+        }
+    }
+
+    public int getPort() { return server.getAddress().getPort(); }
+
+    private String readValue(String key) throws IOException {
+        if (raftGroup == null) return access.get(key);
+        byte[] value = followerReads && !raftGroup.isLeader()
+                ? raftGroup.getFollowerRead(key) : raftGroup.getWithReadIndex(key);
+        return value == null ? null : new String(value, StandardCharsets.UTF_8);
+    }
+
+    private List<String> readKeys(String pattern) throws IOException {
+        if (raftGroup == null) return access.keys(pattern);
+        return followerReads && !raftGroup.isLeader()
+                ? raftGroup.keysFollowerRead(pattern) : raftGroup.keysWithReadIndex(pattern);
+    }
+
+    private static String errorJson(IOException error) {
+        return "{\"error\":\"" + escape(error.getMessage() == null ? "cluster operation failed" : error.getMessage()) + "\"}";
     }
 
     private void dashboard(HttpExchange exchange) throws IOException {

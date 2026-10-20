@@ -14,6 +14,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.rocksdb</groupId>
+            <artifactId>rocksdbjni</artifactId>
+            <version>11.8.1</version>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <!-- Compile Java sources -->
@@ -24,22 +32,44 @@
                 <configuration>
                     <release>17</release>
                     <excludes>
-                        <exclude>com/codecrafters/redis/raft/RaftGroup.java</exclude>
+                        <!--
+                            These files are a separate, incomplete com.distributedkv implementation
+                            stored under the com/codecrafters source tree. The executable and tests
+                            use the com.codecrafters.redis implementation instead. Keep the legacy
+                            sources available without compiling their missing Netty/protobuf APIs.
+                        -->
+                        <exclude>com/codecrafters/redis/Networks/protocol/**/*.java</exclude>
+                        <exclude>com/codecrafters/redis/Networks/handler/**/*.java</exclude>
+                        <exclude>com/codecrafters/redis/Networks/server/**/*.java</exclude>
+                        <exclude>com/codecrafters/redis/Networks/client/NettyClient.java</exclude>
+                        <exclude>com/codecrafters/redis/Networks/client/RpcClient.java</exclude>
+                        <exclude>com/codecrafters/redis/Server/NodeManager.java</exclude>
+                        <exclude>com/codecrafters/redis/Server/KVServer.java</exclude>
+                        <exclude>com/codecrafters/redis/Server/ClusterManager.java</exclude>
+                        <exclude>com/codecrafters/redis/common/util/**/*.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/AsyncApplier.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/FollowerRead.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/KVStateMachine.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/Log.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/LogEntry.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/RaftPeer.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/ReadIndex.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/StateMachine.java</exclude>
+                        <exclude>com/codecrafters/redis/raft/election/**/*.java</exclude>
+                        <exclude>com/codecrafters/redis/rpc/RpcClient.java</exclude>
+                        <exclude>com/codecrafters/redis/rpc/RpcServer.java</exclude>
+                        <exclude>com/codecrafters/redis/storage/StorageManager.java</exclude>
+                        <exclude>com/codecrafters/redis/storage/RocksDBEngine.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/Shard.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/ShardManager.java</exclude>
+                        <exclude>com/codecrafters/redis/sharding/DataMigrator.java</exclude>
+                        <exclude>com/codecrafters/redis/cluster/NodeConfig.java</exclude>
+                        <exclude>com/codecrafters/redis/cluster/ClusterManager.java</exclude>
                         <exclude>com/codecrafters/redis/raft/RaftGroupManager.java</exclude>
                         <exclude>com/codecrafters/redis/raft/RaftNode.java</exclude>
                         <exclude>com/codecrafters/redis/raft/RaftStorage.java</exclude>
                         <exclude>com/codecrafters/redis/raft/Snapshot.java</exclude>
                         <exclude>com/codecrafters/redis/raft/RaftMessage.java</exclude>
-                        <exclude>com/codecrafters/redis/storage/RocksDBEngine.java</exclude>
-                        <exclude>com/codecrafters/redis/storage/StorageManager.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/Shard.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/ShardManager.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/ConsistentHash.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/DataMigrator.java</exclude>
-                        <exclude>com/codecrafters/redis/rpc/RpcClient.java</exclude>
-                        <exclude>com/codecrafters/redis/rpc/RpcServer.java</exclude>
-                        <exclude>com/codecrafters/redis/cluster/NodeConfig.java</exclude>
-                        <exclude>com/codecrafters/redis/cluster/ClusterManager.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -56,6 +86,37 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <!-- Bundle RocksDB JNI and its native resources in the executable application JAR. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>Main</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Disable default Surefire runner (tests use native main() runners with assertions) -->

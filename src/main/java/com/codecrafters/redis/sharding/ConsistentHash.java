@@ -1,359 +1,111 @@
-package com.distributedkv.common;
+package com.codecrafters.redis.sharding;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.locks.ReadWriteLock;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-/**
- * Implementation of consistent hashing for distributing keys across nodes
- *
- * @param <T> the type of nodes
- */
-public class ConsistentHash<T> {
-    // Number of virtual nodes per physical node
-    private final int numberOfVirtualNodes;
+/** Thread-safe consistent hash ring with deterministic virtual nodes. */
+public final class ConsistentHash<T> {
+    private final int virtualNodesPerNode;
+    private final NavigableMap<Long, T> ring = new TreeMap<>();
+    private final Map<T, List<Long>> positions = new java.util.HashMap<>();
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    // Hash ring implementation using a sorted map
-    private final SortedMap<Long, T> hashRing;
+    public ConsistentHash() { this(128); }
 
-    // Map of physical nodes to their virtual nodes
-    private final Map<T, List<Long>> nodeToVirtualNodes;
-
-    // Lock for thread safety
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
-    // MD5 hash function
-    private final MessageDigest md5;
-
-    /**
-     * Constructor with custom virtual node count
-     *
-     * @param numberOfVirtualNodes number of virtual nodes per physical node
-     */
-    public ConsistentHash(int numberOfVirtualNodes) {
-        this.numberOfVirtualNodes = numberOfVirtualNodes;
-        this.hashRing = new ConcurrentSkipListMap<>();
-        this.nodeToVirtualNodes = new ConcurrentHashMap<>();
-
-        try {
-            this.md5 = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("MD5 algorithm not available", e);
-        }
+    public ConsistentHash(int virtualNodesPerNode) {
+        if (virtualNodesPerNode <= 0) throw new IllegalArgumentException("virtual node count must be positive");
+        this.virtualNodesPerNode = virtualNodesPerNode;
     }
 
-    /**
-     * Default constructor with 100 virtual nodes
-     */
-    public ConsistentHash() {
-        this(100);
-    }
-
-    /**
-     * Add a node to the hash ring
-     *
-     * @param node the node to add
-     */
     public void addNode(T node) {
-        if (node == null) {
-            throw new IllegalArgumentException("Node cannot be null");
-        }
-
+        Objects.requireNonNull(node, "node");
         lock.writeLock().lock();
         try {
-            // Create virtual nodes
-            List<Long> virtualNodes = new ArrayList<>(numberOfVirtualNodes);
-            for (int i = 0; i < numberOfVirtualNodes; i++) {
-                long hash = hashFunction(getVirtualNodeName(node, i));
-                hashRing.put(hash, node);
-                virtualNodes.add(hash);
+            if (positions.containsKey(node)) return;
+            List<Long> nodePositions = new ArrayList<>(virtualNodesPerNode);
+            for (int i = 0; i < virtualNodesPerNode; i++) {
+                long point = hash(node.toString() + "#" + i);
+                while (ring.containsKey(point)) point++;
+                ring.put(point, node);
+                nodePositions.add(point);
             }
-            nodeToVirtualNodes.put(node, virtualNodes);
-        } finally {
-            lock.writeLock().unlock();
-        }
+            positions.put(node, nodePositions);
+        } finally { lock.writeLock().unlock(); }
     }
 
-    /**
-     * Add multiple nodes to the hash ring
-     *
-     * @param nodes the nodes to add
-     */
     public void addNodes(Collection<T> nodes) {
-        if (nodes == null || nodes.isEmpty()) {
-            return;
-        }
-
-        for (T node : nodes) {
-            addNode(node);
-        }
+        if (nodes == null) throw new IllegalArgumentException("nodes cannot be null");
+        for (T node : nodes) addNode(node);
     }
 
-    /**
-     * Remove a node from the hash ring
-     *
-     * @param node the node to remove
-     */
     public void removeNode(T node) {
-        if (node == null) {
-            throw new IllegalArgumentException("Node cannot be null");
-        }
-
+        if (node == null) throw new IllegalArgumentException("node cannot be null");
         lock.writeLock().lock();
         try {
-            List<Long> virtualNodes = nodeToVirtualNodes.remove(node);
-            if (virtualNodes != null) {
-                for (Long hash : virtualNodes) {
-                    hashRing.remove(hash);
-                }
-            }
-        } finally {
-            lock.writeLock().unlock();
-        }
+            List<Long> nodePositions = positions.remove(node);
+            if (nodePositions != null) nodePositions.forEach(ring::remove);
+        } finally { lock.writeLock().unlock(); }
     }
 
-    /**
-     * Get the node responsible for a key
-     *
-     * @param key the key to look up
-     * @return the node responsible for the key, or null if no nodes exist
-     */
     public T getNode(String key) {
-        if (key == null) {
-            throw new IllegalArgumentException("Key cannot be null");
-        }
-
+        Objects.requireNonNull(key, "key");
         lock.readLock().lock();
         try {
-            if (hashRing.isEmpty()) {
-                return null;
-            }
-
-            long hash = hashFunction(key);
-
-            // Find the first node with hash >= key's hash
-            SortedMap<Long, T> tailMap = hashRing.tailMap(hash);
-            Long nodeHash = tailMap.isEmpty() ? hashRing.firstKey() : tailMap.firstKey();
-
-            return hashRing.get(nodeHash);
-        } finally {
-            lock.readLock().unlock();
-        }
+            if (ring.isEmpty()) return null;
+            Map.Entry<Long, T> entry = ring.ceilingEntry(hash(key));
+            return (entry != null ? entry : ring.firstEntry()).getValue();
+        } finally { lock.readLock().unlock(); }
     }
 
-    /**
-     * Get the node responsible for a key using byte array representation
-     *
-     * @param key the key to look up as byte array
-     * @return the node responsible for the key, or null if no nodes exist
-     */
-    public T getNode(byte[] key) {
-        if (key == null) {
-            throw new IllegalArgumentException("Key cannot be null");
-        }
-
-        return getNode(new String(key, StandardCharsets.UTF_8));
-    }
-
-    /**
-     * Get multiple nodes for replication of a key
-     *
-     * @param key the key to look up
-     * @param count the number of nodes to return
-     * @return a list of nodes, which may be smaller than count if there aren't enough nodes
-     */
     public List<T> getNodes(String key, int count) {
-        if (key == null) {
-            throw new IllegalArgumentException("Key cannot be null");
-        }
-        if (count <= 0) {
-            throw new IllegalArgumentException("Count must be positive");
-        }
-
+        Objects.requireNonNull(key, "key");
+        if (count <= 0) throw new IllegalArgumentException("count must be positive");
         lock.readLock().lock();
         try {
-            // Create a list to track unique nodes
-            List<T> result = new ArrayList<>(count);
-            if (hashRing.isEmpty()) {
-                return result;
+            if (ring.isEmpty()) return List.of();
+            LinkedHashSet<T> result = new LinkedHashSet<>();
+            long point = hash(key);
+            for (Map.Entry<Long, T> entry : ring.tailMap(point, true).entrySet()) {
+                result.add(entry.getValue());
+                if (result.size() == count) return List.copyOf(result);
             }
-
-            // Number of unique physical nodes available
-            int availableNodes = nodeToVirtualNodes.size();
-            count = Math.min(count, availableNodes);
-
-            // No need to continue if we need 0 nodes
-            if (count == 0) {
-                return result;
+            for (Map.Entry<Long, T> entry : ring.headMap(point, false).entrySet()) {
+                result.add(entry.getValue());
+                if (result.size() == count) break;
             }
-
-            long hash = hashFunction(key);
-
-            // Start at the hash and go clockwise to find nodes
-            SortedMap<Long, T> tailMap = new TreeMap<>(hashRing.tailMap(hash));
-            tailMap.putAll(hashRing.headMap(hash));
-
-            // Add nodes to the result, skipping duplicates
-            for (Map.Entry<Long, T> entry : tailMap.entrySet()) {
-                if (!result.contains(entry.getValue())) {
-                    result.add(entry.getValue());
-                    if (result.size() == count) {
-                        break;
-                    }
-                }
-            }
-
-            return result;
-        } finally {
-            lock.readLock().unlock();
-        }
+            return List.copyOf(result);
+        } finally { lock.readLock().unlock(); }
     }
 
-    /**
-     * Get multiple nodes for replication of a key as byte array
-     *
-     * @param key the key to look up as byte array
-     * @param count the number of nodes to return
-     * @return a list of nodes, which may be smaller than count if there aren't enough nodes
-     */
-    public List<T> getNodes(byte[] key, int count) {
-        if (key == null) {
-            throw new IllegalArgumentException("Key cannot be null");
-        }
-
-        return getNodes(new String(key, StandardCharsets.UTF_8), count);
-    }
-
-    /**
-     * Get all physical nodes in the hash ring
-     *
-     * @return a list of all physical nodes
-     */
-    public List<T> getAllNodes() {
-        lock.readLock().lock();
-        try {
-            return new ArrayList<>(nodeToVirtualNodes.keySet());
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Get the number of nodes in the hash ring
-     *
-     * @return the number of physical nodes
-     */
     public int size() {
         lock.readLock().lock();
-        try {
-            return nodeToVirtualNodes.size();
-        } finally {
-            lock.readLock().unlock();
-        }
+        try { return positions.size(); }
+        finally { lock.readLock().unlock(); }
     }
 
-    /**
-     * Check if the hash ring is empty
-     *
-     * @return true if no nodes exist, false otherwise
-     */
-    public boolean isEmpty() {
-        lock.readLock().lock();
-        try {
-            return nodeToVirtualNodes.isEmpty();
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Get the distribution of virtual nodes across physical nodes
-     *
-     * @return a map of physical nodes to their virtual node counts
-     */
-    public Map<T, Integer> getNodeDistribution() {
-        lock.readLock().lock();
-        try {
-            Map<T, Integer> distribution = new HashMap<>();
-            for (Map.Entry<T, List<Long>> entry : nodeToVirtualNodes.entrySet()) {
-                distribution.put(entry.getKey(), entry.getValue().size());
-            }
-            return distribution;
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Generate a virtual node name
-     *
-     * @param node the physical node
-     * @param index the virtual node index
-     * @return the virtual node name
-     */
-    private String getVirtualNodeName(T node, int index) {
-        return node.toString() + "#" + index;
-    }
-
-    /**
-     * Compute the hash of a key
-     *
-     * @param key the key to hash
-     * @return the hash value
-     */
-    private long hashFunction(String key) {
-        byte[] digest;
-        lock.readLock().lock();
-        try {
-            md5.reset();
-            digest = md5.digest(key.getBytes(StandardCharsets.UTF_8));
-        } finally {
-            lock.readLock().unlock();
-        }
-
-        // Use the first 8 bytes of the MD5 hash as a long
-        long hash = 0;
-        for (int i = 0; i < 8; i++) {
-            hash <<= 8;
-            hash |= (digest[i] & 0xFF);
-        }
-        return hash;
-    }
-
-    /**
-     * Check if a node exists in the hash ring
-     *
-     * @param node the node to check
-     * @return true if the node exists
-     */
     public boolean containsNode(T node) {
-        if (node == null) {
-            return false;
-        }
-
         lock.readLock().lock();
-        try {
-            return nodeToVirtualNodes.containsKey(node);
-        } finally {
-            lock.readLock().unlock();
-        }
+        try { return positions.containsKey(node); }
+        finally { lock.readLock().unlock(); }
     }
 
-    /**
-     * Clear all nodes from the hash ring
-     */
-    public void clear() {
-        lock.writeLock().lock();
+    private static long hash(String value) {
         try {
-            hashRing.clear();
-            nodeToVirtualNodes.clear();
-        } finally {
-            lock.writeLock().unlock();
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            return ByteBuffer.wrap(digest).getLong();
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new AssertionError("SHA-256 is required by the Java platform", impossible);
         }
     }
 }

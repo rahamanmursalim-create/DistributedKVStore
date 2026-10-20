@@ -3,6 +3,9 @@ package com.codecrafters.redis;
 
 import com.codecrafters.redis.command.CommandHandler;
 import com.codecrafters.redis.storage.RedisStore;
+import com.codecrafters.redis.storage.AsyncWriteBatcher;
+import com.codecrafters.redis.raft.RaftGroup;
+import com.codecrafters.redis.storage.KeyValueAccess;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -19,7 +22,9 @@ public class Server implements AutoCloseable {
     private final int port;
     private final RedisStore store;
     private final boolean ownsStore;
+    private final RaftGroup raftGroup;
     private final CommandHandler commandHandler;
+    private final AsyncWriteBatcher writeBatcher;
     private final ExecutorService executor;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
@@ -29,18 +34,34 @@ public class Server implements AutoCloseable {
     }
 
     public Server(int port) {
-        this(port, new RedisStore(), true);
+        this(port, new RedisStore(), null, true, null, false);
     }
 
     public Server(int port, RedisStore store) {
-        this(port, store, false);
+        this(port, store, store, false, null, false);
     }
 
-    private Server(int port, RedisStore store, boolean ownsStore) {
+    /** Creates a server whose SET/PUT/GET/DEL operations are backed by one Raft group. */
+    public Server(int port, RedisStore store, RaftGroup raftGroup, boolean followerReads) {
+        this(port, store, store, false, raftGroup, followerReads);
+    }
+
+    /** Creates a server using an alternate key router such as {@code ShardedStore}. */
+    public Server(int port, RedisStore store, KeyValueAccess access) {
+        this(port, store, access, false, null, false);
+    }
+
+    private Server(int port, RedisStore store, KeyValueAccess access, boolean ownsStore,
+                   RaftGroup raftGroup, boolean followerReads) {
         this.port = port;
         this.store = store;
         this.ownsStore = ownsStore;
-        this.commandHandler = new CommandHandler(store);
+        this.raftGroup = raftGroup;
+        this.writeBatcher = new AsyncWriteBatcher(access,
+                readIntSetting("redis.write.queue.capacity", 4096, 1),
+                readIntSetting("redis.write.batch.maxSize", 128, 1),
+                readLongSetting("redis.write.batch.maxDelayMillis", 2, 0));
+        this.commandHandler = new CommandHandler(store, access, writeBatcher, raftGroup, followerReads);
         this.executor = createExecutorService();
     }
 
@@ -54,10 +75,40 @@ public class Server implements AutoCloseable {
         }
     }
 
+    private static int readIntSetting(String name, int fallback, int minimum) {
+        String value = System.getProperty(name);
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            int parsed = Integer.parseInt(value);
+            if (parsed < minimum) throw new IllegalArgumentException(name + " must be >= " + minimum);
+            return parsed;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be an integer", e);
+        }
+    }
+
+    private static long readLongSetting(String name, long fallback, long minimum) {
+        String value = System.getProperty(name);
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            long parsed = Long.parseLong(value);
+            if (parsed < minimum) throw new IllegalArgumentException(name + " must be >= " + minimum);
+            return parsed;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be an integer", e);
+        }
+    }
+
     public void start() throws IOException {
-        serverSocket = new ServerSocket();
-        serverSocket.setReuseAddress(true);
-        serverSocket.bind(new InetSocketAddress(port));
+        if (raftGroup != null) raftGroup.start();
+        try {
+            serverSocket = new ServerSocket();
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(new InetSocketAddress(port));
+        } catch (IOException e) {
+            close();
+            throw e;
+        }
         running.set(true);
 
         System.out.println("Redis server listening on port " + port + "...");
@@ -106,6 +157,13 @@ public class Server implements AutoCloseable {
         } catch (InterruptedException e) {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+
+        writeBatcher.close();
+
+        if (raftGroup != null) {
+            try { raftGroup.close(); }
+            catch (IOException e) { System.err.println("Raft group shutdown error: " + e.getMessage()); }
         }
 
         if (ownsStore) {

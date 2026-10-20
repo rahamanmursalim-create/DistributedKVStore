@@ -13,6 +13,8 @@ public final class RpcMessage {
         VOTE_RESPONSE,
         APPEND_ENTRIES_REQUEST,
         APPEND_ENTRIES_RESPONSE,
+        READ_FRESHNESS_REQUEST,
+        READ_FRESHNESS_RESPONSE,
         HEARTBEAT,
         INSTALL_SNAPSHOT,
         ERROR

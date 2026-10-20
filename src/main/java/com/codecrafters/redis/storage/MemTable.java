@@ -1,10 +1,8 @@
 package com.codecrafters.redis.storage;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.TreeMap;
 
 /**
  * Thread-safe sorted in-memory table.
@@ -12,7 +10,7 @@ import java.util.TreeMap;
  */
 public final class MemTable {
 
-    private final NavigableMap<String, String> entries = new TreeMap<>();
+    private final BPlusTree<String> entries = new BPlusTree<>();
     private long estimatedSizeBytes = 0;
 
     public synchronized void put(String key, String value) {
@@ -65,7 +63,7 @@ public final class MemTable {
     }
 
     public synchronized boolean isEmpty() {
-        return entries.isEmpty();
+        return entries.size() == 0;
     }
 
     public synchronized long estimatedSizeBytes() {
@@ -73,7 +71,7 @@ public final class MemTable {
     }
 
     public synchronized Map<String, String> snapshot() {
-        return Collections.unmodifiableMap(new TreeMap<>(entries));
+        return entries.snapshot();
     }
 
     public synchronized void clear() {

@@ -1,0 +1,40 @@
+package com.codecrafters.redis.rpc;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.Objects;
+
+/** Synchronous one-request-per-connection RPC client. */
+public final class RpcTransportClient {
+    private final InetSocketAddress address;
+    private final int connectTimeoutMillis;
+    private final int readTimeoutMillis;
+
+    public RpcTransportClient(InetSocketAddress address, int connectTimeoutMillis,
+                              int readTimeoutMillis) {
+        this.address = Objects.requireNonNull(address, "address");
+        if (connectTimeoutMillis <= 0 || readTimeoutMillis <= 0)
+            throw new IllegalArgumentException("RPC timeouts must be positive");
+        this.connectTimeoutMillis = connectTimeoutMillis;
+        this.readTimeoutMillis = readTimeoutMillis;
+    }
+
+    public RpcMessage call(RpcMessage request) throws IOException {
+        Objects.requireNonNull(request, "request");
+        try (Socket socket = new Socket()) {
+            socket.connect(address, connectTimeoutMillis);
+            socket.setSoTimeout(readTimeoutMillis);
+            try (DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+                 DataInputStream input = new DataInputStream(socket.getInputStream())) {
+                RpcCodec.write(output, request);
+                RpcMessage response = RpcCodec.read(input);
+                if (!request.getRequestId().equals(response.getRequestId()))
+                    throw new IOException("RPC response request ID does not match");
+                return response;
+            }
+        }
+    }
+}

@@ -10,3 +10,4 @@ RedisStore-working-backup.txt
 wal-working-backup.log
 
 target/
+/debug-2c6764.log
