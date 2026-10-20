@@ -114,7 +114,7 @@ The repository contains the following major components and supporting modules.
 | **HTTP Interface** | Web server, dashboard, and API |
 | **Validation** | Unit tests, integration tests, and benchmark-oriented classes |
 
-**Validation:** The project includes unit and integration tests covering its storage, networking, and distributed-system components. Test coverage and end-to-end behavior depend on the scenarios exercised by the test suite.
+> **Validation:** The project includes unit and integration tests covering its storage, networking, and distributed-system components. Test coverage and end-to-end behavior depend on the scenarios exercised by the test suite.
   -----------------------------------------------------------------------
 
 ## Technology Stack
