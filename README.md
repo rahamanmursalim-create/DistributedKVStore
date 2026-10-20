@@ -276,14 +276,18 @@ mvn exec:java -Dexec.mainClass=com.codecrafters.redis.TcpRespBenchmark -Dexec.cl
 ## Project Layout
 
 ```text
+
 ## Project Layout
 
+```text
 DistributedKVStore/
 ├── .gitignore
 ├── Dockerfile
 ├── LICENSE
-├── pom.xml
 ├── README.md
+├── pom.xml
+├── project-layout.txt
+├── test-compile-errors.txt
 ├── docs/
 │   └── images/
 │       └── distributedkvstore-architecture.png
@@ -291,85 +295,180 @@ DistributedKVStore/
     ├── main/
     │   └── java/
     │       ├── Main.java
-    │       └── com/codecrafters/redis/
-    │           ├── Server.java
-    │           ├── ClientHandler.java
-    │           ├── command/
-    │           │   ├── Command.java
-    │           │   └── CommandHandler.java
-    │           ├── protocol/
-    │           │   ├── RespReader.java
-    │           │   ├── RespType.java
-    │           │   ├── RespValue.java
-    │           │   └── RespWriter.java
-    │           ├── cluster/
-    │           │   ├── ClusterManager.java
-    │           │   ├── NodeConfig.java
-    │           │   ├── NodeStatus.java
-    │           │   └── ClusterMembership.java
-    │           ├── rpc/
-    │           │   ├── RpcServer.java
-    │           │   ├── RpcClient.java
-    │           │   ├── RpcMessage.java
-    │           │   └── RpcCodec.java
-    │           ├── sharding/
-    │           │   ├── Shard.java
-    │           │   ├── ShardManager.java
-    │           │   ├── ConsistentHash.java
-    │           │   ├── DataMigrator.java
-    │           │   └── ShardMetadata.java
-    │           ├── raft/
-    │           │   ├── RaftNode.java
-    │           │   ├── RaftGroup.java
-    │           │   ├── RaftGroupManager.java
-    │           │   ├── RaftLog.java
-    │           │   ├── RaftLogEntry.java
-    │           │   ├── RaftStorage.java
-    │           │   ├── RaftMessage.java
-    │           │   └── Snapshot.java
-    │           ├── storage/
-    │           │   ├── BloomFilter.java
-    │           │   ├── MemTable.java
-    │           │   ├── RedisStore.java
-    │           │   ├── RocksDBEngine.java
-    │           │   ├── StorageEngine.java
-    │           │   ├── StorageManager.java
-    │           │   ├── SSTable.java
-    │           │   ├── SSTableManifest.java
-    │           │   ├── ValueEntry.java
-    │           │   └── WriteAheadLog.java
-    │           └── web/
-    │               └── WebServer.java
+    │       └── com/
+    │           └── codecrafters/
+    │               └── redis/
+    │                   ├── ClientHandler.java
+    │                   ├── Networks/
+    │                   │   ├── client/
+    │                   │   │   ├── KVClient.java
+    │                   │   │   ├── KVClientImpl.java
+    │                   │   │   ├── NettyClient.java
+    │                   │   │   ├── RpcClient.java
+    │                   │   │   └── Session.java
+    │                   │   ├── handler/
+    │                   │   │   ├── ClientHandler.java
+    │                   │   │   └── ServerHandler.java
+    │                   │   ├── protocol/
+    │                   │   │   ├── AppendEntriesRequestMessage.java
+    │                   │   │   ├── AppendEntriesResponseMessage.java
+    │                   │   │   ├── InstallSnapshotRequestMessage.java
+    │                   │   │   ├── InstallSnapshotResponseMessage.java
+    │                   │   │   ├── KVMessage.java
+    │                   │   │   ├── Message.java
+    │                   │   │   ├── RaftMessage.java
+    │                   │   │   ├── ReadIndexRequestMessage.java
+    │                   │   │   ├── ReadIndexResponseMessage.java
+    │                   │   │   ├── Request.java
+    │                   │   │   ├── Response.java
+    │                   │   │   ├── VoteRequestMessage.java
+    │                   │   │   ├── VoteResponseMessage.java
+    │                   │   │   └── codec/
+    │                   │   │       ├── MessageCodec.java
+    │                   │   │       └── ProtobufCodec.java
+    │                   │   └── server/
+    │                   │       ├── NettyServer.java
+    │                   │       └── RpcServer.java
+    │                   ├── Server/
+    │                   │   ├── ClusterManager.java
+    │                   │   ├── KVServer.java
+    │                   │   ├── NodeManager.java
+    │                   │   └── Server.java
+    │                   ├── cluster/
+    │                   │   ├── ClusterManager.java
+    │                   │   ├── ClusterMembership.java
+    │                   │   ├── ClusterRuntimeConfig.java
+    │                   │   ├── NodeConfig.java
+    │                   │   └── NodeStatus.java
+    │                   ├── command/
+    │                   │   ├── Command.java
+    │                   │   └── CommandHandler.java
+    │                   ├── common/
+    │                   │   └── util/
+    │                   │       ├── ConcurrentHashSet.java
+    │                   │       ├── ConsistentHash.java
+    │                   │       ├── Metrics.java
+    │                   │       ├── MetricsRegistry.java
+    │                   │       ├── Result.java
+    │                   │       ├── Status.java
+    │                   │       └── ThreadPoolExecutor.java
+    │                   ├── protocol/
+    │                   │   ├── RespReader.java
+    │                   │   ├── RespType.java
+    │                   │   ├── RespValue.java
+    │                   │   └── RespWriter.java
+    │                   ├── raft/
+    │                   │   ├── AsyncApplier.java
+    │                   │   ├── FollowerRead.java
+    │                   │   ├── KVStateMachine.java
+    │                   │   ├── Log.java
+    │                   │   ├── LogEntry.java
+    │                   │   ├── MultiRaftStore.java
+    │                   │   ├── RaftGroup.java
+    │                   │   ├── RaftGroupManager.java
+    │                   │   ├── RaftLog.java
+    │                   │   ├── RaftLogEntry.java
+    │                   │   ├── RaftMessage.java
+    │                   │   ├── RaftMetadataStore.java
+    │                   │   ├── RaftNode.java
+    │                   │   ├── RaftPeer.java
+    │                   │   ├── RaftStorage.java
+    │                   │   ├── ReadIndex.java
+    │                   │   ├── Snapshot.java
+    │                   │   ├── StateMachine.java
+    │                   │   └── election/
+    │                   │       ├── ElectionTimer.java
+    │                   │       └── LeaderState.java
+    │                   ├── rpc/
+    │                   │   ├── RpcClient.java
+    │                   │   ├── RpcCodec.java
+    │                   │   ├── RpcMessage.java
+    │                   │   ├── RpcServer.java
+    │                   │   ├── RpcTransportClient.java
+    │                   │   └── RpcTransportServer.java
+    │                   ├── sharding/
+    │                   │   ├── ConsistentHash.java
+    │                   │   ├── DataMigrator.java
+    │                   │   ├── Shard.java
+    │                   │   ├── ShardAdminService.java
+    │                   │   ├── ShardManager.java
+    │                   │   ├── ShardMetadata.java
+    │                   │   └── ShardedStore.java
+    │                   ├── storage/
+    │                   │   ├── AsyncWriteBatcher.java
+    │                   │   ├── BPlusTree.java
+    │                   │   ├── BloomFilter.java
+    │                   │   ├── KeyValueAccess.java
+    │                   │   ├── Main.java
+    │                   │   ├── MemTable.java
+    │                   │   ├── MVCCTransaction.java
+    │                   │   ├── RedisStore.java
+    │                   │   ├── RocksDBBPlusTreeStore.java
+    │                   │   ├── RocksDBEngine.java
+    │                   │   ├── SSTable.java
+    │                   │   ├── SSTableManifest.java
+    │                   │   ├── StorageEngine.java
+    │                   │   ├── StorageManager.java
+    │                   │   ├── TransactionConflictException.java
+    │                   │   ├── ValueEntry.java
+    │                   │   └── WriteAheadLog.java
+    │                   └── web/
+    │                       └── WebServer.java
     └── test/
         └── java/
-            └── com/codecrafters/redis/
-                ├── AllTestsRunner.java
-                ├── RedisServerTest.java
-                ├── cluster/
-                │   └── ClusterMembershipTest.java
-                ├── raft/
-                │   └── RaftLogTest.java
-                ├── rpc/
-                │   └── RpcCodecTest.java
-                ├── sharding/
-                │   └── ShardMetadataTest.java
-                ├── web/
-                │   └── WebServerIntegrationTest.java
-                └── storage/
-                    ├── BloomFilterTest.java
-                    ├── RedisStoreRecoveryTest.java
-                    ├── SSTableBenchmark.java
-                    ├── SSTableManifestTest.java
-                    ├── SSTableTest.java
-                    ├── StorageEngineCompactionTest.java
-                    ├── StorageEngineCompactionWalTest.java
-                    ├── StorageEngineConcurrencyTest.java
-                    ├── StorageEngineConcurrentDeleteTest.java
-                    ├── StorageEngineCrashRecoveryRunner.java
-                    ├── StorageEngineOrphanSSTableTest.java
-                    ├── StorageEngineTest.java
-                    ├── StorageEngineWalRecoveryTest.java
-                    └── WriteAheadLogTest.java
+            └── com/
+                └── codecrafters/
+                    └── redis/
+                        ├── AllTestsRunner.java
+                        ├── RedisServerTest.java
+                        ├── TcpRespBenchmark.java
+                        ├── client/
+                        │   └── KVClientIntegrationTest.java
+                        ├── cluster/
+                        │   ├── ClusterMembershipTest.java
+                        │   └── ClusterRuntimeConfigTest.java
+                        ├── raft/
+                        │   ├── MultiRaftBenchmark.java
+                        │   ├── MultiRaftStoreTest.java
+                        │   ├── RaftGroupConsensusTest.java
+                        │   ├── RaftLogPersistenceTest.java
+                        │   ├── RaftLogTest.java
+                        │   └── RaftRebalanceIntegrationTest.java
+                        ├── rpc/
+                        │   ├── RpcCodecTest.java
+                        │   └── RpcTransportTest.java
+                        ├── sharding/
+                        │   ├── ConsistentHashTest.java
+                        │   ├── ShardAdminIntegrationTest.java
+                        │   ├── ShardMetadataTest.java
+                        │   ├── ShardedCommandRoutingTest.java
+                        │   ├── ShardedStoreRebalanceTest.java
+                        │   └── ShardedStoreRestartTest.java
+                        ├── storage/
+                        │   ├── AsyncWriteBatcherTest.java
+                        │   ├── BPlusTreeMemTableTest.java
+                        │   ├── BloomFilterTest.java
+                        │   ├── MVCCTransactionTest.java
+                        │   ├── RedisStoreBPlusTreeTest.java
+                        │   ├── RedisStoreRecoveryTest.java
+                        │   ├── RedisStoreRocksDBIntegrationTest.java
+                        │   ├── RocksDBBPlusTreeStoreTest.java
+                        │   ├── SSTableBenchmark.java
+                        │   ├── SSTableManifestTest.java
+                        │   ├── SSTableTest.java
+                        │   ├── StorageEngineCompactionTest.java
+                        │   ├── StorageEngineCompactionWalTest.java
+                        │   ├── StorageEngineConcurrencyTest.java
+                        │   ├── StorageEngineConcurrentDeleteTest.java
+                        │   ├── StorageEngineCrashRecoveryRunner.java
+                        │   ├── StorageEngineOrphanSSTableTest.java
+                        │   ├── StorageEngineTest.java
+                        │   ├── StorageEngineWalRecoveryTest.java
+                        │   └── WriteAheadLogTest.java
+                        └── web/
+                            └── WebServerIntegrationTest.java
+```
+
 ```
 
 The tree above includes the production files and test files identified in the current project information. Verify it against the actual repository before treating it as an exhaustive file listing.
