@@ -27,11 +27,7 @@ DistributedKVStore is a Java-based key-value storage project focused on persiste
 
 ## Overview
 
-DistributedKVStore is a Java project for exploring the design of a
-persistent key-value database and related distributed-system components.
-Its code is organized around storage, client/server networking, protocol
-handling, replication/consensus, sharding, cluster management, and a web
-interface.
+The project explores key-value database internals and distributed-system concepts, including persistent storage, client-server networking, protocol handling, replication, sharding, and cluster coordination. It also includes a web interface for interacting with the system.
 
 ## Features
 
