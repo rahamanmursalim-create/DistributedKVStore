@@ -98,44 +98,23 @@ every component is enabled in a default run.
 
 ## Components
 
-  -----------------------------------------------------------------------
-  Area                                Components represented in the
-                                      repository
-  ----------------------------------- -----------------------------------
-  Persistent storage                  Write-ahead log (WAL), memtable,
-                                      SSTables, manifest, Bloom filter,
-                                      compaction, storage manager
+The repository contains the following major components and supporting modules.
 
-  Key-value operations                Redis-style store, value/expiry
-                                      state, key-value access
+| Area | Components and Responsibilities |
+|---|---|
+| **Persistent Storage** | Write-Ahead Log (WAL), MemTable, SSTables, manifest, Bloom filters, compaction, and storage manager |
+| **Key-Value Operations** | Redis-style store, key-value access, and expiration state |
+| **Transactions** | MVCC-related code and transaction conflict handling |
+| **Networking** | TCP/Netty client and server, connection handling, and request processing |
+| **Protocols** | RESP reader/writer and value types, RPC transport, and message codecs |
+| **Replication and Consensus** | Raft nodes, logs, snapshots, ReadIndex, and Multi-Raft components |
+| **Sharding** | Consistent hashing, shard metadata, shard management, migration, and rebalancing components |
+| **Cluster Management** | Node configuration and status, cluster membership, and runtime configuration |
+| **Observability** | Metrics and metrics registry |
+| **HTTP Interface** | Web server, dashboard, and API |
+| **Validation** | Unit tests, integration tests, and benchmark-oriented classes |
 
-  Transactions                        MVCC transaction-related code and
-                                      conflict exception
-
-  Networking                          TCP/Netty client and server
-                                      classes, connection handlers
-
-  Protocols                           RESP reader/writer/value/type
-                                      classes, RPC transport and message
-                                      codecs
-
-  Replication/consensus               Raft nodes/logs, snapshots,
-                                      read-index and multi-Raft classes
-
-  Sharding                            Consistent hashing, shard
-                                      metadata/manager, migration and
-                                      rebalance components
-
-  Cluster management                  Node configuration/status,
-                                      membership and runtime
-                                      configuration
-
-  Observability                       Metrics and metrics registry
-
-  HTTP interface                      Web server/dashboard API
-
-  Validation                          Unit/integration tests and
-                                      benchmark-oriented classes
+**Note:** These entries describe components represented in the repository. Their presence alone does not establish that every feature is fully integrated or production-ready.
   -----------------------------------------------------------------------
 
 ## Technology Stack
