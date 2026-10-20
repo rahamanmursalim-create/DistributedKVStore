@@ -140,8 +140,6 @@ every component is enabled in a default run.
 
 ## Technology Stack
 
-## Technology Stack
-
 - **Programming Language:** Java
 - **Build Tool:** Apache Maven
 - **Distributed Systems:** Replication, Raft consensus, Multi-Raft, distributed coordination
@@ -213,8 +211,6 @@ or configure the Maven packaging plugin.
 The codebase contains RESP-related classes, but confirm supported
 commands, port configuration, and protocol compatibility before assuming
 full Redis compatibility.
-
-## Performance and Reliability
 
 ## Performance and Reliability
 
