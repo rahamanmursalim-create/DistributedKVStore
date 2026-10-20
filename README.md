@@ -166,18 +166,13 @@ full Redis compatibility.
 
 ## Performance and Reliability
 
-This README does not claim fixed throughput, tail-latency, or
-availability figures because such claims need repeatable benchmark
-evidence. When publishing results, document: - Hardware, operating
-system, JDK, and JVM options - Node count and replication/sharding
-configuration - Dataset size, value sizes, and read/write mix - Client
-concurrency, warm-up, and measurement duration - Throughput and latency
-percentiles, including P95/P99 - Failure, leader-change, restart, and
-recovery scenarios
+## Performance and Reliability
 
-For distributed-system claims, test node failures, partitions, leader
-changes, concurrent writes, restarts, and recovery before describing the
-system as production-ready.
+- **Efficient Storage:** WAL, MemTables, SSTables, Bloom filters, and compaction.
+- **Optimized Reads/Writes:** Asynchronous write batching, ReadIndex, and follower reads.
+- **Data Consistency:** Raft-based replication and MVCC transactions.
+- **Scalability:** Consistent hashing and dynamic shard rebalancing.
+- **Reliability:** Recovery, persistence, concurrency, and integration tests.
 
 ## Project Layout
 
