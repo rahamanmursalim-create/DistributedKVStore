@@ -11,11 +11,11 @@ API, and automated tests.
 > not, by itself, prove production readiness, a particular consistency
 > guarantee, or a specific performance level.
 
-Live Demo: Open DistributedKVStore Dashboard
+**Live Demo:** [Open DistributedKVStore Dashboard](https://distributedkvstore.onrender.com/)
 
-Health Check: View API Health Status
+**Health Check:** [View API Health Status](https://distributedkvstore.onrender.com/api/health)
 
-Source Code: GitHub Repository
+**Source Code:** [GitHub Repository](https://github.com/rahamanmursalim-create/DistributedKVStore)
 
 ## Table of Contents
 
