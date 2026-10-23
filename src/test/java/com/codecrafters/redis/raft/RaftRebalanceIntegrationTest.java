@@ -44,7 +44,16 @@ public final class RaftRebalanceIntegrationTest {
             for (RaftGroup[] group : groups) for (RaftGroup node : group) node.start();
 
             Map<String, RaftGroup> leaders = awaitLeaders(groups, groupIds);
-            MultiRaftStore routed = new MultiRaftStore(leaders, 64, false);
+            // Give the routers non-leader handles to exercise admin/read forwarding.
+            Map<String, RaftGroup> followers = new LinkedHashMap<>();
+            for (int group = 0; group < groupIds.length; group++) {
+                RaftGroup leader = leaders.get(groupIds[group]);
+                for (RaftGroup candidate : groups[group]) if (candidate != leader) {
+                    followers.put(groupIds[group], candidate); break;
+                }
+            }
+            MultiRaftStore routed = new MultiRaftStore(followers, 64, false);
+            MultiRaftStore staleRouter = new MultiRaftStore(followers, 64, false);
             Map<String, String> values = new LinkedHashMap<>();
             for (int candidate = 0; values.size() < 80; candidate++) {
                 String key = "rebalance-" + candidate;
@@ -55,6 +64,22 @@ public final class RaftRebalanceIntegrationTest {
             routed.set(expiringKey, "ttl-value", 120_000);
 
             routed.rebalanceGroups(java.util.List.of("a"));
+
+            boolean staleWriteRejected = false;
+            try { staleRouter.set(expiringKey, "stale-owner-write"); }
+            catch (java.io.UncheckedIOException expected) {
+                staleWriteRejected = expected.getCause().getMessage().contains("Stale shard owner");
+            }
+            if (!staleWriteRejected) throw new AssertionError("Old routing epoch was allowed to write after migration");
+            boolean staleReadRejected = false;
+            try { staleRouter.get(expiringKey); }
+            catch (java.io.UncheckedIOException expected) {
+                staleReadRejected = expected.getCause().getMessage().contains("Stale shard owner");
+            }
+            if (!staleReadRejected) throw new AssertionError("Old routing epoch was allowed to read after migration");
+            MultiRaftStore restoredRouter = new MultiRaftStore(followers, 64, false);
+            if (!"a".equals(restoredRouter.groupFor(expiringKey)))
+                throw new AssertionError("A newly created router ignored the committed ownership manifest");
 
             if (!"a".equals(routed.groupFor(expiringKey)))
                 throw new AssertionError("Key routing did not switch to the new group set");
@@ -76,6 +101,20 @@ public final class RaftRebalanceIntegrationTest {
             routed.set("post-rebalance", "writes-resumed");
             if (!"writes-resumed".equals(routed.get("post-rebalance")))
                 throw new AssertionError("Writes did not resume after rebalance");
+
+            for (RaftGroup[] group : groups) for (int node = 0; node < group.length; node++) {
+                if (group[node] != null) { group[node].close(); group[node] = null; }
+                if (stores[0][node] != null && node == 0) { stores[0][node].close(); stores[0][node] = null; }
+                if (stores[1][node] != null && node == 0) { stores[1][node].close(); stores[1][node] = null; }
+            }
+            Path recoveredDirectory = root.resolve("a-n1");
+            RedisStore recoveredStore = new RedisStore(recoveredDirectory.resolve("state.wal"), false);
+            try (RaftGroup recovered = new RaftGroup("a", "n1", new InetSocketAddress("127.0.0.1", ports[0][0]),
+                    Map.of("n2", new InetSocketAddress("127.0.0.1", ports[0][1]),
+                            "n3", new InetSocketAddress("127.0.0.1", ports[0][2])), recoveredDirectory, recoveredStore)) {
+                if (recovered.getOwnershipEpoch() != 1 || !recovered.getOwnershipGroups().equals(java.util.List.of("a")))
+                    throw new AssertionError("Ownership epoch/manifest did not survive Raft restart");
+            } finally { recoveredStore.close(); }
             System.out.println("RaftRebalanceIntegrationTest passed: moved=80, replicas=3, ttl=preserved");
         } finally {
             for (RaftGroup[] group : groups) for (RaftGroup node : group)

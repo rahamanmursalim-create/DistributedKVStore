@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import javax.net.ssl.SSLContext;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -102,9 +103,11 @@ public class Server implements AutoCloseable {
     public void start() throws IOException {
         if (raftGroup != null) raftGroup.start();
         try {
-            serverSocket = new ServerSocket();
+            SSLContext tls = com.codecrafters.redis.rpc.TlsContext.fromEnvironment();
+            serverSocket = tls == null ? new ServerSocket() : tls.getServerSocketFactory().createServerSocket();
             serverSocket.setReuseAddress(true);
-            serverSocket.bind(new InetSocketAddress(port));
+            String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
+            serverSocket.bind(new InetSocketAddress(bindHost, port));
         } catch (IOException e) {
             close();
             throw e;
@@ -116,7 +119,7 @@ public class Server implements AutoCloseable {
         try {
             while (running.get() && !serverSocket.isClosed()) {
                 Socket clientSocket = serverSocket.accept();
-                executor.submit(new ClientHandler(clientSocket, commandHandler));
+                executor.submit(new ClientHandler(clientSocket, commandHandler, System.getenv("KV_CLIENT_TOKEN")));
             }
         } catch (IOException e) {
             if (running.get()) {

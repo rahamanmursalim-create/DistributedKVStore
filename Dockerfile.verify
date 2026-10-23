@@ -1,0 +1,8 @@
+FROM eclipse-temurin:25-jre
+WORKDIR /app
+COPY target/redis-java-clone-1.0.0.jar /app/app.jar
+ENV PORT=8080 TCP_PORT=6379 DATA_DIR=/var/data
+RUN mkdir -p /var/data && useradd --system --uid 10001 appuser && chown -R appuser:appuser /app /var/data
+USER appuser
+EXPOSE 8080 6379 7000
+CMD ["java", "-jar", "/app/app.jar"]

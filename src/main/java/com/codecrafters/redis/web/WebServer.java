@@ -4,16 +4,21 @@ package com.codecrafters.redis.web;
 import com.codecrafters.redis.storage.RedisStore;
 import com.codecrafters.redis.storage.KeyValueAccess;
 import com.codecrafters.redis.raft.RaftGroup;
+import com.codecrafters.redis.raft.MultiRaftStore;
 import com.codecrafters.redis.sharding.ShardAdminService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsServer;
+import com.sun.net.httpserver.HttpsConfigurator;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.net.ssl.SSLContext;
 
 public final class WebServer implements AutoCloseable {
     private final RedisStore store;
@@ -21,7 +26,9 @@ public final class WebServer implements AutoCloseable {
     private final RaftGroup raftGroup;
     private final boolean followerReads;
     private final ShardAdminService shardAdmin;
+    private final String clientToken;
     private final HttpServer server;
+    private final ExecutorService httpExecutor;
 
     public WebServer(RedisStore store, int port) throws IOException {
         this(store, port, null, false);
@@ -33,29 +40,50 @@ public final class WebServer implements AutoCloseable {
 
     public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
                      boolean followerReads) throws IOException {
-        this(store, access, port, raftGroup, followerReads, null);
+        this(store, access, port, raftGroup, followerReads, null, null);
     }
 
     public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
                      boolean followerReads, ShardAdminService shardAdmin) throws IOException {
+        this(store, access, port, raftGroup, followerReads, shardAdmin, null);
+    }
+
+    public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
+                     boolean followerReads, ShardAdminService shardAdmin, String clientToken) throws IOException {
+        this(store, access, port, raftGroup, followerReads, shardAdmin, clientToken,
+                com.codecrafters.redis.rpc.TlsContext.configured()
+                        ? com.codecrafters.redis.rpc.TlsContext.fromEnvironment() : null);
+    }
+
+    /** Explicit TLS context constructor for embedded deployments and certificate rotation. */
+    public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
+                     boolean followerReads, ShardAdminService shardAdmin, String clientToken,
+                     SSLContext tlsContext) throws IOException {
         this.store = store;
         this.access = access;
         this.raftGroup = raftGroup;
         this.followerReads = followerReads;
         this.shardAdmin = shardAdmin;
-        this.server = HttpServer.create(
-                new InetSocketAddress("0.0.0.0", port), 0);
+        this.clientToken = clientToken == null || clientToken.isBlank() ? null : clientToken;
+        String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
+        if (tlsContext != null) {
+            HttpsServer https = HttpsServer.create(new InetSocketAddress(bindHost, port), 0);
+            https.setHttpsConfigurator(new HttpsConfigurator(tlsContext));
+            this.server = https;
+        } else this.server = HttpServer.create(new InetSocketAddress(bindHost, port), 0);
 
         server.createContext("/api/health", this::health);
+        server.createContext("/api/raft/status", this::raftStatus);
         server.createContext("/api/keys", this::keys);
         server.createContext("/api/shards", this::shards);
         server.createContext("/", this::dashboard);
 
-        server.setExecutor(Executors.newCachedThreadPool(r -> {
+        this.httpExecutor = Executors.newCachedThreadPool(r -> {
             Thread thread = new Thread(r, "kv-http");
             thread.setDaemon(true);
             return thread;
-        }));
+        });
+        server.setExecutor(httpExecutor);
     }
 
     public void start() {
@@ -65,6 +93,7 @@ public final class WebServer implements AutoCloseable {
     }
 
     private void health(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
         if (!"GET".equals(exchange.getRequestMethod())) {
             send(exchange, 405, "text/plain", "Method not allowed");
             return;
@@ -73,7 +102,42 @@ public final class WebServer implements AutoCloseable {
                 "{\"status\":\"ok\",\"keys\":" + access.size() + "}");
     }
 
+    private void raftStatus(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            send(exchange, 405, "text/plain", "Method not allowed");
+            return;
+        }
+        if (access instanceof MultiRaftStore multi) {
+            StringBuilder json = new StringBuilder("{\"groups\":{");
+            boolean first = true;
+            for (var entry : multi.leadershipStatus().entrySet()) {
+                if (!first) json.append(',');
+                first = false;
+                var status = entry.getValue();
+                json.append('\"').append(escape(entry.getKey())).append("\":{\"leader\":\"")
+                        .append(escape(status.leaderId() == null ? "" : status.leaderId()))
+                        .append("\",\"localLeader\":").append(status.localLeader())
+                        .append(",\"term\":").append(status.term())
+                        .append(",\"commitIndex\":").append(status.commitIndex())
+                        .append(",\"ownershipEpoch\":").append(status.ownershipEpoch()).append('}');
+            }
+            send(exchange, 200, "application/json", json.append("}}").toString());
+            return;
+        }
+        if (raftGroup == null) {
+            send(exchange, 404, "application/json", "{\"error\":\"Raft is not enabled\"}");
+            return;
+        }
+        send(exchange, 200, "application/json", "{\"groups\":{\"" + escape(raftGroup.getGroupId())
+                + "\":{\"leader\":\"" + escape(raftGroup.getLeaderId() == null ? "" : raftGroup.getLeaderId())
+                + "\",\"localLeader\":" + raftGroup.isLeader() + ",\"term\":" + raftGroup.getTerm()
+                + ",\"commitIndex\":" + raftGroup.getCommitIndex() + ",\"ownershipEpoch\":"
+                + raftGroup.getOwnershipEpoch() + "}}}");
+    }
+
     private void keys(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getRawPath();
 
@@ -154,6 +218,7 @@ public final class WebServer implements AutoCloseable {
     }
 
     private void shards(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
         if (shardAdmin == null) {
             send(exchange, 404, "application/json", "{\"error\":\"Shard administration is disabled\"}");
             return;
@@ -203,6 +268,17 @@ public final class WebServer implements AutoCloseable {
 
     public int getPort() { return server.getAddress().getPort(); }
 
+    private boolean authorized(HttpExchange exchange) throws IOException {
+        if (clientToken == null) return true;
+        String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+        String expected = "Bearer " + clientToken;
+        if (authorization != null && java.security.MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8), authorization.getBytes(StandardCharsets.UTF_8))) return true;
+        exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer");
+        send(exchange, 401, "application/json", "{\"error\":\"Authentication required\"}");
+        return false;
+    }
+
     private String readValue(String key) throws IOException {
         if (raftGroup == null) return access.get(key);
         byte[] value = followerReads && !raftGroup.isLeader()
@@ -221,6 +297,7 @@ public final class WebServer implements AutoCloseable {
     }
 
     private void dashboard(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
         if (!"GET".equals(exchange.getRequestMethod())) {
             send(exchange, 405, "text/plain", "Method not allowed");
             return;
@@ -1514,6 +1591,18 @@ public final class WebServer implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(1);
+        try {
+            server.stop(1);
+        } finally {
+            httpExecutor.shutdown();
+            try {
+                if (!httpExecutor.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                    httpExecutor.shutdownNow();
+                }
+            } catch (InterruptedException interrupted) {
+                httpExecutor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

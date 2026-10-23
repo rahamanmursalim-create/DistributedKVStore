@@ -21,10 +21,16 @@ import java.net.SocketException;
 public class ClientHandler implements Runnable {
     private final Socket clientSocket;
     private final CommandHandler commandHandler;
+    private final String clientToken;
 
     public ClientHandler(Socket clientSocket, CommandHandler commandHandler) {
+        this(clientSocket, commandHandler, null);
+    }
+
+    public ClientHandler(Socket clientSocket, CommandHandler commandHandler, String clientToken) {
         this.clientSocket = clientSocket;
         this.commandHandler = commandHandler;
+        this.clientToken = clientToken == null || clientToken.isBlank() ? null : clientToken;
     }
 
     @Override
@@ -37,6 +43,7 @@ public class ClientHandler implements Runnable {
         ) {
             RespReader reader = new RespReader(in);
 
+            boolean authenticated = clientToken == null;
             while (!clientSocket.isClosed()) {
                 RespValue value;
                 try {
@@ -58,7 +65,15 @@ public class ClientHandler implements Runnable {
                 }
 
                 Command command = Command.fromRespValue(value);
-                RespValue response = commandHandler.execute(command);
+                RespValue response;
+                if ("AUTH".equalsIgnoreCase(command.getName())) {
+                    boolean accepted = command.getArgCount() == 1 && clientToken != null
+                            && java.security.MessageDigest.isEqual(clientToken.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            command.getArg(0).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    authenticated = accepted;
+                    response = accepted ? RespValue.simpleString("OK") : RespValue.error("WRONGPASS invalid password");
+                } else if (!authenticated) response = RespValue.error("NOAUTH Authentication required");
+                else response = commandHandler.execute(command);
 
                 RespWriter.write(out, response);
                 out.flush();

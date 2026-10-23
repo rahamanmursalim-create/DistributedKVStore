@@ -20,6 +20,8 @@ public final class RaftLog implements AutoCloseable {
     private final List<RaftLogEntry> entries = new ArrayList<>();
     private final Path file;
     private FileChannel channel;
+    private long baseIndex;
+    private long baseTerm;
 
     /** Creates a memory-only log, useful for ephemeral groups and tests. */
     public RaftLog() {
@@ -40,8 +42,7 @@ public final class RaftLog implements AutoCloseable {
     public synchronized RaftLogEntry append(
             long term, byte[] command) {
 
-        RaftLogEntry entry = new RaftLogEntry(
-                entries.size() + 1L, term, command);
+        RaftLogEntry entry = new RaftLogEntry(baseIndex + entries.size() + 1L, term, command);
 
         appendDurably(appendRecord(entry));
         entries.add(entry);
@@ -49,45 +50,96 @@ public final class RaftLog implements AutoCloseable {
     }
 
     public synchronized Optional<RaftLogEntry> get(long index) {
-        if (index <= 0 || index > entries.size()) {
+        if (index <= baseIndex || index > lastIndex()) {
             return Optional.empty();
         }
 
-        return Optional.of(entries.get((int) index - 1));
+        return Optional.of(entries.get((int) (index - baseIndex - 1)));
     }
 
     public synchronized List<RaftLogEntry> entriesFrom(long index) {
-        if (index < 1 || index > entries.size() + 1L) {
+        if (index <= baseIndex || index > lastIndex() + 1L) {
             throw new IllegalArgumentException("Invalid log index");
         }
 
         return List.copyOf(
-                entries.subList((int) index - 1, entries.size()));
+                entries.subList((int) (index - baseIndex - 1), entries.size()));
     }
 
     public synchronized void truncateFrom(long index) {
-        if (index < 1 || index > entries.size() + 1L) {
+        if (index <= baseIndex || index > lastIndex() + 1L) {
             throw new IllegalArgumentException("Invalid log index");
         }
 
-        if (index <= entries.size()) {
+        if (index <= lastIndex()) {
             appendDurably(truncateRecord(index));
-            entries.subList((int) index - 1, entries.size()).clear();
+            entries.subList((int) (index - baseIndex - 1), entries.size()).clear();
         }
     }
 
     public synchronized long lastIndex() {
-        return entries.size();
+        return baseIndex + entries.size();
     }
 
     public synchronized long lastTerm() {
         return entries.isEmpty()
-                ? 0
+                ? baseTerm
                 : entries.get(entries.size() - 1).getTerm();
     }
 
     public synchronized int size() {
         return entries.size();
+    }
+
+    public synchronized long baseIndex() { return baseIndex; }
+    public synchronized long baseTerm() { return baseTerm; }
+
+    /** Rewrites the durable suffix after a stable state-machine snapshot. */
+    public synchronized void compactThrough(long index, long term) throws IOException {
+        if (index < baseIndex || index > lastIndex()) throw new IllegalArgumentException("Invalid compaction index");
+        if (index == baseIndex) return;
+        long actualTerm = index == baseIndex ? baseTerm : get(index).orElseThrow().getTerm();
+        if (actualTerm != term) throw new IllegalArgumentException("Snapshot term does not match log");
+        int remove = (int) (index - baseIndex);
+        List<RaftLogEntry> suffix = new ArrayList<>(entries.subList(remove, entries.size()));
+        baseIndex = index; baseTerm = term; entries.clear(); entries.addAll(suffix);
+        rewrite();
+    }
+
+    /** Installs a remote snapshot boundary, retaining a suffix only when its term matches. */
+    public synchronized void installSnapshot(long index, long term) throws IOException {
+        if (index < baseIndex) return;
+        boolean matching = index == baseIndex && term == baseTerm
+                || get(index).map(entry -> entry.getTerm() == term).orElse(false);
+        if (matching) {
+            int remove = (int) (index - baseIndex);
+            entries.subList(0, remove).clear();
+        } else entries.clear();
+        baseIndex = index; baseTerm = term;
+        rewrite();
+    }
+
+    private void rewrite() throws IOException {
+        if (file == null) return;
+        if (channel != null) { channel.close(); channel = null; }
+        Path temporary = file.resolveSibling(file.getFileName() + ".compact.tmp");
+        try (FileChannel output = FileChannel.open(temporary, StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            writeFully(output, snapshotRecord(baseIndex, baseTerm));
+            for (RaftLogEntry entry : entries) writeFully(output, appendRecord(entry));
+            delayForTest(); output.force(true);
+        }
+        try { Files.move(temporary, file, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
+        catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(temporary, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        channel = FileChannel.open(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+    }
+
+    private static void writeFully(FileChannel channel, String record) throws IOException {
+        ByteBuffer buffer = StandardCharsets.UTF_8.encode(record);
+        while (buffer.hasRemaining()) channel.write(buffer);
     }
 
     private void recover() throws IOException {
@@ -117,14 +169,18 @@ public final class RaftLog implements AutoCloseable {
                     long index = Long.parseLong(fields[1]);
                     long term = Long.parseLong(fields[2]);
                     byte[] command = Base64.getUrlDecoder().decode(fields[3]);
-                    if (index != entries.size() + 1L)
+                    if (index != baseIndex + entries.size() + 1L)
                         throw new IOException("Raft log indexes are not contiguous");
                     entries.add(new RaftLogEntry(index, term, command));
                 } else if ("T".equals(fields[0]) && fields.length == 3) {
                     long index = Long.parseLong(fields[1]);
-                    if (index < 1 || index > entries.size() + 1L)
+                    if (index <= baseIndex || index > lastIndex() + 1L)
                         throw new IOException("Invalid Raft log truncation index");
-                    entries.subList((int) index - 1, entries.size()).clear();
+                    entries.subList((int) (index - baseIndex - 1), entries.size()).clear();
+                } else if ("S".equals(fields[0]) && fields.length == 4 && entries.isEmpty() && baseIndex == 0) {
+                    baseIndex = Long.parseLong(fields[1]); baseTerm = Long.parseLong(fields[2]);
+                    if (baseIndex < 0 || baseTerm < 0 || (baseIndex == 0 && baseTerm != 0))
+                        throw new IOException("Invalid Raft snapshot boundary");
                 } else {
                     throw new IOException("Unknown Raft log record");
                 }
@@ -145,10 +201,22 @@ public final class RaftLog implements AutoCloseable {
         return body + "\t" + checksum(body) + "\n";
     }
 
+    private static String snapshotRecord(long index, long term) {
+        String body = "S\t" + index + "\t" + term;
+        return body + "\t" + checksum(body) + "\n";
+    }
+
     private static String checksum(String value) {
         CRC32 crc = new CRC32();
         crc.update(value.getBytes(StandardCharsets.UTF_8));
         return String.format("%08x", crc.getValue());
+    }
+
+    private static void delayForTest() throws IOException {
+        long delay = Long.getLong("kv.test.forceDelayMillis", 0L);
+        if (delay <= 0) return;
+        try { Thread.sleep(delay); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Interrupted during simulated disk delay", e); }
     }
 
     private void appendDurably(String record) {
@@ -157,7 +225,7 @@ public final class RaftLog implements AutoCloseable {
         try {
             ByteBuffer buffer = StandardCharsets.UTF_8.encode(record);
             while (buffer.hasRemaining()) channel.write(buffer);
-            channel.force(true);
+            delayForTest(); channel.force(true);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not persist Raft log record", e);
         }

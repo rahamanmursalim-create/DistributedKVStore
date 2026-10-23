@@ -19,8 +19,12 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
 
-/** Durable RocksDB LSM persistence with an in-memory B+ Tree index and TTL metadata. */
+/** Durable RocksDB LSM storage; point lookups and ordered scans use RocksDB directly. */
 public final class RocksDBBPlusTreeStore implements AutoCloseable {
     private static final byte[] RECORD_MAGIC = {0x4b, 0x56, 0x01};
     static { RocksDB.loadLibrary(); }
@@ -28,7 +32,6 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
     private final RocksDB database;
     private final Options options;
     private final WriteOptions writeOptions;
-    private final BPlusTree<ValueEntry> index = new BPlusTree<>();
     private boolean closed;
 
     public RocksDBBPlusTreeStore(Path directory) throws IOException {
@@ -38,9 +41,8 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
         RocksDB opened = null;
         try {
             opened = RocksDB.open(options, directory.toAbsolutePath().toString());
-            recoverIndex(opened);
             database = opened;
-        } catch (RocksDBException | IOException | RuntimeException e) {
+        } catch (RocksDBException | RuntimeException e) {
             if (opened != null) opened.close();
             writeOptions.close(); options.close();
             throw new IOException("Could not open RocksDB at " + directory, e);
@@ -55,7 +57,6 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
         ensureOpen(); requireKeyEntry(key, entry);
         try { database.put(writeOptions, key.getBytes(StandardCharsets.UTF_8), encode(entry)); }
         catch (RocksDBException e) { throw new IOException("RocksDB put failed", e); }
-        index.put(key, entry);
     }
 
     public synchronized String get(String key) throws IOException {
@@ -65,17 +66,22 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
 
     public synchronized ValueEntry getEntry(String key) throws IOException {
         ensureOpen(); if (key == null) throw new IllegalArgumentException("key cannot be null");
-        ValueEntry entry = index.get(key);
+        ValueEntry entry;
+        try {
+            byte[] encoded = database.get(key.getBytes(StandardCharsets.UTF_8));
+            entry = encoded == null ? null : decode(encoded);
+        } catch (RocksDBException e) { throw new IOException("RocksDB get failed", e); }
         if (entry != null && entry.isExpired()) { delete(key); return null; }
         return entry;
     }
 
     public synchronized boolean delete(String key) throws IOException {
         ensureOpen(); if (key == null) throw new IllegalArgumentException("key cannot be null");
-        boolean existed = index.containsKey(key);
+        boolean existed;
+        try { existed = database.get(key.getBytes(StandardCharsets.UTF_8)) != null; }
+        catch (RocksDBException e) { throw new IOException("RocksDB existence check failed", e); }
         try { database.delete(writeOptions, key.getBytes(StandardCharsets.UTF_8)); }
         catch (RocksDBException e) { throw new IOException("RocksDB delete failed", e); }
-        index.remove(key);
         return existed;
     }
 
@@ -86,7 +92,7 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
         applyBatch(values, java.util.List.of());
     }
 
-    /** Atomically persists puts and deletes before updating the B+ Tree index. */
+    /** Atomically persists puts and deletes through RocksDB's write batch. */
     public synchronized void applyBatch(Map<String, ValueEntry> puts, Collection<String> deletes)
             throws IOException {
         ensureOpen();
@@ -99,30 +105,58 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
             for (String key : deletes) batch.delete(key.getBytes(StandardCharsets.UTF_8));
             database.write(writeOptions, batch);
         } catch (RocksDBException e) { throw new IOException("RocksDB batch write failed", e); }
-        for (Map.Entry<String, ValueEntry> entry : puts.entrySet()) index.put(entry.getKey(), entry.getValue());
-        for (String key : deletes) index.remove(key);
+    }
+
+    /** Replaces all rows in one synced RocksDB write batch. */
+    public synchronized void replaceAll(Map<String, ValueEntry> entries) throws IOException {
+        ensureOpen(); if (entries == null) throw new IllegalArgumentException("entries cannot be null");
+        try (WriteBatch batch = new WriteBatch(); RocksIterator iterator = database.newIterator()) {
+            for (iterator.seekToFirst(); iterator.isValid(); iterator.next()) batch.delete(iterator.key());
+            iterator.status();
+            for (Map.Entry<String, ValueEntry> entry : entries.entrySet()) {
+                requireKeyEntry(entry.getKey(), entry.getValue());
+                batch.put(entry.getKey().getBytes(StandardCharsets.UTF_8), encode(entry.getValue()));
+            }
+            database.write(writeOptions, batch);
+        } catch (RocksDBException e) { throw new IOException("RocksDB snapshot replacement failed", e); }
     }
 
     public synchronized NavigableMap<String, String> snapshot() throws IOException {
-        ensureOpen(); NavigableMap<String, String> result = new java.util.TreeMap<>();
-        for (Map.Entry<String, ValueEntry> entry : index.snapshot().entrySet())
+        ensureOpen(); NavigableMap<String, String> result = new TreeMap<>();
+        for (Map.Entry<String, ValueEntry> entry : entriesSnapshot().entrySet())
             if (!entry.getValue().isExpired()) result.put(entry.getKey(), entry.getValue().getValue());
         return java.util.Collections.unmodifiableNavigableMap(result);
     }
 
     public synchronized NavigableMap<String, ValueEntry> entriesSnapshot() throws IOException {
-        ensureOpen(); return index.snapshot();
+        ensureOpen(); NavigableMap<String, ValueEntry> result = new TreeMap<>();
+        try (RocksIterator iterator = database.newIterator()) {
+            for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
+                result.put(new String(iterator.key(), StandardCharsets.UTF_8), decode(iterator.value()));
+            iterator.status();
+        } catch (RocksDBException e) { throw new IOException("RocksDB iteration failed", e); }
+        return java.util.Collections.unmodifiableNavigableMap(result);
     }
 
-    private void recoverIndex(RocksDB opened) throws RocksDBException, IOException {
-        try (RocksIterator iterator = opened.newIterator()) {
-            for (iterator.seekToFirst(); iterator.isValid(); iterator.next()) {
-                String key = new String(iterator.key(), StandardCharsets.UTF_8);
-                ValueEntry value = decode(iterator.value());
-                index.put(key, value);
-            }
+    /** Visits rows in key order while retaining only RocksDB's iterator state. */
+    public synchronized void forEachEntry(BiConsumer<String, ValueEntry> visitor) throws IOException {
+        ensureOpen(); java.util.Objects.requireNonNull(visitor, "visitor");
+        try (RocksIterator iterator = database.newIterator()) {
+            for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
+                visitor.accept(new String(iterator.key(), StandardCharsets.UTF_8), decode(iterator.value()));
             iterator.status();
-        }
+        } catch (RocksDBException e) { throw new IOException("RocksDB iteration failed", e); }
+    }
+
+    /** Counts records with a streaming iterator instead of allocating a full key index. */
+    public synchronized int countLiveEntries() throws IOException {
+        ensureOpen(); int count = 0;
+        try (RocksIterator iterator = database.newIterator()) {
+            for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
+                if (!decode(iterator.value()).isExpired()) count++;
+            iterator.status();
+        } catch (RocksDBException e) { throw new IOException("RocksDB iteration failed", e); }
+        return count;
     }
 
     private static byte[] encode(ValueEntry entry) throws IOException {

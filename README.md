@@ -139,7 +139,7 @@ build settings.
 
 ### Prerequisites
 
--   A JDK compatible with the Java version configured in `pom.xml`
+-   JDK 25 or later (the project is compiled for Java 25, as configured in `pom.xml`)
 -   Apache Maven
 -   Git
 
@@ -359,6 +359,7 @@ DistributedKVStore/
                         │   ├── RaftGroupConsensusTest.java
                         │   ├── RaftLogPersistenceTest.java
                         │   ├── RaftLogTest.java
+                        │   ├── RaftDynamicMembershipTest.java
                         │   └── RaftRebalanceIntegrationTest.java
                         ├── rpc/
                         │   ├── RpcCodecTest.java
@@ -394,6 +395,114 @@ DistributedKVStore/
                         └── web/
                             └── WebServerIntegrationTest.java
 ```
+
+## Multi-Raft operations and verification
+
+`RaftGroup.reconfigureVoters(Map<String, InetSocketAddress>)` changes a Raft
+group's voters at runtime. Call it on the current leader and provide the full
+target voter map. A new node should start as a learner using the constructor's
+`initialVoter=false` option and the current voter endpoints. The leader catches
+it up before committing a joint configuration using majorities from both voter
+sets, then commits the final set. The current leader may be removed; it steps
+down after the final configuration commits.
+
+`MultiRaftStore.rebalanceGroups(...)` freezes the provisioned groups, copies
+live values, then commits each group's monotonically increasing ownership epoch
+and active group manifest in its Raft log. Routed reads and writes carry the
+epoch captured by their router; stale routers are rejected after the fence
+advances. A new router restores the active group list from the replicated
+manifest. If a migration is interrupted after fencing begins, the groups stay
+frozen; retry the same rebalance to complete recovery.
+
+Run `mvn clean test` with JDK 17 to execute the full suite. It includes a
+three-to-two voter reconfiguration test, stale-owner read/write rejection,
+manifest recovery after Raft restart, active snapshot transfer/install and
+restart recovery, slow-fsync injection, and separate-JVM failure/restart.
+Run `scripts/run-raft-benchmark.ps1` for a single-node durable-write baseline,
+`scripts/run-raft-soak.ps1 -DurationMinutes 60` for repeated process failure and
+recovery cycles, and `scripts/run-raft-nic-check.ps1 -HostAddress <local-ip>`
+to run three JVMs through a local network interface. That check exercises a
+real NIC path on one machine; it is not a multi-host cluster test. Physical
+multi-host verification still requires a second reachable machine and routable
+peer addresses; no second host is available in the current environment.
+
+`RaftNetworkPartitionTest` adds deterministic RPC-path cuts through per-peer
+TCP proxies: it isolates a minority, verifies majority writes, heals and checks
+catch-up, then removes all inter-node paths and verifies writes fail without a
+quorum. Run longer failure/recovery soak with
+`scripts/run-raft-soak.ps1 -DurationMinutes 120 -ForceDelayMillis 35`; the
+runner writes `soak.log` and `summary.json` under `artifacts/` (use 1,440
+minutes for a 24-hour run). The configured duration is a repeatable procedure,
+not an availability/SLO claim until it has completed on the target environment.
+On 2026-10-22, a five-minute Windows 11/JDK 27 run completed 57 cycles with
+35 ms injected durable-write delay; the machine-readable run record and raw
+console log are in `artifacts/raft-soak-20261022-5min/`. A separate 5,000-write,
+128-byte single-node benchmark on the same machine measured 555.7 ops/s,
+p95 2.769 ms, and p99 3.512 ms. This is a local sequential baseline only; it
+does not establish multi-node capacity, 50K QPS, an availability percentage,
+or any production latency objective.
+
+For a deployed host, set `KV_CLIENT_TOKEN` and `KV_TLS_PASSWORD` in the
+verification shell, then run `scripts/test-deployment-security.ps1` with the
+host, HTTPS/RESP TLS ports, deployed leaf certificate thumbprint, keystore,
+and a Raft peer endpoint. It exercises the live HTTPS and RESP TLS endpoints,
+authentication, plaintext rejection, certificate identity and Raft route.
+After certificate rotation/restart, run it with the new thumbprint and confirm
+the old thumbprint is rejected. The script checks connectivity; inspect the
+host firewall rule scopes separately as documented in
+[`scripts/PHYSICAL_CLUSTER_TEST.md`](scripts/PHYSICAL_CLUSTER_TEST.md).
+
+On 2026-10-22, `scripts/run-docker-cluster-check.ps1` passed against Docker
+Engine 29.7.2 using three containers on this Windows host. It verified
+authenticated HTTPS, replicated writes, follower stop/restart catch-up,
+single-voter no-quorum rejection, and certificate replacement after forced
+container recreation using an explicit leaf-certificate thumbprint check. The
+machine-readable record is in
+[`artifacts/docker-cluster-20261022-144638/summary.json`](artifacts/docker-cluster-20261022-144638/summary.json).
+The Docker bridge disconnect subtest was not run in this passing execution
+because an earlier Docker Desktop network disconnect attempt timed out; the
+separate `RaftNetworkPartitionTest` passed in the full Maven suite. These
+containers share one physical host and do not prove multi-host networking or
+deployed certificate rotation. The local Windows firewall inspection is in
+[`artifacts/host-review-20261022/firewall-review.md`](artifacts/host-review-20261022/firewall-review.md).
+
+## Storage and network security limits
+
+The RocksDB `RedisStore` path uses RocksDB directly for point reads and writes;
+it does not rebuild a duplicate B+ tree key/value index on startup. Operations
+that explicitly return a full key listing or an MVCC transaction snapshot still
+allocate memory proportional to the requested data. The in-memory MVCC conflict
+version map still retains one revision per key, so total process memory is not
+strictly bounded by the RocksDB block cache. The WAL-backed in-memory
+store remains proportional to its live key count. TTL expiration is scheduled
+from an expiry priority queue instead of scanning the whole keyspace every
+100 ms, and the in-memory B+ tree periodically rebuilds after enough deletions
+to reclaim tombstone slots.
+
+The active `RaftGroup` checkpoints committed state and compacts its log prefix.
+`createSnapshot()` establishes a linearizable commit boundary, persists a
+checksummed snapshot before rewriting the log, and sends it to lagging followers
+in bounded RPC chunks. It includes expiry-preserving values, prepared
+transaction metadata, membership, maintenance state, and ownership epoch.
+Recovery reapplies the durable snapshot before replaying the log suffix.
+Automatic checkpoints start at `KV_RAFT_SNAPSHOT_LOG_ENTRIES` (default 10,000
+retained entries).
+
+The store enforces finite `KV_MAX_LIVE_KEYS` (default 100,000),
+`KV_MAX_LIVE_BYTES` (default 64 MiB), `KV_MAX_KEY_BYTES` (1 KiB), and
+`KV_MAX_VALUE_BYTES` (1 MiB) limits. These quotas bound store values, MVCC
+versions and explicit snapshot/list materialization; requests over the quotas
+are rejected. They bound memory by limiting the accepted dataset, rather than
+making every API a streaming API.
+
+Set `KV_CLIENT_TOKEN` to require a constant-time checked bearer token on every
+HTTP route and `AUTH <token>` on each RESP connection. `KV_BIND_HOST` defaults
+to `127.0.0.1`; binding to a public interface requires an explicit deployment
+choice. `KV_TLS_KEYSTORE`, `KV_TLS_PASSWORD`, and optional
+`KV_TLS_TRUSTSTORE` enable HTTPS and TLS for RESP; the Raft RPC transport uses
+mutual TLS. Remote Raft peers additionally require a shared `KV_CLUSTER_TOKEN`
+that is checked on every RPC. Use certificates issued only to trusted cluster
+members and rotate both certificates and tokens operationally.
 
 ## License
 

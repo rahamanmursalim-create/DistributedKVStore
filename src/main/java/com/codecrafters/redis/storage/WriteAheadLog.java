@@ -66,7 +66,7 @@ public final class WriteAheadLog implements AutoCloseable {
         }
         ByteBuffer buffer = StandardCharsets.UTF_8.encode(batch.toString());
         while (buffer.hasRemaining()) channel.write(buffer);
-        channel.force(true);
+        delayForTest(); channel.force(true);
     }
 
     /** Appends a complete atomic transaction as one checksummed WAL record. */
@@ -93,13 +93,37 @@ public final class WriteAheadLog implements AutoCloseable {
         appendAndSync(body + "\t" + checksum(body) + "\n");
     }
 
+    /** Atomically replaces WAL history with the supplied live snapshot. */
+    public synchronized void replaceWithSnapshot(java.util.Map<String, ValueEntry> entries) throws IOException {
+        ensureOpen();
+        Path temporary = path.resolveSibling(path.getFileName() + ".snapshot.tmp");
+        try (FileChannel output = FileChannel.open(temporary, StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            for (java.util.Map.Entry<String, ValueEntry> entry : entries.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) throw new IllegalArgumentException("Null snapshot entry");
+                String body = PUT_CHECKSUM + "\t" + encode(entry.getKey()) + "\t"
+                        + encode(entry.getValue().getValue()) + "\t" + entry.getValue().getExpiryTimestampMillis();
+                ByteBuffer buffer = StandardCharsets.UTF_8.encode(body + "\t" + checksum(body) + "\n");
+                while (buffer.hasRemaining()) output.write(buffer);
+            }
+            delayForTest(); output.force(true);
+        }
+        channel.close(); channel = null;
+        try { Files.move(temporary, path, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
+        catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(temporary, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        channel = FileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+    }
+
     private void appendAndSync(String line) throws IOException {
         ensureOpen();
         ByteBuffer buffer = StandardCharsets.UTF_8.encode(line);
         while (buffer.hasRemaining()) {
             channel.write(buffer);
         }
-        channel.force(true);
+        delayForTest(); channel.force(true);
     }
 
     /**
@@ -117,7 +141,7 @@ public final class WriteAheadLog implements AutoCloseable {
         if (completeLength < bytes.length) {
             channel.truncate(completeLength);
             channel.position(completeLength);
-            channel.force(true);
+            delayForTest(); channel.force(true);
         }
         if (completeLength == 0) {
             return List.of();
@@ -217,6 +241,13 @@ public final class WriteAheadLog implements AutoCloseable {
         if (channel == null || !channel.isOpen()) {
             throw new IOException("WAL is closed");
         }
+    }
+
+    private static void delayForTest() throws IOException {
+        long delay = Long.getLong("kv.test.forceDelayMillis", 0L);
+        if (delay <= 0) return;
+        try { Thread.sleep(delay); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Interrupted during simulated disk delay", e); }
     }
 
     @Override

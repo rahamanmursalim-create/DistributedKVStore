@@ -21,6 +21,14 @@ public class Main {
         int tcpPort = readPort("TCP_PORT", 6379);
 
         String dataDir = System.getenv("DATA_DIR");
+        String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
+        boolean remoteBind = !isLoopback(bindHost);
+        if (remoteBind && (!com.codecrafters.redis.rpc.TlsContext.configured()
+                || System.getenv("KV_CLIENT_TOKEN") == null || System.getenv("KV_CLIENT_TOKEN").isBlank())) {
+            System.err.println("Remote client binding requires KV_TLS_KEYSTORE and KV_CLIENT_TOKEN");
+            System.exit(1);
+            return;
+        }
         Path dataRoot = dataDir != null && !dataDir.isBlank() ? Path.of(dataDir) : Path.of("data");
         RedisStore store = openConfiguredStore(dataRoot.resolve("wal.log"), dataRoot.resolve("rocksdb"), true);
         ShardedStore shardedStore = null;
@@ -39,6 +47,19 @@ public class Main {
                         shardStoragePaths);
             }
             clusterConfig = ClusterRuntimeConfig.fromEnvironment(System.getenv()).orElse(null);
+            if (clusterConfig != null && !com.codecrafters.redis.rpc.TlsContext.configured()) {
+                for (int group = 0; group < clusterConfig.groupIds().size(); group++)
+                    for (var peer : clusterConfig.peers(group).values())
+                        if (!peer.address().getAddress().isLoopbackAddress())
+                            throw new IllegalArgumentException("Remote Raft peers require mutual TLS (KV_TLS_KEYSTORE/KV_TLS_TRUSTSTORE)");
+            }
+            if (clusterConfig != null) {
+                for (int group = 0; group < clusterConfig.groupIds().size(); group++)
+                    for (var peer : clusterConfig.peers(group).values())
+                        if (!peer.address().getAddress().isLoopbackAddress()
+                                && (System.getenv("KV_CLUSTER_TOKEN") == null || System.getenv("KV_CLUSTER_TOKEN").isBlank()))
+                            throw new IllegalArgumentException("Remote Raft peers require KV_CLUSTER_TOKEN");
+            }
             if (shardedStore != null && clusterConfig != null)
                 throw new IllegalArgumentException("KV_SHARD_NODES mode and Raft cluster mode cannot be combined yet");
             if (clusterConfig != null) {
@@ -53,12 +74,13 @@ public class Main {
                     raftStores.add(groupStore);
                     RaftGroup group = new RaftGroup(groupId, clusterConfig.nodeId(),
                             new java.net.InetSocketAddress(clusterConfig.bindHost(), clusterConfig.bindPort(i)),
-                            peers, groupDir, groupStore);
+                            peers, groupDir, groupStore, true, clusterConfig.selfEndpoint(i).address());
                     raftGroups.put(groupId, group);
                 }
                 multiRaftStore = new MultiRaftStore(raftGroups, 128, clusterConfig.followerReads(),
                         clusterConfig.maxFollowerCommitLag());
                 for (RaftGroup group : raftGroups.values()) group.start();
+                multiRaftStore.recoverPendingTransactions();
                 System.out.println("Multi-Raft cluster mode enabled for node " + clusterConfig.nodeId()
                         + " across groups " + clusterConfig.groupIds());
             }
@@ -74,7 +96,8 @@ public class Main {
         WebServer webServer;
 
         try {
-            webServer = new WebServer(store, access, httpPort, null, false, shardAdmin);
+            webServer = new WebServer(store, access, httpPort, null, false, shardAdmin,
+                    System.getenv("KV_CLIENT_TOKEN"));
         } catch (IOException e) {
             closeRuntime(raftGroups, raftStores, multiRaftStore, shardedStore, store);
             System.err.println("Could not create HTTP server: " + e.getMessage());
@@ -200,6 +223,11 @@ public class Main {
             case "rocksdb" -> RedisStore.usingRocksDB(rocksDirectory, cleanup);
             default -> throw new IllegalArgumentException("KV_STORAGE_BACKEND must be 'wal' or 'rocksdb'");
         };
+    }
+
+    private static boolean isLoopback(String host) {
+        try { return java.net.InetAddress.getByName(host).isLoopbackAddress(); }
+        catch (java.net.UnknownHostException e) { throw new IllegalArgumentException("Invalid KV_BIND_HOST: " + host, e); }
     }
 
     private static int readPort(String name, int fallback) {

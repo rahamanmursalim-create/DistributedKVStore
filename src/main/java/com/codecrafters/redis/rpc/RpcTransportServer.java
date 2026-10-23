@@ -12,6 +12,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 
 /** Length-framed, request/reply RPC server built on the project's RpcCodec. */
 public final class RpcTransportServer implements AutoCloseable {
@@ -23,6 +25,7 @@ public final class RpcTransportServer implements AutoCloseable {
     private final InetSocketAddress address;
     private final int socketTimeoutMillis;
     private final Handler handler;
+    private final SSLContext configuredTls;
     private final ThreadPoolExecutor workers;
     private final AtomicBoolean running = new AtomicBoolean();
     private ServerSocket serverSocket;
@@ -30,11 +33,17 @@ public final class RpcTransportServer implements AutoCloseable {
 
     public RpcTransportServer(InetSocketAddress address, int workerCount,
                               int socketTimeoutMillis, Handler handler) {
+        this(address, workerCount, socketTimeoutMillis, handler, null);
+    }
+
+    public RpcTransportServer(InetSocketAddress address, int workerCount,
+                              int socketTimeoutMillis, Handler handler, SSLContext tlsContext) {
         this.address = Objects.requireNonNull(address, "address");
         if (workerCount <= 0 || socketTimeoutMillis <= 0)
             throw new IllegalArgumentException("worker count and timeout must be positive");
         this.socketTimeoutMillis = socketTimeoutMillis;
         this.handler = Objects.requireNonNull(handler, "handler");
+        this.configuredTls = tlsContext;
         this.workers = new ThreadPoolExecutor(workerCount, workerCount, 0L,
                 TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(256), task -> {
                     Thread thread = new Thread(task, "rpc-transport-worker");
@@ -46,7 +55,9 @@ public final class RpcTransportServer implements AutoCloseable {
     public synchronized void start() throws IOException {
         if (!running.compareAndSet(false, true)) return;
         try {
-            serverSocket = new ServerSocket();
+            SSLContext tls = configuredTls == null ? TlsContext.fromEnvironment() : configuredTls;
+            serverSocket = tls == null ? new ServerSocket() : tls.getServerSocketFactory().createServerSocket();
+            if (serverSocket instanceof SSLServerSocket ssl) ssl.setNeedClientAuth(true);
             serverSocket.setReuseAddress(true);
             serverSocket.bind(address);
             acceptThread = new Thread(this::acceptLoop, "rpc-transport-accept");

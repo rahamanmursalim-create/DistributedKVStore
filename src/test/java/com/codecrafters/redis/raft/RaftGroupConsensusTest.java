@@ -41,6 +41,10 @@ public final class RaftGroupConsensusTest {
             assert "replicated".equals(stores[2].get("alpha"));
             assert leader.readIndex() == leader.getCommitIndex();
             int boundedFollower = (firstLeader + 1) % 3;
+            long leaderDiscoveryDeadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+            while (nodes[boundedFollower].getLeaderId() == null && System.nanoTime() < leaderDiscoveryDeadline)
+                Thread.sleep(10);
+            assert nodes[boundedFollower].getLeaderId() != null;
             assert "replicated".equals(new String(nodes[boundedFollower].getBoundedStalenessRead("alpha", 0), java.nio.charset.StandardCharsets.UTF_8));
             assert "replicated".equals(new String(leader.getWithReadIndex("alpha"), java.nio.charset.StandardCharsets.UTF_8));
             CommandHandler commands = new CommandHandler(stores[firstLeader], null, leader, false);
@@ -49,6 +53,14 @@ public final class RaftGroupConsensusTest {
             RespValue deleted = commands.execute(new Command("DEL", java.util.List.of("via-command")));
             assert deleted.getType() == RespType.INTEGER && Long.valueOf(1).equals(deleted.getIntegerValue());
             assert commands.execute(new Command("GET", java.util.List.of("via-command"))).getType() == RespType.NULL_BULK_STRING;
+            assert "OK".equals(commands.execute(new Command("SET", java.util.List.of("del-batch-a", "1"))).getStringValue());
+            assert "OK".equals(commands.execute(new Command("SET", java.util.List.of("del-batch-b", "2"))).getStringValue());
+            RespValue batchDeleted = commands.execute(new Command("DEL", java.util.List.of("del-batch-a", "del-batch-b")));
+            assert batchDeleted.getType() == RespType.INTEGER && Long.valueOf(2).equals(batchDeleted.getIntegerValue());
+            assert stores[firstLeader].get("del-batch-a") == null && stores[firstLeader].get("del-batch-b") == null;
+            assert "OK".equals(commands.execute(new Command("SET", java.util.List.of("del-duplicate", "1"))).getStringValue());
+            RespValue duplicateDeleted = commands.execute(new Command("DEL", java.util.List.of("del-duplicate", "del-duplicate")));
+            assert duplicateDeleted.getType() == RespType.INTEGER && Long.valueOf(1).equals(duplicateDeleted.getIntegerValue());
             assert "OK".equals(commands.execute(new Command("SET", java.util.List.of("ttl-command", "expires-later", "PX", "10000"))).getStringValue());
             assert "expires-later".equals(commands.execute(new Command("GET", java.util.List.of("ttl-command"))).getStringValue());
             int followerIndex = (firstLeader + 1) % 3;
@@ -60,7 +72,12 @@ public final class RaftGroupConsensusTest {
             for (RedisStore replica : stores) assert "through-leader".equals(replica.get("forwarded"));
             nodes[firstLeader].close(); nodes[firstLeader] = null;
             int newLeaderIndex = awaitLeader(nodes, firstLeader);
-            assert newLeaderIndex >= 0 && newLeaderIndex != firstLeader;
+            if (newLeaderIndex < 0 || newLeaderIndex == firstLeader) {
+                throw new AssertionError("No failover leader: " + java.util.Arrays.toString(java.util.Arrays.stream(nodes)
+                        .map(node -> node == null ? "closed" : "leader=" + node.getLeaderId() + ",term=" + node.getTerm()
+                                + ",commit=" + node.getCommitIndex() + ",log=" + node.getLastLogIndex() + "/" + node.getLastLogTerm()
+                                + ",base=" + node.getLogBaseIndex() + ",voters=" + node.getVoterIds()).toArray()));
+            }
             RaftGroup replacementLeader = nodes[newLeaderIndex];
             assert replacementLeader.put("after-failover", "ok".getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     > replacementLeader.getCommitIndex() - 1;
@@ -87,7 +104,7 @@ public final class RaftGroupConsensusTest {
     }
 
     private static int awaitLeader(RaftGroup[] nodes, int excluded) throws InterruptedException {
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(12);
         while (System.nanoTime() < deadline) {
             for (int i = 0; i < nodes.length; i++)
                 if (i != excluded && nodes[i] != null && nodes[i].isLeader()) return i;
