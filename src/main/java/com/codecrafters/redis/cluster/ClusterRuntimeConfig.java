@@ -19,6 +19,7 @@ public final class ClusterRuntimeConfig {
     }
 
     private final String nodeId, groupId, bindHost;
+    private final Endpoint selfEndpoint;
     private final int bindPort;
     private final List<String> groupIds;
     private final Map<String, Endpoint> peers;
@@ -26,9 +27,10 @@ public final class ClusterRuntimeConfig {
     private final long maxFollowerCommitLag;
 
     private ClusterRuntimeConfig(String nodeId, String groupId, String bindHost, int bindPort,
-                                 List<String> groupIds,
+                                 Endpoint selfEndpoint, List<String> groupIds,
                                  Map<String, Endpoint> peers, boolean followerReads, long maxFollowerCommitLag) {
         this.nodeId = nodeId; this.groupId = groupId; this.bindHost = bindHost;
+        this.selfEndpoint = selfEndpoint;
         this.bindPort = bindPort; this.groupIds = List.copyOf(groupIds);
         this.peers = Map.copyOf(peers); this.followerReads = followerReads;
         this.maxFollowerCommitLag = maxFollowerCommitLag;
@@ -91,7 +93,7 @@ public final class ClusterRuntimeConfig {
         try { maxFollowerCommitLag = Long.parseLong(environment.getOrDefault("KV_FOLLOWER_MAX_COMMIT_LAG", "0")); }
         catch (NumberFormatException e) { throw new IllegalArgumentException("KV_FOLLOWER_MAX_COMMIT_LAG must be a non-negative integer", e); }
         if (maxFollowerCommitLag < 0) throw new IllegalArgumentException("KV_FOLLOWER_MAX_COMMIT_LAG must be non-negative");
-        return Optional.of(new ClusterRuntimeConfig(nodeId, groupId, bindHost, bindPort, groupIds,
+        return Optional.of(new ClusterRuntimeConfig(nodeId, groupId, bindHost, bindPort, self, groupIds,
                 members, Boolean.parseBoolean(followerValue), maxFollowerCommitLag));
     }
 
@@ -135,6 +137,10 @@ public final class ClusterRuntimeConfig {
     public String bindHost() { return bindHost; }
     public int bindPort() { return bindPort; }
     public Map<String, Endpoint> peers() { return peers; }
+    public Endpoint selfEndpoint(int groupIndex) {
+        checkGroupIndex(groupIndex);
+        return new Endpoint(selfEndpoint.host(), selfEndpoint.port() + groupIndex);
+    }
     public boolean followerReads() { return followerReads; }
     public long maxFollowerCommitLag() { return maxFollowerCommitLag; }
     private void checkGroupIndex(int index) {

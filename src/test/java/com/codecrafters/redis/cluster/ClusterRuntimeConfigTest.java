@@ -19,6 +19,8 @@ public final class ClusterRuntimeConfigTest {
         assert config.bindPort() == 7101;
         assert config.groupIds().equals(java.util.List.of("orders-1", "orders-2"));
         assert config.bindPort(1) == 7102;
+        assert config.selfEndpoint(0).host().equals("10.0.0.1");
+        assert config.selfEndpoint(1).port() == 7102;
         assert config.peers().size() == 2;
         assert config.peers().get("node-c").host().equals("2001:db8::3");
         assert config.peers(1).get("node-c").port() == 7104;

@@ -33,6 +33,13 @@ public final class RedisStoreRocksDBIntegrationTest {
         try (RedisStore recovered = RedisStore.usingRocksDB(directory, false)) {
             assert recovered.get("plain") == null;
             assert recovered.get("transaction") != null;
+            recovered.replaceSnapshot(Map.of("snapshot-row", new ValueEntry("snapshot-value", System.currentTimeMillis() + 30_000)));
+            assert recovered.get("transaction") == null;
+            assert "snapshot-value".equals(recovered.get("snapshot-row"));
+        }
+        try (RedisStore recovered = RedisStore.usingRocksDB(directory, false)) {
+            assert recovered.get("transaction") == null;
+            assert "snapshot-value".equals(recovered.get("snapshot-row"));
         }
         System.out.println("RedisStoreRocksDBIntegrationTest passed");
     }

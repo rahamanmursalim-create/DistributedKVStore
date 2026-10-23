@@ -1,399 +1,247 @@
 # Distributed Key-Value Store
 
-DistributedKVStore is a Java-based key-value storage project focused on persistent storage, Redis-style request handling, replication, sharding, and distributed coordination. It brings together storage-engine components, networking and protocol handling, Raft-related components, and a web interface to explore the design of a distributed storage system.
-
-> **Project status:** This is an engineering and learning
-> implementation. The presence of a component in the repository does
-> not, by itself, prove production readiness, a particular consistency
-> guarantee, or a specific performance level.
-
-**Live Demo:** [Open DistributedKVStore Dashboard](https://distributedkvstore.onrender.com/)
-
-**Health Check:** [View API Health Status](https://distributedkvstore.onrender.com/api/health)
-
-**Source Code:** [GitHub Repository](https://github.com/rahamanmursalim-create/DistributedKVStore)
-
-## Table of Contents
-
--   [Overview](#overview)
--   [Architecture](#architecture)
--   [Components](#components)
--   [Technology Stack](#technology-stack)
--   [Build and Test](#build-and-test)
--   [Run](#run)
--   [Performance and Reliability](#performance-and-reliability)
--   [Project Layout](#project-layout)
--   [License](#license)
-
 ## Overview
 
-The project explores key-value database internals and distributed-system concepts, including persistent storage, client-server networking, protocol handling, replication, sharding, and cluster coordination. It also includes a web interface for interacting with the system.
+DistributedKVStore is a Java-based distributed key-value storage system featuring persistent storage, Raft/Multi-Raft replication, sharding, and distributed coordination. It combines Redis-style request handling, storage-engine components, RPC communication, and an HTTP dashboard.
+
+The project explores database internals, fault recovery, and distributed-system reliability, with tests covering persistence, failover, snapshot recovery, and network partitions.
+
+**Live Demo:** [Open DistributedKVStore Dashboard](https://distributedkvstore.onrender.com/)  
+**Health Check:** [View API Health Status](https://distributedkvstore.onrender.com/api/health)  
+**Source Code:** [GitHub Repository](https://github.com/rahamanmursalim-create/DistributedKVStore)
 
 ## Features
 
-### TCP Server and Redis-Style Protocol
-- Concurrent TCP client handling with RESP request parsing and response serialization
-- Support for fragmented input and pipelined requests
-- Redis-style commands, including `PING`, `ECHO`, `SET`, `GET`, `DEL`, and `EXISTS`
-- Key expiration using `EX` and `PX` options
-- Additional commands for key listing, server information, and command metadata
-
-### Persistent Storage Engine
-- Write-Ahead Logging (WAL) with checksums and recovery
-- In-memory MemTable and sorted, immutable SSTables
-- Manifest-based SSTable tracking and recovery
-- Sparse-index lookups and Bloom filters
-- Bounded LRU record caching
-- Flush and compaction workflows
-- Tests for concurrent operations, deletion, restart recovery, and interrupted operations
-
-### HTTP Dashboard and REST API
-- Embedded web dashboard for interacting with stored key-value data
-- JSON health and key-list endpoints
-- REST operations for creating, reading, updating, and deleting keys
-- Search and filtering with loading feedback, notifications, and delete confirmation
-- Shared key-value access between the TCP service and HTTP API
-
-### Database and Storage Concepts
-- Key-value data access and expiration management
-- MVCC-related transaction components
-- RocksDB integration components
-- Separate storage-engine implementation for exploring LSM-style persistence
-
-### Distributed-System Components
-- Raft log and consensus-related components
-- Multi-Raft and replication-related code
-- RPC messaging, encoding, and validation
-- Cluster membership and node-management components
-- Consistent hashing, shard metadata, and data-migration components
-
-### Testing and Reliability
-- Unit and integration tests for protocol handling, networking, storage, and the HTTP API
-- WAL replay, checksum validation, and recovery tests
-- Storage concurrency, compaction, and deletion-recovery tests
-- Tests for Raft logs, RPC codecs, cluster membership, and shard metadata
+- **Raft/Multi-Raft Consensus:** Leader election, replication, failover, and snapshot recovery.
+- **Sharding and Rebalancing:** Consistent hashing, shard migration, and ownership coordination.
+- **Persistent Storage Engine:** WAL, MemTables, SSTables, manifests, Bloom filters, sparse indexes, and compaction.
+- **Storage Technologies:** RocksDB integration and B+ Tree-based storage components.
+- **Transaction Management:** MVCC-related components and transaction conflict handling.
+- **Read/Write Optimizations:** ReadIndex, follower reads, and asynchronous write batching.
+- **Networking and Protocols:** Concurrent TCP client handling, Redis-style RESP commands, and RPC transport.
+- **HTTP/HTTPS API and Security:** Health checks, key-value operations, bearer-token authentication, and TLS support.
+- **Fault-Tolerance Testing:** Tests for persistence, restart recovery, network partitions, snapshot installation, and multi-process failover.
 
 ## Architecture
 
-![DistributedKVStore
-architecture](docs/images/distributedkvstore-architecture.png)
+![DistributedKVStore Architecture](docs/images/distributedkvstore-architecture.png)
 
-The diagram illustrates the relationships between the runtime startup,
-Redis-style TCP service, request parsing/dispatch, in-memory key-value
-store, persistent LSM-oriented storage components, and HTTP
-dashboard/API.
+The architecture connects runtime startup and operations, client request handling, key-value storage, Raft replication, RPC transport, cluster coordination, and shard management. The components enabled in a particular run depend on the selected entry point and runtime configuration.
 
-### Conceptual request flow
+## Performance and Benchmarks
 
-1.  A client connects to the TCP service.
-2.  A connection handler processes the client connection.
-3.  Protocol parsing and command dispatch interpret the request.
-4.  The key-value store processes the operation and interacts with
-    persistence components as configured.
-5.  The web component offers a separate HTTP dashboard/API entry point.
+A local single-node sequential benchmark using 5,000 writes of 128 bytes reported:
 
-The actual startup path and enabled components depend on the entry point
-and configuration. Check `pom.xml` and the source code before assuming
-every component is enabled in a default run.
+- **Throughput:** 555.7 operations/second
+- **P95 latency:** 2.769 ms
+- **P99 latency:** 3.512 ms
 
-## Components
+These measurements reflect the tested workload and local environment. They do not represent distributed-cluster throughput or production availability guarantees. Multi-node performance targets will be established after reproducible distributed-load testing.
 
-The repository contains the following major components and supporting modules.
+## Independent Development
 
-| Area | Components and Responsibilities |
-|---|---|
-| **Persistent Storage** | Write-Ahead Log (WAL), MemTable, SSTables, manifest, Bloom filters, compaction, and storage manager |
-| **Key-Value Operations** | Redis-style store, key-value access, and expiration state |
-| **Transactions** | MVCC-related code and transaction conflict handling |
-| **Networking** | TCP/Netty client and server, connection handling, and request processing |
-| **Protocols** | RESP reader/writer and value types, RPC transport, and message codecs |
-| **Replication and Consensus** | Raft nodes, logs, snapshots, ReadIndex, and Multi-Raft components |
-| **Sharding** | Consistent hashing, shard metadata, shard management, migration, and rebalancing components |
-| **Cluster Management** | Node configuration and status, cluster membership, and runtime configuration |
-| **Observability** | Metrics and metrics registry |
-| **HTTP Interface** | Web server, dashboard, and API |
-| **Validation** | Unit tests, integration tests, and benchmark-oriented classes |
+Independently designed and developed DistributedKVStore end-to-end, taking ownership of system architecture, implementation, testing, and validation.
 
-> **Validation:** The project includes unit and integration tests covering its storage, networking, and distributed-system components. Test coverage and end-to-end behavior depend on the scenarios exercised by the test suite.
-  -----------------------------------------------------------------------
+- **Distributed Systems:** Implemented and extended Raft/Multi-Raft components for replication, leader election, failover, snapshot installation, and recovery.
+- **Storage Engine:** Developed storage components involving WAL, MemTables, SSTables, B+ Trees, RocksDB integration, and compaction.
+- **Sharding:** Built consistent hashing, shard migration, rebalancing, and ownership coordination.
+- **Networking and Security:** Implemented TCP/RESP request handling, RPC communication, HTTP/HTTPS APIs, authentication, and TLS integration.
+- **Testing and Reliability:** Developed tests and validation scripts for concurrency, persistence, crash recovery, network partitions, and multi-process failover.
 
-## Technology Stack
+## Technologies
 
-- **Programming Language:** Java
+- **Language:** Java
 - **Build Tool:** Apache Maven
-- **Distributed Systems:** Replication, Raft consensus, Multi-Raft, distributed coordination
-- **Sharding and Partitioning:** Consistent hashing, shard management, shard migration, and rebalancing
-- **Storage Technologies:** RocksDB, B+ Tree, LSM-tree-oriented storage, MemTable, SSTables, Write-Ahead Log (WAL), and storage manifests
-- **Database Concepts:** Key-value storage, MVCC, snapshot management, and transaction conflict handling
-- **Read/Write Optimization:** Asynchronous write batching, ReadIndex, and follower reads
-- **Networking:** TCP, Netty-related client/server components, connection handling, and RPC transport
-- **Protocols and Serialization:** RESP-style protocol, RPC messaging, message codecs, and Protobuf integration
-- **Cluster Management:** Cluster membership, node configuration, node status, and runtime configuration
-- **Observability:** Metrics, metrics registry, and HTTP dashboard/API
-- **Testing and Benchmarking:** Unit tests, integration tests, concurrency and recovery tests, and benchmark-oriented classes
+- **Distributed Systems:** Raft, Multi-Raft, replication, consensus, and sharding
+- **Storage Technologies:** RocksDB, B+ Trees, WAL, MemTables, SSTables, Bloom filters, and compaction
+- **Database Concepts:** Key-value storage, MVCC transaction components, snapshot management, and transaction conflict handling
+- **Networking and Protocols:** TCP, RESP, RPC, HTTP, and HTTPS
+- **Security:** TLS and bearer-token authentication
+- **Tools:** Git, GitHub, and PowerShell
 
-See [`pom.xml`](pom.xml) for configured dependencies, Java version, and
-build settings.
+## Testing and Validation
+
+Reported results from the local Windows 11 environment using Java 17.0.20.1 and Maven 3.10.0:
+
+- Full custom test suite: **43 passed, 0 failed**
+- Raft snapshot installation test: **20/20 repeated runs passed**
+- Web server integration test: **20/20 repeated runs passed**
+- One-hour soak test: **47/47 cycles passed**
+- Final clean test suite: **43 passed, 0 failed**
+
+These results describe the tested local environment and do not establish production readiness or physical multi-host reliability.
 
 ## Build and Test
 
-### Prerequisites
+Requirements for the reported validation setup: Java 17 and Maven 3.10.0.
 
--   A JDK compatible with the Java version configured in `pom.xml`
--   Apache Maven
--   Git
+Check the installed versions:
 
-Check installed versions:
-
-``` bash
+```powershell
 java -version
 mvn -version
-git --version
 ```
 
-### Clone and build
+Run the project's custom test suite from the repository root:
 
-``` bash
-git clone https://github.com/rahamanmursalim-create/DistributedKVStore.git
-cd DistributedKVStore
-mvn clean package
+```powershell
+mvn "-Daether.syncContext.named.factory=rwlock-local" clean test
 ```
 
-### Run tests
+Run the one-hour soak test:
 
-``` bash
-mvn test
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\verify-long-soak.ps1" -DurationHours 1 -RequireEveryTestPresent
 ```
 
-If Maven does not discover or execute all test classes, inspect
-`pom.xml` and the project's configured test runner. A successful package
-alone does not prove that every test ran.
+Review the cycle logs and final summary before treating a validation run as successful. Do not run multiple Maven builds concurrently against the same working tree.
 
-## Run
+## Current Limitations
 
-The repository contains multiple `Main.java` files and several server
-components, so the correct launch command depends on the intended entry
-point and the JAR configuration.
-
-1.  Inspect `pom.xml` for the configured main class and JAR manifest.
-2.  Build with `mvn clean package`.
-3.  If an executable JAR is configured, run the generated JAR:
-
-``` bash
-java -jar target/<generated-jar-name>.jar
-```
-
-Replace the placeholder with the actual generated filename. If no
-executable JAR is configured, run the intended main class from your IDE
-or configure the Maven packaging plugin.
-
-The codebase contains RESP-related classes, but confirm supported
-commands, port configuration, and protocol compatibility before assuming
-full Redis compatibility.
-
-## Performance and Reliability
-
-- **Efficient Storage:** WAL, MemTables, SSTables, Bloom filters, and compaction.
-- **Optimized Reads/Writes:** Asynchronous write batching, ReadIndex, and follower reads.
-- **Data Consistency:** Raft-based replication and MVCC transactions.
-- **Scalability:** Consistent hashing and dynamic shard rebalancing.
-- **Reliability:** Recovery, persistence, concurrency, and integration tests.
+Physical multi-host cluster validation, comprehensive firewall-scope review, and certificate rotation against a deployed test environment require separate verification. Local tests and single-host container tests are not substitutes for genuine multi-host validation.
 
 ## Project Layout
 
-The tree below is the repository layout provided for this README. Keep
-it synchronized with the actual checkout when files change. Generated
-runtime data and build output are omitted.
-
-``` text
+```text
 DistributedKVStore/
 ├── .gitignore
 ├── Dockerfile
+├── Dockerfile.verify
 ├── LICENSE
 ├── README.md
 ├── pom.xml
 ├── project-layout.txt
 ├── test-compile-errors.txt
 ├── docs/
+│   ├── VALIDATION_GAP_CLOSURE.md
 │   └── images/
 │       └── distributedkvstore-architecture.png
+├── scripts/
+│   ├── PHYSICAL_CLUSTER_TEST.md
+│   ├── PHYSICAL_CLUSTER_VALIDATION.md
+│   ├── run-docker-cluster-check.ps1
+│   ├── run-raft-benchmark.ps1
+│   ├── run-raft-nic-check.ps1
+│   ├── run-raft-soak.ps1
+│   ├── test-deployment-security.ps1
+│   ├── test-physical-cluster.ps1
+│   ├── validation-common.ps1
+│   ├── verify-benchmark-repeatability.ps1
+│   ├── verify-live-security.ps1
+│   ├── verify-long-soak.ps1
+│   └── verify-physical-cluster.ps1
 └── src/
-    ├── main/
-    │   └── java/
-    │       ├── Main.java
-    │       └── com/
-    │           └── codecrafters/
-    │               └── redis/
-    │                   ├── ClientHandler.java
-    │                   ├── Networks/
-    │                   │   ├── client/
-    │                   │   │   ├── KVClient.java
-    │                   │   │   ├── KVClientImpl.java
-    │                   │   │   ├── NettyClient.java
-    │                   │   │   ├── RpcClient.java
-    │                   │   │   └── Session.java
-    │                   │   ├── handler/
-    │                   │   │   ├── ClientHandler.java
-    │                   │   │   └── ServerHandler.java
-    │                   │   ├── protocol/
-    │                   │   │   ├── AppendEntriesRequestMessage.java
-    │                   │   │   ├── AppendEntriesResponseMessage.java
-    │                   │   │   ├── InstallSnapshotRequestMessage.java
-    │                   │   │   ├── InstallSnapshotResponseMessage.java
-    │                   │   │   ├── KVMessage.java
-    │                   │   │   ├── Message.java
-    │                   │   │   ├── RaftMessage.java
-    │                   │   │   ├── ReadIndexRequestMessage.java
-    │                   │   │   ├── ReadIndexResponseMessage.java
-    │                   │   │   ├── Request.java
-    │                   │   │   ├── Response.java
-    │                   │   │   ├── VoteRequestMessage.java
-    │                   │   │   ├── VoteResponseMessage.java
-    │                   │   │   └── codec/
-    │                   │   │       ├── MessageCodec.java
-    │                   │   │       └── ProtobufCodec.java
-    │                   │   └── server/
-    │                   │       ├── NettyServer.java
-    │                   │       └── RpcServer.java
-    │                   ├── Server/
-    │                   │   ├── ClusterManager.java
-    │                   │   ├── KVServer.java
-    │                   │   ├── NodeManager.java
-    │                   │   └── Server.java
-    │                   ├── cluster/
-    │                   │   ├── ClusterManager.java
-    │                   │   ├── ClusterMembership.java
-    │                   │   ├── ClusterRuntimeConfig.java
-    │                   │   ├── NodeConfig.java
-    │                   │   └── NodeStatus.java
-    │                   ├── command/
-    │                   │   ├── Command.java
-    │                   │   └── CommandHandler.java
-    │                   ├── common/
-    │                   │   └── util/
-    │                   │       ├── ConcurrentHashSet.java
-    │                   │       ├── ConsistentHash.java
-    │                   │       ├── Metrics.java
-    │                   │       ├── MetricsRegistry.java
-    │                   │       ├── Result.java
-    │                   │       ├── Status.java
-    │                   │       └── ThreadPoolExecutor.java
-    │                   ├── protocol/
-    │                   │   ├── RespReader.java
-    │                   │   ├── RespType.java
-    │                   │   ├── RespValue.java
-    │                   │   └── RespWriter.java
-    │                   ├── raft/
-    │                   │   ├── AsyncApplier.java
-    │                   │   ├── FollowerRead.java
-    │                   │   ├── KVStateMachine.java
-    │                   │   ├── Log.java
-    │                   │   ├── LogEntry.java
-    │                   │   ├── MultiRaftStore.java
-    │                   │   ├── RaftGroup.java
-    │                   │   ├── RaftGroupManager.java
-    │                   │   ├── RaftLog.java
-    │                   │   ├── RaftLogEntry.java
-    │                   │   ├── RaftMessage.java
-    │                   │   ├── RaftMetadataStore.java
-    │                   │   ├── RaftNode.java
-    │                   │   ├── RaftPeer.java
-    │                   │   ├── RaftStorage.java
-    │                   │   ├── ReadIndex.java
-    │                   │   ├── Snapshot.java
-    │                   │   ├── StateMachine.java
-    │                   │   └── election/
-    │                   │       ├── ElectionTimer.java
-    │                   │       └── LeaderState.java
-    │                   ├── rpc/
-    │                   │   ├── RpcClient.java
-    │                   │   ├── RpcCodec.java
-    │                   │   ├── RpcMessage.java
-    │                   │   ├── RpcServer.java
-    │                   │   ├── RpcTransportClient.java
-    │                   │   └── RpcTransportServer.java
-    │                   ├── sharding/
-    │                   │   ├── ConsistentHash.java
-    │                   │   ├── DataMigrator.java
-    │                   │   ├── Shard.java
-    │                   │   ├── ShardAdminService.java
-    │                   │   ├── ShardManager.java
-    │                   │   ├── ShardMetadata.java
-    │                   │   └── ShardedStore.java
-    │                   ├── storage/
-    │                   │   ├── AsyncWriteBatcher.java
-    │                   │   ├── BPlusTree.java
-    │                   │   ├── BloomFilter.java
-    │                   │   ├── KeyValueAccess.java
-    │                   │   ├── Main.java
-    │                   │   ├── MemTable.java
-    │                   │   ├── MVCCTransaction.java
-    │                   │   ├── RedisStore.java
-    │                   │   ├── RocksDBBPlusTreeStore.java
-    │                   │   ├── RocksDBEngine.java
-    │                   │   ├── SSTable.java
-    │                   │   ├── SSTableManifest.java
-    │                   │   ├── StorageEngine.java
-    │                   │   ├── StorageManager.java
-    │                   │   ├── TransactionConflictException.java
-    │                   │   ├── ValueEntry.java
-    │                   │   └── WriteAheadLog.java
-    │                   └── web/
-    │                       └── WebServer.java
-    └── test/
-        └── java/
-            └── com/
-                └── codecrafters/
-                    └── redis/
-                        ├── AllTestsRunner.java
-                        ├── RedisServerTest.java
-                        ├── TcpRespBenchmark.java
-                        ├── client/
-                        │   └── KVClientIntegrationTest.java
-                        ├── cluster/
-                        │   ├── ClusterMembershipTest.java
-                        │   └── ClusterRuntimeConfigTest.java
-                        ├── raft/
-                        │   ├── MultiRaftBenchmark.java
-                        │   ├── MultiRaftStoreTest.java
-                        │   ├── RaftGroupConsensusTest.java
-                        │   ├── RaftLogPersistenceTest.java
-                        │   ├── RaftLogTest.java
-                        │   └── RaftRebalanceIntegrationTest.java
-                        ├── rpc/
-                        │   ├── RpcCodecTest.java
-                        │   └── RpcTransportTest.java
-                        ├── sharding/
-                        │   ├── ConsistentHashTest.java
-                        │   ├── ShardAdminIntegrationTest.java
-                        │   ├── ShardMetadataTest.java
-                        │   ├── ShardedCommandRoutingTest.java
-                        │   ├── ShardedStoreRebalanceTest.java
-                        │   └── ShardedStoreRestartTest.java
-                        ├── storage/
-                        │   ├── AsyncWriteBatcherTest.java
-                        │   ├── BPlusTreeMemTableTest.java
-                        │   ├── BloomFilterTest.java
-                        │   ├── MVCCTransactionTest.java
-                        │   ├── RedisStoreBPlusTreeTest.java
-                        │   ├── RedisStoreRecoveryTest.java
-                        │   ├── RedisStoreRocksDBIntegrationTest.java
-                        │   ├── RocksDBBPlusTreeStoreTest.java
-                        │   ├── SSTableBenchmark.java
-                        │   ├── SSTableManifestTest.java
-                        │   ├── SSTableTest.java
-                        │   ├── StorageEngineCompactionTest.java
-                        │   ├── StorageEngineCompactionWalTest.java
-                        │   ├── StorageEngineConcurrencyTest.java
-                        │   ├── StorageEngineConcurrentDeleteTest.java
-                        │   ├── StorageEngineCrashRecoveryRunner.java
-                        │   ├── StorageEngineOrphanSSTableTest.java
-                        │   ├── StorageEngineTest.java
-                        │   ├── StorageEngineWalRecoveryTest.java
-                        │   └── WriteAheadLogTest.java
-                        └── web/
-                            └── WebServerIntegrationTest.java
+    ├── main/java/
+    │   ├── Main.java
+    │   └── com/codecrafters/redis/
+    │       ├── ClientHandler.java
+    │       ├── Server/
+    │       ├── Networks/
+    │       │   ├── client/
+    │       │   ├── handler/
+    │       │   ├── protocol/
+    │       │   └── server/
+    │       ├── cluster/
+    │       │   ├── ClusterManager.java
+    │       │   ├── ClusterMembership.java
+    │       │   ├── ClusterRuntimeConfig.java
+    │       │   ├── NodeConfig.java
+    │       │   └── NodeStatus.java
+    │       ├── command/
+    │       ├── common/util/
+    │       ├── protocol/
+    │       ├── raft/
+    │       │   ├── MultiRaftStore.java
+    │       │   ├── RaftGroup.java
+    │       │   ├── RaftGroupManager.java
+    │       │   ├── RaftLog.java
+    │       │   ├── RaftLogEntry.java
+    │       │   ├── RaftMetadataStore.java
+    │       │   ├── RaftNode.java
+    │       │   ├── RaftStorage.java
+    │       │   ├── ReadIndex.java
+    │       │   ├── Snapshot.java
+    │       │   └── election/
+    │       ├── rpc/
+    │       │   ├── RpcClient.java
+    │       │   ├── RpcCodec.java
+    │       │   ├── RpcMessage.java
+    │       │   ├── RpcServer.java
+    │       │   ├── RpcTransportClient.java
+    │       │   ├── RpcTransportServer.java
+    │       │   └── TlsContext.java
+    │       ├── sharding/
+    │       ├── storage/
+    │       │   ├── AsyncWriteBatcher.java
+    │       │   ├── BPlusTree.java
+    │       │   ├── BloomFilter.java
+    │       │   ├── KeyValueAccess.java
+    │       │   ├── MemTable.java
+    │       │   ├── MVCCTransaction.java
+    │       │   ├── RedisStore.java
+    │       │   ├── RocksDBBPlusTreeStore.java
+    │       │   ├── RocksDBEngine.java
+    │       │   ├── SSTable.java
+    │       │   ├── SSTableManifest.java
+    │       │   ├── StorageEngine.java
+    │       │   ├── StorageManager.java
+    │       │   ├── TransactionConflictException.java
+    │       │   ├── ValueEntry.java
+    │       │   └── WriteAheadLog.java
+    │       └── web/
+    │           └── WebServer.java
+    └── test/java/com/codecrafters/redis/
+        ├── AllTestsRunner.java
+        ├── RedisServerTest.java
+        ├── TcpRespBenchmark.java
+        ├── client/KVClientIntegrationTest.java
+        ├── cluster/
+        │   ├── ClusterMembershipTest.java
+        │   └── ClusterRuntimeConfigTest.java
+        ├── raft/
+        │   ├── MultiRaftBenchmark.java
+        │   ├── MultiRaftStoreTest.java
+        │   ├── RaftBenchmark.java
+        │   ├── RaftDynamicMembershipTest.java
+        │   ├── RaftGroupConsensusTest.java
+        │   ├── RaftLinearizabilityTest.java
+        │   ├── RaftLogPersistenceTest.java
+        │   ├── RaftLogTest.java
+        │   ├── RaftMultiProcessTest.java
+        │   ├── RaftNetworkPartitionTest.java
+        │   ├── RaftProcessNode.java
+        │   ├── RaftRebalanceIntegrationTest.java
+        │   ├── RaftSlowDiskFaultTest.java
+        │   └── RaftSnapshotInstallTest.java
+        ├── rpc/
+        │   ├── RpcCodecTest.java
+        │   ├── RpcTransportTest.java
+        │   └── TlsTransportTest.java
+        ├── sharding/
+        ├── storage/
+        │   ├── AsyncWriteBatcherTest.java
+        │   ├── BPlusTreeMemTableTest.java
+        │   ├── BloomFilterTest.java
+        │   ├── MVCCTransactionTest.java
+        │   ├── RedisStoreBPlusTreeTest.java
+        │   ├── RedisStoreRecoveryTest.java
+        │   ├── RedisStoreRocksDBIntegrationTest.java
+        │   ├── RocksDBBPlusTreeStoreTest.java
+        │   ├── SSTableBenchmark.java
+        │   ├── SSTableManifestTest.java
+        │   ├── SSTableTest.java
+        │   ├── StorageEngineCompactionTest.java
+        │   ├── StorageEngineCompactionWalTest.java
+        │   ├── StorageEngineConcurrencyTest.java
+        │   ├── StorageEngineConcurrentDeleteTest.java
+        │   ├── StorageEngineOrphanSSTableTest.java
+        │   ├── StorageEngineTest.java
+        │   ├── StorageEngineWalRecoveryTest.java
+        │   └── WriteAheadLogTest.java
+        └── web/WebServerIntegrationTest.java
 ```
+
+Generated build output and local test artifacts are intentionally excluded from this layout.
 
 ## License
 

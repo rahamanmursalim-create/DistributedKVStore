@@ -269,8 +269,8 @@ public class CommandHandler {
 
         String[] keys = command.getArgs().toArray(new String[0]);
         if (raftGroup == null) return RespValue.integer(access.delete(keys));
-        int deleted = 0;
-        try { for (String key : keys) if (raftGroup.delete(key)) deleted++; }
+        int deleted;
+        try { deleted = raftGroup.deleteBatch(keys); }
         catch (IOException e) { return RespValue.error("ERR replicated delete failed: " + e.getMessage()); }
         return RespValue.integer(deleted);
     }

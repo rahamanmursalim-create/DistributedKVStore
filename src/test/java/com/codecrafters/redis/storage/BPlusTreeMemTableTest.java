@@ -32,6 +32,13 @@ public final class BPlusTreeMemTableTest {
         table.clear();
         assert table.isEmpty();
         assert table.snapshot().isEmpty();
+        BPlusTree<Integer> churn = new BPlusTree<>();
+        for (int round = 0; round < 8; round++) {
+            for (int i = 0; i < 2_000; i++) churn.put("round-" + round + "-key-" + i, i);
+            for (int i = 0; i < 2_000; i++) assert churn.remove("round-" + round + "-key-" + i) == i;
+            assert churn.size() == 0;
+            assert churn.snapshot().isEmpty();
+        }
         System.out.println("BPlusTreeMemTableTest passed");
     }
 }

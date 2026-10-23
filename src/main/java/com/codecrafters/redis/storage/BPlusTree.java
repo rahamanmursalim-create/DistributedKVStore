@@ -30,6 +30,7 @@ final class BPlusTree<V> {
     private Node root = new Leaf();
     private Leaf firstLeaf = (Leaf) root;
     private int size;
+    private int tombstones;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     @SuppressWarnings("unchecked")
@@ -90,7 +91,35 @@ final class BPlusTree<V> {
         if (index < 0 || leaf.values.get(index) == REMOVED) return null;
         Object previous = leaf.values.set(index, REMOVED);
         size--;
+        tombstones++;
+        if (tombstones > 1024 && tombstones > size / 3) compactLocked();
         return (V) previous;
+    }
+
+    /** Rebuilds the tree when removed unique keys would otherwise accumulate forever. */
+    @SuppressWarnings("unchecked")
+    private void compactLocked() {
+        List<Map.Entry<String, V>> live = new ArrayList<>(size);
+        for (Leaf leaf = firstLeaf; leaf != null; leaf = leaf.next) {
+            for (int i = 0; i < leaf.keys.size(); i++) {
+                Object value = leaf.values.get(i);
+                if (value != REMOVED) live.add(Map.entry(leaf.keys.get(i), (V) value));
+            }
+        }
+        root = new Leaf();
+        firstLeaf = (Leaf) root;
+        size = 0;
+        tombstones = 0;
+        for (Map.Entry<String, V> entry : live) {
+            Split split = insert(root, entry.getKey(), entry.getValue());
+            if (split != null) {
+                Branch newRoot = new Branch();
+                newRoot.keys.add(split.separator);
+                newRoot.children.add(root);
+                newRoot.children.add(split.right);
+                root = newRoot;
+            }
+        }
     }
 
     int size() { lock.readLock().lock(); try { return size; } finally { lock.readLock().unlock(); } }
@@ -116,6 +145,7 @@ final class BPlusTree<V> {
             root = new Leaf();
             firstLeaf = (Leaf) root;
             size = 0;
+            tombstones = 0;
         } finally { lock.writeLock().unlock(); }
     }
 
@@ -129,7 +159,7 @@ final class BPlusTree<V> {
         if (node instanceof Leaf leaf) {
             int index = Collections.binarySearch(leaf.keys, key);
             if (index >= 0) {
-                if (leaf.values.get(index) == REMOVED) size++;
+                if (leaf.values.get(index) == REMOVED) { size++; tombstones--; }
                 leaf.values.set(index, value);
                 return null;
             }

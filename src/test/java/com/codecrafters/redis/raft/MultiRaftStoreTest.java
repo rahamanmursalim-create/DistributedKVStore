@@ -41,23 +41,84 @@ public final class MultiRaftStoreTest {
                     groupIds[0], groups[0][leaderIndexes[0]],
                     groupIds[1], groups[1][leaderIndexes[1]]);
             routed = new MultiRaftStore(leaders, 64, false);
+            assert routed.leadershipStatus().keySet().equals(java.util.Set.of(groupIds));
+            assert routed.leadershipStatus().values().stream().allMatch(status -> status.localLeader()
+                    && status.leaderId() != null && status.commitIndex() >= 0);
 
             Map<String, String> batch = new LinkedHashMap<>();
-            for (int i = 0; i < 100; i++) batch.put("multi-key-" + i, "value-" + i);
+            for (int i = 0; batch.size() < 100; i++) {
+                String key = "multi-key-" + i;
+                if (groupIds[0].equals(routed.groupFor(key))) batch.put(key, "value-" + i);
+            }
             routed.setBatch(batch);
             assert routed.keys("multi-key-*").size() == 100;
-            for (int i = 0; i < 100; i++) {
-                String key = "multi-key-" + i;
-                String value = "value-" + i;
+            for (Map.Entry<String, String> entry : batch.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
                 assert value.equals(routed.get(key));
-                int ownerGroup = groupIds[0].equals(routed.groupFor(key)) ? 0 : 1;
                 for (int node = 0; node < nodeIds.length; node++) {
-                    assert value.equals(stores[ownerGroup][node].get(key));
-                    assert stores[1 - ownerGroup][node].get(key) == null;
+                    assert value.equals(stores[0][node].get(key));
+                    assert stores[1][node].get(key) == null;
                 }
             }
-            assert routed.delete("multi-key-1", "multi-key-2") == 2;
-            assert routed.get("multi-key-1") == null;
+            String otherGroupKey = null;
+            for (int i = 0; otherGroupKey == null; i++) {
+                String candidate = "cross-group-" + i;
+                if (groupIds[1].equals(routed.groupFor(candidate))) otherGroupKey = candidate;
+            }
+            String crossGroupKey = batch.keySet().iterator().next();
+            routed.setBatch(Map.of(crossGroupKey, "atomic-a", otherGroupKey, "atomic-b"));
+            assert "atomic-a".equals(routed.get(crossGroupKey));
+            assert "atomic-b".equals(routed.get(otherGroupKey));
+            for (int node = 0; node < nodeIds.length; node++) {
+                assert "atomic-a".equals(stores[0][node].get(crossGroupKey));
+                assert "atomic-b".equals(stores[1][node].get(otherGroupKey));
+            }
+            assert routed.delete(crossGroupKey, otherGroupKey) == 2;
+            assert routed.get(crossGroupKey) == null && routed.get(otherGroupKey) == null;
+
+            String recoveryKeyA = "tx-recovery-a";
+            String recoveryKeyB = "tx-recovery-b";
+            if (!groupIds[0].equals(routed.groupFor(recoveryKeyA))
+                    || !groupIds[1].equals(routed.groupFor(recoveryKeyB)))
+                throw new AssertionError("Transaction recovery keys did not map to distinct groups");
+            String transactionId = "commit-recovery-test";
+            String transactionDigest = "digest-commit-recovery-test";
+            java.util.List<String> participants = java.util.List.of(groupIds[0], groupIds[1]);
+            RaftGroup coordinator = leaders.get(groupIds[0]);
+            coordinator.beginTransaction(transactionId, transactionDigest, participants);
+            coordinator.prepareTransaction(transactionId, transactionDigest, participants,
+                    Map.of(recoveryKeyA, "committed-a"));
+            leaders.get(groupIds[1]).prepareTransaction(transactionId, transactionDigest, participants,
+                    Map.of(recoveryKeyB, "committed-b"));
+            boolean preparedKeyFenced = false;
+            try { leaders.get(groupIds[1]).put(recoveryKeyB, "conflicting-write".getBytes(java.nio.charset.StandardCharsets.UTF_8)); }
+            catch (java.io.IOException expected) { preparedKeyFenced = true; }
+            assert preparedKeyFenced : "A prepared key accepted a competing write";
+            coordinator.decideTransaction(transactionId, transactionDigest, participants, true);
+            // Simulate a coordinator process crash after applying locally but before applying the other group.
+            coordinator.applyCommittedTransaction(transactionId, transactionDigest);
+            assert "committed-b".equals(routed.get(recoveryKeyB));
+            assert "committed-a".equals(routed.get(recoveryKeyA));
+            for (int node = 0; node < nodeIds.length; node++) {
+                assert "committed-a".equals(stores[0][node].get(recoveryKeyA));
+                assert "committed-b".equals(stores[1][node].get(recoveryKeyB));
+            }
+            String abortId = "abort-recovery-test", abortDigest = "digest-abort-recovery-test";
+            String abortKeyA = "tx-abort-a", abortKeyB = "tx-abort-b";
+            coordinator.beginTransaction(abortId, abortDigest, participants);
+            coordinator.prepareTransaction(abortId, abortDigest, participants, Map.of(abortKeyA, "never-visible-a"));
+            leaders.get(groupIds[1]).prepareTransaction(abortId, abortDigest, participants, Map.of(abortKeyB, "never-visible-b"));
+            coordinator.decideTransaction(abortId, abortDigest, participants, false);
+            routed.recoverPendingTransactions();
+            assert routed.get(abortKeyB) == null;
+            leaders.get(groupIds[1]).put(abortKeyB, "after-abort".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            assert "after-abort".equals(routed.get(abortKeyB));
+            String deleteKeyA = batch.keySet().stream().skip(1).findFirst().orElseThrow();
+            String deleteKeyB = batch.keySet().stream().skip(2).findFirst().orElseThrow();
+            int sameGroupDeleteCount = routed.delete(deleteKeyA, deleteKeyB);
+            assert sameGroupDeleteCount == 2 : "same group delete count=" + sameGroupDeleteCount;
+            assert routed.get(deleteKeyA) == null;
             System.out.println("MultiRaftStoreTest passed");
         } finally {
             for (RaftGroup[] group : groups) for (RaftGroup node : group)

@@ -108,9 +108,11 @@ public final class SSTable {
 
             try {
                 Files.move(temp, absolute,
-                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-                Files.move(temp, absolute);
+                Files.move(temp, absolute,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
             published = true;

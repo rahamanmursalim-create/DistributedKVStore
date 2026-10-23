@@ -36,6 +36,34 @@ public final class RaftLogPersistenceTest {
                 assert recovered.size() == 4;
                 assert new String(recovered.get(4).orElseThrow().getCommand(),
                         java.nio.charset.StandardCharsets.UTF_8).equals("after-recovery");
+                recovered.compactThrough(2, 1);
+                assert recovered.baseIndex() == 2;
+                assert recovered.baseTerm() == 1;
+                assert recovered.get(1).isEmpty();
+                assert recovered.get(2).isEmpty();
+                assert recovered.get(3).orElseThrow().getTerm() == 2;
+                assert recovered.lastIndex() == 4;
+            }
+            try (RaftLog recovered = new RaftLog(file)) {
+                assert recovered.baseIndex() == 2;
+                assert recovered.baseTerm() == 1;
+                assert recovered.lastIndex() == 4;
+                recovered.append(4, "after-compaction".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                assert recovered.get(5).isPresent();
+            }
+            try (RaftLog follower = new RaftLog(directory.resolve("follower.log"))) {
+                follower.append(1, "old-1".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                follower.append(2, "old-2".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                follower.append(2, "suffix".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                follower.installSnapshot(2, 2);
+                assert follower.baseIndex() == 2 && follower.baseTerm() == 2;
+                assert follower.lastIndex() == 3 && follower.get(3).isPresent();
+            }
+            try (RaftLog follower = new RaftLog(directory.resolve("follower.log"))) {
+                assert follower.baseIndex() == 2 && follower.lastIndex() == 3;
+                follower.installSnapshot(4, 9); // divergent suffix must be discarded
+                assert follower.baseIndex() == 4 && follower.lastIndex() == 4;
+                assert follower.lastTerm() == 9;
             }
 
             Path corrupt = directory.resolve("corrupt.log");

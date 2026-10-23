@@ -30,6 +30,10 @@ public class RedisStoreRecoveryTest {
             try (RedisStore store = new RedisStore(wal, false)) {
                 check("Expired key stays absent after restart",
                         store.get("expired") == null);
+                boolean rejected = false;
+                try { store.set("oversized", "x".repeat(1024 * 1024 + 1)); }
+                catch (IllegalArgumentException expected) { rejected = true; }
+                check("Per-value memory quota rejects oversized input", rejected);
             }
 
             System.out.println("RedisStore recovery tests completed.");
