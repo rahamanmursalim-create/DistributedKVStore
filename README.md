@@ -2,9 +2,9 @@
 
 ## Overview
 
-DistributedKVStore is a Java-based distributed key-value storage system exploring persistent storage, replication, sharding, and distributed coordination. It combines Redis-style request handling with storage-engine components, Raft-based consensus, RPC communication, and an HTTP dashboard.
+DistributedKVStore is a Java-based distributed key-value storage system featuring persistent storage, Raft/Multi-Raft replication, sharding, and distributed coordination. It combines Redis-style request handling, storage-engine components, RPC communication, and an HTTP dashboard.
 
-The project focuses on database internals, distributed-system behavior, fault recovery, and reliable data access.
+The project explores database internals, fault recovery, and distributed-system reliability, with tests covering persistence, failover, snapshot recovery, and network partitions.
 
 **Live Demo:** [Open DistributedKVStore Dashboard](https://distributedkvstore.onrender.com/)  
 **Health Check:** [View API Health Status](https://distributedkvstore.onrender.com/api/health)  
@@ -12,17 +12,15 @@ The project focuses on database internals, distributed-system behavior, fault re
 
 ## Features
 
-- **Multi-Raft consensus:** Replication, leader election, failover, and recovery components.
-- **Consistent hashing:** Hash-based key distribution and shard placement.
-- **Dynamic shard rebalancing:** Shard migration and ownership coordination components.
-- **Hybrid storage components:** RocksDB integration, LSM-oriented persistence, and an in-memory B+ Tree implementation.
-- **MVCC components:** Transaction and conflict-handling functionality.
-- **Read optimizations:** ReadIndex and follower-read support.
-- **Batched asynchronous writes:** Write batching support in the storage layer.
-- **Persistence and recovery:** WAL, MemTables, SSTables, manifests, Bloom filters, sparse indexes, and compaction.
-- **Networking and APIs:** TCP/RESP request handling, RPC transport, and HTTP/HTTPS dashboard endpoints.
-- **Security:** Configurable bearer-token authentication and TLS support.
-- **Fault testing:** Tests for persistence, restart recovery, network partitions, snapshot installation, and multi-process failover.
+- **Raft/Multi-Raft Consensus:** Leader election, replication, failover, and snapshot recovery.
+- **Sharding and Rebalancing:** Consistent hashing, shard migration, and ownership coordination.
+- **Persistent Storage Engine:** WAL, MemTables, SSTables, manifests, Bloom filters, sparse indexes, and compaction.
+- **Storage Technologies:** RocksDB integration and B+ Tree-based storage components.
+- **Transaction Management:** MVCC-related components and transaction conflict handling.
+- **Read/Write Optimizations:** ReadIndex, follower reads, and asynchronous write batching.
+- **Networking and Protocols:** Concurrent TCP client handling, Redis-style RESP commands, and RPC transport.
+- **HTTP/HTTPS API and Security:** Health checks, key-value operations, bearer-token authentication, and TLS support.
+- **Fault-Tolerance Testing:** Tests for persistence, restart recovery, network partitions, snapshot installation, and multi-process failover.
 
 ## Architecture
 
@@ -30,35 +28,36 @@ The project focuses on database internals, distributed-system behavior, fault re
 
 The architecture connects runtime startup and operations, client request handling, key-value storage, Raft replication, RPC transport, cluster coordination, and shard management. The components enabled in a particular run depend on the selected entry point and runtime configuration.
 
-## Performance Targets
+## Performance and Benchmarks
 
-- Approximately **50K QPS throughput**
-- **Under 10 ms P99 latency**
-- **99.9% availability**
+A local single-node sequential benchmark using 5,000 writes of 128 bytes reported:
 
-These are target figures, not verified results in the current local evidence. Treat them as achieved metrics only after reproducible workload benchmarks and appropriate availability testing support them. A recorded local sequential benchmark using 5,000 writes of 128 bytes measured 555.7 operations/second, P95 latency of 2.769 ms, and P99 latency of 3.512 ms; that benchmark does not establish the targets above.
+- **Throughput:** 555.7 operations/second
+- **P95 latency:** 2.769 ms
+- **P99 latency:** 3.512 ms
 
-## My Contributions
+These measurements reflect the tested workload and local environment. They do not represent distributed-cluster throughput or production availability guarantees. Multi-node performance targets will be established after reproducible distributed-load testing.
 
-Independently designed and developed DistributedKVStore end-to-end, including architecture, implementation, testing, and validation.
+## Independent Development
 
-- Designed and integrated the storage, networking, replication, sharding, and coordination components.
-- Built and extended Raft/Multi-Raft functionality, including leader election, replication, failover, snapshot installation, and recovery.
-- Implemented storage components using WAL, MemTables, SSTables, B+ Trees, RocksDB integration, and compaction workflows.
-- Developed consistent hashing, shard migration, rebalancing, and ownership coordination components.
-- Implemented HTTP/HTTPS APIs, authentication, and TLS integration.
-- Created tests and repeatable validation workflows for concurrency, persistence, crash recovery, network partitions, multi-process failover, and snapshot recovery.
+Independently designed and developed DistributedKVStore end-to-end, taking ownership of system architecture, implementation, testing, and validation.
+
+- **Distributed Systems:** Implemented and extended Raft/Multi-Raft components for replication, leader election, failover, snapshot installation, and recovery.
+- **Storage Engine:** Developed storage components involving WAL, MemTables, SSTables, B+ Trees, RocksDB integration, and compaction.
+- **Sharding:** Built consistent hashing, shard migration, rebalancing, and ownership coordination.
+- **Networking and Security:** Implemented TCP/RESP request handling, RPC communication, HTTP/HTTPS APIs, authentication, and TLS integration.
+- **Testing and Reliability:** Developed tests and validation scripts for concurrency, persistence, crash recovery, network partitions, and multi-process failover.
 
 ## Technologies
 
-- Java
-- Apache Maven
-- Distributed systems: replication, consensus, Raft/Multi-Raft, sharding
-- Storage: RocksDB, B+ Trees, WAL, MemTables, SSTables, Bloom filters, and compaction
-- Database concepts: key-value storage, MVCC components, snapshot management, and transaction conflict handling
-- Networking: TCP, RESP, RPC, HTTP, and HTTPS
-- Security: TLS and bearer-token authentication
-- Tools: Git, GitHub, PowerShell
+- **Language:** Java
+- **Build Tool:** Apache Maven
+- **Distributed Systems:** Raft, Multi-Raft, replication, consensus, and sharding
+- **Storage Technologies:** RocksDB, B+ Trees, WAL, MemTables, SSTables, Bloom filters, and compaction
+- **Database Concepts:** Key-value storage, MVCC transaction components, snapshot management, and transaction conflict handling
+- **Networking and Protocols:** TCP, RESP, RPC, HTTP, and HTTPS
+- **Security:** TLS and bearer-token authentication
+- **Tools:** Git, GitHub, and PowerShell
 
 ## Testing and Validation
 
