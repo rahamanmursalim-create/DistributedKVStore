@@ -747,7 +747,7 @@ DistributedKVStore/
   and adding `__pycache__/` and `*.py[cod]` to `.gitignore`.
 - Build outputs, local runtime data, IDE state, and other untracked/generated
   files are intentionally not represented here.
-```
+
 
 Generated build output, local runtime data, and machine-specific working files are intentionally excluded from this overview.
 
