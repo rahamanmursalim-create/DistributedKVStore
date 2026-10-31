@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import com.codecrafters.redis.command.Command;
 import com.codecrafters.redis.command.CommandHandler;
@@ -111,5 +113,10 @@ public final class RaftGroupConsensusTest {
             Thread.sleep(25);
         }
         return -1;
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

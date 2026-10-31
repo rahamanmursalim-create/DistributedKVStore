@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY target/redis-java-clone-1.0.0.jar /app/app.jar
 ENV PORT=8080 TCP_PORT=6379 DATA_DIR=/var/data

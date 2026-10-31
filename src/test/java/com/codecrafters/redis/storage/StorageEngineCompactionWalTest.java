@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -65,5 +67,10 @@ public class StorageEngineCompactionWalTest {
 
         System.out.println(
                 "TEST PASSED: Compaction preserves unflushed WAL data");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

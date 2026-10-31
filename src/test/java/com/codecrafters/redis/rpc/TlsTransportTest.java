@@ -1,5 +1,7 @@
 package com.codecrafters.redis.rpc;
 
+import org.junit.jupiter.api.Test;
+
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import java.net.InetSocketAddress;
@@ -71,4 +73,9 @@ public final class TlsTransportTest {
     }
 
     @FunctionalInterface private interface ThrowingAction { void run() throws Exception; }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
+    }
 }

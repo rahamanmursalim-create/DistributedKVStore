@@ -1,0 +1,29 @@
+groups:
+  - name: distributed-kvstore
+    rules:
+      - alert: KVNodeDown
+        expr: up{job="distributed-kvstore"} == 0 or kv_process_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DistributedKVStore node {{ $labels.instance }} is down"
+          description: "The authenticated metrics scrape or process health metric is reporting the node unavailable."
+
+      - alert: KVRaftGroupHasNoLeader
+        expr: sum by (group) (kv_raft_group_is_leader) == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Raft group {{ $labels.group }} has no elected leader"
+          description: "No scraped replica reports itself as leader for this group."
+
+      - alert: KVStoreNearKeyLimit
+        expr: kv_store_keys > 80000 or kv_raft_group_local_keys > 80000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DistributedKVStore key count is near its configured limit"
+          description: "Observed key count is {{ $value }}; review capacity and shard placement."

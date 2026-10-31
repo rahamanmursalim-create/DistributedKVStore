@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.command.Command;
 import com.codecrafters.redis.command.CommandHandler;
 import com.codecrafters.redis.protocol.RespType;
@@ -33,5 +35,10 @@ public final class ShardedCommandRoutingTest {
             assert handler.execute(new Command("GET", List.of("a"))).getType() == RespType.NULL_BULK_STRING;
             System.out.println("ShardedCommandRoutingTest passed");
         } finally { batcher.close(); router.close(); }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -136,5 +138,10 @@ public class RaftLogTest {
         assert log.lastIndex() == 0;
         assert log.lastTerm() == 0;
         System.out.println("TEST 6 PASSED: RaftLog truncateFrom");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

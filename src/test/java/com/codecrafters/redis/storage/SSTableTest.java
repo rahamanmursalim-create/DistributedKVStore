@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -79,5 +81,10 @@ public class SSTableTest {
         System.out.println("PASS: LRU cache capacity and eviction");
 
         System.out.println("SSTable baseline tests passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/kvstore-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: distributed-kvstore
+    scheme: https
+    metrics_path: /api/metrics
+    scrape_interval: 15s
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/kv-client-token
+    # For a private CA, mount its PEM certificate and uncomment tls_config.
+    # Do not set insecure_skip_verify.
+    # tls_config:
+    #   ca_file: /etc/prometheus/secrets/kv-ca.pem
+    static_configs:
+      - targets:
+          - kv1.example.test:8443
+          - kv2.example.test:8443
+          - kv3.example.test:8443

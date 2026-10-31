@@ -1,5 +1,7 @@
 package com.codecrafters.redis.cluster;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.Collection;
 import java.util.Optional;
 
@@ -55,5 +57,10 @@ public class ClusterMembershipTest {
         }
 
         System.out.println("TEST 2 PASSED: Cluster membership validation");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

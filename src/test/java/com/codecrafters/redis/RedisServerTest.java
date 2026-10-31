@@ -1,5 +1,7 @@
 package com.codecrafters.redis;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.protocol.RespReader;
 import com.codecrafters.redis.protocol.RespType;
 import com.codecrafters.redis.protocol.RespValue;
@@ -354,5 +356,10 @@ public class RedisServerTest {
             serverThread.join(2000);
             serverStore.close();
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

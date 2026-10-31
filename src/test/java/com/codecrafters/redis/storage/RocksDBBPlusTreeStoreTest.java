@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -23,5 +25,10 @@ public final class RocksDBBPlusTreeStoreTest {
             assert recovered.snapshot().size() == 999;
         }
         System.out.println("RocksDBBPlusTreeStoreTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

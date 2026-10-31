@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -207,5 +209,10 @@ public final class RaftMultiProcessTest {
             for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
                 Files.deleteIfExists(path);
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -28,7 +28,13 @@ public final class ShardedStore implements KeyValueAccess, AutoCloseable {
 
     /** Copies moved keys before publishing the new ring; persisted joining stores are reconciled. */
     public void addNode(String nodeId, RedisStore store) {
+        addNode(nodeId, store, () -> { });
+    }
+
+    /** Adds a member after copying data and durably recording membership, before publishing routing. */
+    void addNode(String nodeId, RedisStore store, Runnable persistMembership) {
         requireNode(nodeId); Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(persistMembership, "persistMembership");
         membershipLock.writeLock().lock();
         try {
             if (stores.containsKey(nodeId)) throw new IllegalArgumentException("Node already exists: " + nodeId);
@@ -36,13 +42,24 @@ public final class ShardedStore implements KeyValueAccess, AutoCloseable {
                 throw new IllegalArgumentException("A RedisStore cannot be registered under multiple node IDs");
             ConsistentHash<String> nextRing = ringWith(nodeId, false);
             List<Removal> removals = copyChangedKeys(ring, nextRing, stores, nodeId, store);
+            try { persistMembership.run(); }
+            catch (RuntimeException failure) {
+                rollbackCopies(removals, failure);
+                throw failure;
+            }
             stores.put(nodeId, store); ring = nextRing; deleteOldCopies(removals);
         } finally { membershipLock.writeLock().unlock(); }
     }
 
     /** Copies owned keys before removing a member from routing. */
     public void removeNode(String nodeId) {
+        removeNode(nodeId, () -> { });
+    }
+
+    /** Removes a member only after its replacement data and membership are durable. */
+    void removeNode(String nodeId, Runnable persistMembership) {
         requireNode(nodeId);
+        Objects.requireNonNull(persistMembership, "persistMembership");
         membershipLock.writeLock().lock();
         try {
             RedisStore removed = stores.get(nodeId);
@@ -51,6 +68,11 @@ public final class ShardedStore implements KeyValueAccess, AutoCloseable {
             ConsistentHash<String> nextRing = ringWith(nodeId, true);
             Map<String, RedisStore> remaining = new LinkedHashMap<>(stores); remaining.remove(nodeId);
             List<Removal> removals = copyChangedKeys(ring, nextRing, remaining, nodeId, removed);
+            try { persistMembership.run(); }
+            catch (RuntimeException failure) {
+                rollbackCopies(removals, failure);
+                throw failure;
+            }
             ring = nextRing; stores.remove(nodeId); deleteOldCopies(removals);
             // ShardedStore owns registered stores (close() closes all remaining stores),
             // so a successfully removed member must release its WAL/RocksDB resources too.
@@ -177,6 +199,12 @@ public final class ShardedStore implements KeyValueAccess, AutoCloseable {
     }
     private static void deleteOldCopies(List<Removal> removals) {
         for (Removal removal : removals) removal.store().del(removal.key());
+    }
+    private static void rollbackCopies(List<Removal> copies, RuntimeException failure) {
+        for (Removal copy : copies) {
+            try { copy.store().del(copy.key()); }
+            catch (RuntimeException rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+        }
     }
     private RedisStore ownerStore(ConsistentHash<String> selectedRing, String key, Map<String, RedisStore> selectedStores) {
         String owner = selectedRing.getNode(key); RedisStore store = owner == null ? null : selectedStores.get(owner);

@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
@@ -40,5 +42,10 @@ public final class BPlusTreeMemTableTest {
             assert churn.snapshot().isEmpty();
         }
         System.out.println("BPlusTreeMemTableTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

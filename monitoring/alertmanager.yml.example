@@ -1,0 +1,17 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: kvstore-notification-gateway
+  group_by: [alertname, cluster, group]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: kvstore-notification-gateway
+    webhook_configs:
+      # Replace with the approved, authenticated notification gateway.
+      # Do not point this at a public unauthenticated endpoint.
+      - url: http://replace-with-approved-notification-gateway.invalid/alertmanager
+        send_resolved: true

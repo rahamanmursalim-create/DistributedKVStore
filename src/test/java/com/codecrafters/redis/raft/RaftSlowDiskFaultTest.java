@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
@@ -35,5 +37,10 @@ public final class RaftSlowDiskFaultTest {
                 });
             }
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

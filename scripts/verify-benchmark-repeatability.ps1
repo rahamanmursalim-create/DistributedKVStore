@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateRange(1, 10)][int]$RunCount = 3,
     [ValidateRange(1, 256)][int]$TcpClients = 32,
@@ -13,8 +13,15 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'validation-common.ps1')
 $RepoRoot = (Resolve-Path $RepoRoot).Path
-Assert-NoConcurrentMaven
-$javaLine = (& java -version 2>&1 | Select-Object -First 1).ToString()
+Assert-NoConcurrentBuildWriter
+$preference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+    $javaVersionOutput = @(& java -version 2>&1 | ForEach-Object { $_.ToString() })
+    $javaExitCode = $LASTEXITCODE
+} finally { $ErrorActionPreference = $preference }
+if ($javaExitCode -ne 0 -or $javaVersionOutput.Count -eq 0) { throw "Could not read Java runtime version (exit $javaExitCode)." }
+$javaLine = $javaVersionOutput | Select-Object -First 1
 if ($javaLine -notmatch '"17(?:\.|"|-)') { throw "Use the verified Java 17 runtime. Current runtime: $javaLine" }
 $mvnVersionLine = (& mvn -version 2>&1 | Select-Object -First 3) -join ' | '
 if ($mvnVersionLine -notmatch 'Java version:\s*17(?:\.|$)') { throw "Maven does not appear to run on Java 17: $mvnVersionLine" }
@@ -92,3 +99,4 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $out
 
 Write-Host "Benchmark evidence: $outDir"
 if ($errors -gt 0) { exit 1 }
+

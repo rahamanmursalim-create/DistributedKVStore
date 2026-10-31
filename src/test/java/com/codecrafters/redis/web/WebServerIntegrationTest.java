@@ -1,5 +1,7 @@
 package com.codecrafters.redis.web;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 
 import java.io.IOException;
@@ -53,6 +55,15 @@ public class WebServerIntegrationTest {
             HttpRequest allowedRequest = HttpRequest.newBuilder(health).header("Authorization", "Bearer test-secret").GET().build();
             HttpResponse<String> allowed = client.send(allowedRequest, HttpResponse.BodyHandlers.ofString());
             assert allowed.statusCode() == 200 : "Valid bearer token was rejected";
+            URI metrics = URI.create("http://" + LOOPBACK + ":" + protectedServer.getPort() + "/api/metrics");
+            HttpResponse<String> metricsDenied = client.send(HttpRequest.newBuilder(metrics).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assert metricsDenied.statusCode() == 401 : "Metrics endpoint must require client authentication";
+            HttpResponse<String> metricsAllowed = client.send(HttpRequest.newBuilder(metrics)
+                    .header("Authorization", "Bearer test-secret").GET().build(), HttpResponse.BodyHandlers.ofString());
+            assert metricsAllowed.statusCode() == 200 : "Authenticated metrics scrape failed";
+            assert metricsAllowed.body().contains("kv_process_up 1") : "Metrics must expose process availability";
+            assert java.util.regex.Pattern.compile("(?m)^kv_store_keys \\d+$").matcher(metricsAllowed.body()).find()
+                    : "Metrics must expose a numeric live key count";
         }
 
         testHttpsAuthenticationAndCertificateRotation();
@@ -254,6 +265,11 @@ public class WebServerIntegrationTest {
 
         HttpResponse<String> getResp = client.send(getReq, HttpResponse.BodyHandlers.ofString());
         assert getResp.statusCode() == 404 : "Deleted key should return 404, got " + getResp.statusCode();
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }
 

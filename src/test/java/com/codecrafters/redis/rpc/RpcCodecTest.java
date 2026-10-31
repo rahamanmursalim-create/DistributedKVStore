@@ -1,5 +1,7 @@
 package com.codecrafters.redis.rpc;
 
+import org.junit.jupiter.api.Test;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -54,5 +56,10 @@ public class RpcCodecTest {
         } catch (IllegalArgumentException expected) {
         }
         System.out.println("TEST 2 PASSED: RPC message validation");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

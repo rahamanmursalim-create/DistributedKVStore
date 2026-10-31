@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -42,5 +44,10 @@ public final class RedisStoreRocksDBIntegrationTest {
             assert "snapshot-value".equals(recovered.get("snapshot-row"));
         }
         System.out.println("RedisStoreRocksDBIntegrationTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -61,5 +63,10 @@ public final class MVCCTransactionTest {
                 });
             }
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

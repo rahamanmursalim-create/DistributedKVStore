@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 public class ShardMetadataTest {
 
     public static void main(String[] args) {
@@ -43,5 +45,10 @@ public class ShardMetadataTest {
         }
 
         System.out.println("TEST 2 PASSED: Shard invalid transition guards");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

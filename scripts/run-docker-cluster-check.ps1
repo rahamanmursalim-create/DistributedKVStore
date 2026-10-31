@@ -1,5 +1,6 @@
 param(
-    [string]$ArtifactDirectory = "artifacts/docker-cluster-$(Get-Date -Format yyyyMMdd-HHmmss)"
+    [string]$ArtifactDirectory = "artifacts/docker-cluster-$(Get-Date -Format yyyyMMdd-HHmmss)",
+    [switch]$UseExistingImage
 )
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -10,6 +11,8 @@ $keystore = Join-Path $artifact 'identity.p12'
 $rotatedKeystore = Join-Path $artifact 'identity-rotated.p12'
 $caFile = Join-Path $artifact 'ca.pem'
 $rotatedCaFile = Join-Path $artifact 'rotated-ca.pem'
+$trustBundle = Join-Path $artifact 'trust-bundle.p12'
+$trustBundlePem = Join-Path $artifact 'trust-bundle.pem'
 $logFile = Join-Path $artifact 'docker.log'
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 $passwordBytes = New-Object byte[] 24; $clientTokenBytes = New-Object byte[] 32; $clusterTokenBytes = New-Object byte[] 32
@@ -41,7 +44,7 @@ services:
     hostname: kv1
     restart: unless-stopped
     ports: ["18081:8080", "16379:6379"]
-    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv1data:/var/data"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "./trust-bundle.p12:/run/kv/trust-bundle.p12:ro", "kv1data:/var/data"]
     environment: &cluster-env
       PORT: "8080"
       TCP_PORT: "6379"
@@ -50,7 +53,7 @@ services:
       KV_CLIENT_TOKEN: "$clientToken"
       KV_CLUSTER_TOKEN: "$clusterToken"
       KV_TLS_KEYSTORE: /run/kv/identity.p12
-      KV_TLS_TRUSTSTORE: /run/kv/identity.p12
+      KV_TLS_TRUSTSTORE: /run/kv/trust-bundle.p12
       KV_TLS_PASSWORD: "$password"
       KV_TLS_STORE_TYPE: PKCS12
       KV_NODE_ID: n1
@@ -72,7 +75,7 @@ services:
     hostname: kv2
     restart: unless-stopped
     ports: ["18082:8080", "16380:6379"]
-    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv2data:/var/data"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "./trust-bundle.p12:/run/kv/trust-bundle.p12:ro", "kv2data:/var/data"]
     environment:
       <<: *cluster-env
       KV_NODE_ID: n2
@@ -85,7 +88,7 @@ services:
     hostname: kv3
     restart: unless-stopped
     ports: ["18083:8080", "16381:6379"]
-    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv3data:/var/data"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "./trust-bundle.p12:/run/kv/trust-bundle.p12:ro", "kv3data:/var/data"]
     environment:
       <<: *cluster-env
       KV_NODE_ID: n3
@@ -174,6 +177,16 @@ function Invoke-Docker([string[]]$Arguments, [string]$LogPath = $null) {
     if ($code -ne 0) { throw "docker $($Arguments -join ' ') failed with exit code ${code}: $($output -join ' ')" }
     return $output
 }
+function Invoke-Keytool([string[]]$Arguments) {
+    $preference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = @(& $keytool @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $preference }
+    if ($code -ne 0) { throw "keytool $($Arguments -join ' ') failed with exit code ${code}: $($output -join ' ')" }
+    return $output
+}
 function Read-Thumbprint([string]$Store) {
     $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($Store, $password)
     try { return $certificate.Thumbprint.ToUpperInvariant() } finally { $certificate.Dispose() }
@@ -196,11 +209,28 @@ function Get-ServerThumbprint([int]$port) {
         $tcp.Dispose()
     }
 }
+function Wait-ServerThumbprint([int]$port, [string]$expected, [int]$TimeoutSeconds = 30) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastError = ''
+    do {
+        try {
+            $observed = Get-ServerThumbprint $port
+            if ($observed -eq $expected) { return $observed }
+            $lastError = "endpoint still presents $observed"
+        } catch { $lastError = $_.Exception.Message }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    throw "Port $port did not present expected certificate $expected within ${TimeoutSeconds}s: $lastError"
+}
 
 try {
     $docker = (Invoke-Docker @('info','--format','{{.ServerVersion}}')) -join ''
-    & mvn -q "-DskipTests" "-Dexec.skip=true" package
-    if ($LASTEXITCODE -ne 0) { throw 'Local Maven package build failed.' }
+    if ($UseExistingImage) {
+        $imageId = (Invoke-Docker @('image','inspect','--format','{{.Id}}','distributed-kvstore:docker-check') | Select-Object -First 1).Trim()
+    } else {
+        & mvn -q "-DskipTests" "-Dexec.skip=true" package
+        if ($LASTEXITCODE -ne 0) { throw 'Local Maven package build failed.' }
+    }
     $listing = & $keytool -list -v -keystore $keystore -storetype PKCS12 -storepass $password 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Could not validate generated keystore: $listing" }
     $script:expectedThumbprint = Read-Thumbprint $keystore
@@ -209,8 +239,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not export test CA certificate.' }
     & $keytool -exportcert -rfc -alias docker-test-rotated -keystore $rotatedKeystore -storetype PKCS12 -storepass $password -file $rotatedCaFile | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not export rotated test CA certificate.' }
+    foreach ($storeFile in @($trustBundle,$trustBundlePem)) { if (Test-Path -LiteralPath $storeFile) { Remove-Item -LiteralPath $storeFile -Force } }
+    Invoke-Keytool @('-importcert','-alias','docker-test-old-trust','-file',$caFile,'-keystore',$trustBundle,'-storetype','PKCS12','-storepass',$password,'-noprompt') | Out-Null
+    Invoke-Keytool @('-importcert','-alias','docker-test-new-trust','-file',$rotatedCaFile,'-keystore',$trustBundle,'-storetype','PKCS12','-storepass',$password,'-noprompt') | Out-Null
+    Get-Content -LiteralPath $caFile,$rotatedCaFile | Set-Content -LiteralPath $trustBundlePem -Encoding ascii
     $checks.Add("Docker Engine $docker")
-    Invoke-Docker ($composeArgs + @('build','kv1')) $logFile | Out-Null
+    if (-not $UseExistingImage) { Invoke-Docker ($composeArgs + @('build','kv1')) $logFile | Out-Null }
+    if (-not $imageId) { $imageId = (Invoke-Docker @('image','inspect','--format','{{.Id}}','distributed-kvstore:docker-check') | Select-Object -First 1).Trim() }
+    $javaRuntime = (Invoke-Docker @('run','--rm','--entrypoint','java','distributed-kvstore:docker-check','-version') | Select-Object -First 1)
+    if ($javaRuntime -notmatch 'openjdk version "17') { throw "Validation image must run Java 17; found: $javaRuntime" }
+    $checks.Add("application image $imageId runs $javaRuntime")
     Invoke-Docker ($composeArgs + @('up','-d','--no-build','--pull','never')) $logFile | Out-Null
     $nodePorts = @(18081,18082,18083)
     $deadline = (Get-Date).AddMinutes(3)
@@ -244,44 +282,59 @@ try {
     Get-Check $failedPort 'after-follower-failure' 'quorum-committed'
     $checks.Add("follower n$followerIndex stopped; majority committed, restarted follower caught up")
 
-    # Keep the HTTP process alive but pause both peers: a singleton must fail closed without quorum.
+    # Keep the leader process alive, but remove both peers from the bridge:
+    # a singleton must fail closed without quorum. Reattach even on assertion failure.
     $leader = Wait-Leader $nodePorts
     $leaderPort = $nodePorts[[int]$leader.Substring(1) - 1]
     $followers = @(1..3 | Where-Object { "n$_" -ne $leader })
-    foreach ($index in $followers) { Invoke-Docker @('pause',"kvverify-n$index") | Out-Null }
+    $partitioned = [System.Collections.Generic.List[int]]::new()
     $noQuorum = $false
-    try { $response = Request-Api $leaderPort 'PUT' '/api/keys/no-quorum' 'must-fail'; $noQuorum = [int]$response.StatusCode -ne 200 }
-    catch { $noQuorum = $true }
-    foreach ($index in $followers) { Invoke-Docker @('unpause',"kvverify-n$index") | Out-Null }
+    try {
+        foreach ($index in $followers) {
+            Invoke-Docker @('network','disconnect','kvverify-raftnet',"kvverify-n$index") | Out-Null
+            $partitioned.Add([int]$index)
+        }
+        try { $response = Request-Api $leaderPort 'PUT' '/api/keys/no-quorum' 'must-fail'; $noQuorum = [int]$response.StatusCode -ne 200 }
+        catch { $noQuorum = $true }
+    } finally {
+        foreach ($index in $partitioned) {
+            $peerIp = "172.29.99.$($index + 10)"
+            Invoke-Docker @('network','connect','--ip',$peerIp,'kvverify-raftnet',"kvverify-n$index") | Out-Null
+        }
+    }
     if (-not $noQuorum) { throw 'A Raft group acknowledged a write while only one voter was running.' }
-    $checks.Add('single running voter could not commit without quorum; peers resumed')
+    $checks.Add('Docker bridge partition: isolated both peers; singleton rejected write; peers reattached')
+    $leader = Wait-Leader $nodePorts
+    $leaderPort = $nodePorts[[int]$leader.Substring(1) - 1]
+    Put-Check $leaderPort 'network-partition-recovered' 'healed-and-caught-up'
+    foreach ($port in $nodePorts) { Get-Check $port 'network-partition-recovered' 'healed-and-caught-up' }
+    $checks.Add('Docker bridge partition healed; quorum recommitted and all replicas caught up')
 
-    # Rotate the cluster identity on disk, restart every replica, and pin the new leaf certificate.
+    # Keep both CAs trusted while rotating one node at a time. Each process
+    # reloads its identity at startup, while the remaining voters keep quorum.
     $oldThumbprint = $script:expectedThumbprint
-    Invoke-Docker ($composeArgs + @('stop')) | Out-Null
     Copy-Item -LiteralPath $rotatedKeystore -Destination $keystore -Force
     $script:expectedThumbprint = $rotatedThumbprint
-    $script:caFile = $rotatedCaFile
-    Invoke-Docker ($composeArgs + @('up','-d','--force-recreate','--no-build','--pull','never')) | Out-Null
-    $null = Wait-Leader $nodePorts
-    $rotatedHealth = $null
-    $rotationDeadline = (Get-Date).AddSeconds(30)
-    do {
-        try { $rotatedHealth = Request-Api 18081 'GET' '/api/health'; if ([int]$rotatedHealth.StatusCode -eq 200) { break } }
-        catch { $rotationError = $_.Exception.Message }
-        Start-Sleep -Milliseconds 500
-    } while ((Get-Date) -lt $rotationDeadline)
-    if ($null -eq $rotatedHealth -or [int]$rotatedHealth.StatusCode -ne 200) { throw "Rotated TLS certificate did not serve authenticated HTTPS successfully: $rotationError" }
-    $observedRotatedThumbprint = Get-ServerThumbprint 18081
-    if ($observedRotatedThumbprint -ne $rotatedThumbprint) { throw "HTTPS listener served unexpected leaf certificate $observedRotatedThumbprint after rotation; expected $rotatedThumbprint" }
-    $oldRejected = $observedRotatedThumbprint -ne $oldThumbprint
-    if (-not $oldRejected) { throw 'HTTPS listener continued presenting the old leaf certificate after rotation.' }
-    $script:expectedThumbprint = $rotatedThumbprint
-    $script:caFile = $rotatedCaFile
-    $checks.Add("cluster certificate rotated from $oldThumbprint to $rotatedThumbprint; old pin rejected after restart")
+    $script:caFile = $trustBundlePem
+    foreach ($index in 1..3) {
+        Invoke-Docker ($composeArgs + @('up','-d','--no-deps','--force-recreate','--no-build','--pull','never',"kv$index")) | Out-Null
+        $leaderAfterRestart = Wait-Leader $nodePorts
+        $nodePort = $nodePorts[$index - 1]
+        $nodeThumbprint = Wait-ServerThumbprint $nodePort $rotatedThumbprint
+        $leaderPortAfterRestart = $nodePorts[[int]$leaderAfterRestart.Substring(1) - 1]
+        $marker = "cert-rotation-node-$index"
+        Put-Check $leaderPortAfterRestart $marker 'quorum-remained-available'
+        foreach ($port in $nodePorts) { Get-Check $port $marker 'quorum-remained-available' }
+        $checks.Add("n$index rotated to the new fingerprint; quorum committed and all three API endpoints read back the write")
+    }
+    foreach ($port in $nodePorts) {
+        $nodeThumbprint = Wait-ServerThumbprint $port $rotatedThumbprint
+        if ($nodeThumbprint -eq $oldThumbprint) { throw "Endpoint port $port still presents the old leaf certificate." }
+    }
+    $checks.Add("rolling cluster certificate rotation completed from $oldThumbprint to $rotatedThumbprint with old+new CA trust overlap")
 
     Invoke-Docker ($composeArgs + @('logs','--no-color')) | Set-Content -LiteralPath (Join-Path $artifact 'node-logs.txt')
-    [ordered]@{ result='PASS'; finishedAt=(Get-Date).ToString('o'); dockerEngine=$docker; certificateThumbprint=$script:expectedThumbprint; checks=$checks; dockerBridgePartitionTest='not-run; Docker Desktop bridge disconnect timed out in prior attempt'; physicalMachineTest=$false; note='Three distinct container network namespaces on one physical host.' } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $artifact 'summary.json')
+    [ordered]@{ result='PASS'; finishedAt=(Get-Date).ToString('o'); dockerEngine=$docker; applicationImageId=$imageId; applicationImageBuiltDuringRun=(-not $UseExistingImage); javaRuntime=$javaRuntime; certificateThumbprint=$script:expectedThumbprint; certificateRotationMode='rolling one-node-at-a-time process restart with old/new trust overlap; no cluster-wide stop'; checks=$checks; dockerBridgePartitionTest='PASS; both peers detached from the bridge, isolated-node write rejected, peers reattached, quorum recommitted and replicas caught up'; physicalMachineTest=$false; note='Three distinct container network namespaces on one physical host. This is container-network evidence, not physical-host or production-firewall validation or in-process TLS hot reload.' } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $artifact 'summary.json')
     Write-Host "Docker cluster verification passed. Artifacts: $artifact"
 } catch {
     [ordered]@{ result='FAIL'; finishedAt=(Get-Date).ToString('o'); error=$_.Exception.Message; checks=$checks; physicalMachineTest=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $artifact 'summary.json')
@@ -289,5 +342,5 @@ try {
 } finally {
     try { Invoke-Docker ($composeArgs + @('logs','--no-color')) | Set-Content -LiteralPath (Join-Path $artifact 'node-logs.txt') } catch { }
     try { Invoke-Docker ($composeArgs + @('down','--volumes','--remove-orphans')) $logFile | Out-Null } catch { }
-    Remove-Item -LiteralPath $composeFile,$keystore,$rotatedKeystore,$caFile,$rotatedCaFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $composeFile,$keystore,$rotatedKeystore,$caFile,$rotatedCaFile,$trustBundle,$trustBundlePem -Force -ErrorAction SilentlyContinue
 }

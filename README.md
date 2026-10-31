@@ -62,9 +62,9 @@
 
 DistributedKVStore is a Java key-value server and distributed-systems learning project. It includes a Redis-style RESP interface, an HTTP/HTTPS API and dashboard, persistent storage backends, Raft/Multi-Raft replication, and two distinct sharding/storage paths.
 
-The Maven project compiles against Java 17 (`maven.compiler.release=17`). The supplied Dockerfiles currently use Eclipse Temurin 25 images to build/run the packaged application. The repository includes tests for persistence, recovery, consensus, snapshot installation, network partitions, and multi-process scenarios.
+The Maven project compiles against Java 17 (`maven.compiler.release=17`), and the supplied Dockerfiles build and run on Eclipse Temurin 17. The repository includes tests for persistence, recovery, consensus, snapshot installation, network partitions, and multi-process scenarios.
 
-**Scope note:** the project exposes multiple runtime modes, but they are not one combined deployment mode. In particular, local `KV_SHARD_NODES` sharding and Raft/Multi-Raft cluster mode are mutually exclusive in `Main.java` today.
+**Scope note:** local `KV_SHARD_NODES` sharding remains a single-process mode. Distributed sharding is available through provisioned Multi-Raft groups, whose committed ownership manifest routes keys across the cluster.
 
 **Live Demo:** [Open DistributedKVStore Dashboard](https://distributedkvstore.onrender.com/)  
 **Health Check:** [View API Health Status](https://distributedkvstore.onrender.com/api/health)  
@@ -95,7 +95,7 @@ The Maven project compiles against Java 17 (`maven.compiler.release=17`). The su
 | Capability | Details |
 |---|---|
 | **Raft/Multi-Raft Consensus** | Leader election, replication, failover, and snapshot recovery. |
-| **Sharding and Rebalancing** | Consistent hashing, shard migration, and ownership coordination. |
+| **Sharding and Rebalancing** | Local sharding rebalances local stores. Multi-Raft coordinates quorum-fenced data migration across pre-provisioned groups through its authenticated cluster admin endpoint. |
 | **Runtime storage** | `RedisStore` uses a B+ Tree with a checksummed WAL, or the alternative RocksDB backend selected by `KV_STORAGE_BACKEND`. |
 | **Separate LSM-style engine** | `StorageEngine` implements MemTables, SSTables, manifest-based recovery, Bloom filters, sparse indexes, WAL handling, and compaction; it is a separately exercised storage component, not automatically the active runtime backend. |
 | **Storage components** | B+ Tree, RocksDB integration, WAL, SSTables, Bloom filters, and compaction. |
@@ -124,10 +124,10 @@ Every client request enters through one of two listeners started by `Main.java`,
 | Runtime mode | Selected by | Behaviour |
 |---|---|---|
 | **Single node** | default | `RedisStore` serves every key from one WAL- or RocksDB-backed store. |
-| **Sharded (single process)** | `KV_SHARD_NODES` | `ShardedStore` routes keys over a consistent-hash ring of local stores managed by this process; it is not a multi-host shard deployment. `KV_SHARD_ADMIN_TOKEN` enables shard add/remove through `/api/shards`. |
+| **Sharded (single process)** | `KV_SHARD_NODES` | `ShardedStore` routes keys over a consistent-hash ring of local stores managed by this process; it is not a multi-host shard deployment. `KV_SHARD_ADMIN_TOKEN` enables shard add/remove through `/api/shards`. Membership changes persist the new layout after data copy and before routing changes. |
 | **Multi-Raft cluster** | `KV_NODE_ID` + `KV_RAFT_PEERS` | `MultiRaftStore` routes each key to one of several independently replicated Raft groups. |
 
-> **Note:** sharded mode and Raft cluster mode are mutually exclusive in the current runtime; startup fails fast if both are configured.
+> **Note:** `KV_SHARD_NODES` remains a local-store mode and cannot be combined with Raft. Distributed sharding is provided by Multi-Raft groups (`KV_RAFT_GROUPS`), with quorum-fenced ownership changes through `/api/raft/rebalance`.
 
 ### Request Lifecycle
 
@@ -222,7 +222,7 @@ Recommended firewall policy: permit inbound Raft ports only from the other voter
 
 ## Quick Start
 
-**Prerequisites:** JDK 17 or newer and Apache Maven. The Maven compiler targets Java 17. The Dockerfiles use Temurin 25 images.
+**Prerequisites:** JDK 17 and Apache Maven. The Maven compiler and Docker images target Java 17.
 
 **1. Build the executable JAR**
 
@@ -230,7 +230,7 @@ Recommended firewall policy: permit inbound Raft ports only from the other voter
 mvn "-Daether.syncContext.named.factory=rwlock-local" -B clean package
 ```
 
-The project disables Maven Surefire and invokes its custom `AllTestsRunner` through the Exec Maven Plugin during the `test` phase. Therefore, the command above runs the custom suite as part of packaging; do not assume `-DskipTests` suppresses that custom runner.
+Maven Surefire runs the integration scenarios as isolated JUnit Jupiter tests. Existing scenario bodies are currently reused through their `main()` methods, while each test class runs in a fresh fork to keep process-based Raft tests isolated. `-DskipTests` skips the suite.
 
 **2. Start a single node** (HTTP on `8080`, RESP on `6379`, data in `./data`)
 
@@ -273,11 +273,13 @@ Open <http://localhost:8080/> in a browser for the dashboard.
 | Method | Endpoint | Description | Success response |
 |---|---|---|---|
 | `GET` | `/api/health` | Liveness and key count | `200` `{"status":"ok","keys":N}` |
+| `GET` | `/api/metrics` | Prometheus text: process uptime, local key count, per-group leader/term/commit/ownership | `200` · same bearer auth as other API routes |
 | `GET` | `/api/keys` | List all keys | `200` JSON array of key names |
 | `GET` | `/api/keys/{key}` | Read one key | `200` `{"key":…,"value":…}` · `404` if missing |
 | `PUT` | `/api/keys/{key}` | Create or update; the request body is the value | `200` `{"status":"saved","key":…}` |
 | `DELETE` | `/api/keys/{key}` | Delete one key | `200` `{"status":"deleted"}` · `404` if missing |
 | `GET` | `/api/raft/status` | Per-group `leader`, `localLeader`, `term`, `commitIndex`, `ownershipEpoch` | `200` · `404` when Raft is not enabled |
+| `POST` | `/api/raft/rebalance` | Quorum-fenced Multi-Raft ownership rebalance; body is comma-separated active group IDs, requires `X-Cluster-Admin-Token` and current first-group leader | `200` · `409` during concurrent/non-coordinator requests; a committed target resumes automatically after coordinator election |
 | `GET` / `POST` / `DELETE` | `/api/shards`, `/api/shards/{id}` | List, add or remove shard nodes (needs `KV_SHARD_ADMIN_TOKEN`) | `200` / `201` |
 
 When `KV_CLIENT_TOKEN` is set, every endpoint requires `Authorization: Bearer <token>` and returns `401` otherwise. Cluster operations that cannot reach a quorum return `503` with a JSON error body.
@@ -316,6 +318,7 @@ All settings are environment variables.
 | `KV_RAFT_GROUP_ID` · `KV_RAFT_GROUPS` | `default` · unset | Single group ID, or a comma-separated list for Multi-Raft |
 | `KV_RAFT_BIND_HOST` · `KV_RAFT_PORT` | `0.0.0.0` · `7000` | Peer listener address and base port (group *i* uses port + *i*) |
 | `KV_CLUSTER_TOKEN` | unset | Shared token authenticating Raft peers (required for non-loopback peers) |
+| `KV_CLUSTER_ADMIN_TOKEN` | unset | Enables the cluster-wide Multi-Raft rebalance endpoint; keep in a secret manager |
 | `KV_FOLLOWER_READS` · `KV_FOLLOWER_MAX_COMMIT_LAG` | `false` · `0` | Allow bounded-staleness reads from followers |
 | `KV_RAFT_ELECTION_MIN_MS` · `KV_RAFT_ELECTION_MAX_MS` | `350` · `650` | Randomized election timeout window |
 | `KV_RAFT_RPC_CONNECT_TIMEOUT_MS` · `KV_RAFT_RPC_READ_TIMEOUT_MS` | `500` · `1200` | Peer RPC timeouts |
@@ -333,7 +336,7 @@ JVM system properties `redis.write.queue.capacity` (4096), `redis.write.batch.ma
 
 ### Docker
 
-The repository ships a multi-stage `Dockerfile` using Maven/Temurin 25 for the build and a Temurin 25 JRE runtime, with a non-root user and `EXPOSE 8080 6379`. `Dockerfile.verify` packages an already-built JAR and additionally declares `EXPOSE 7000` for Raft peer traffic. The application source is still compiled with Maven `release` 17.
+The repository ships a multi-stage `Dockerfile` using Maven/Temurin 17 for the build and a Temurin 17 JRE runtime, with a non-root user and `EXPOSE 8080 6379`. `Dockerfile.verify` packages an already-built JAR and additionally declares `EXPOSE 7000` for Raft peer traffic. Java 17 is consistent across compile and runtime.
 
 ```bash
 docker build -t distributed-kvstore .
@@ -417,7 +420,7 @@ Reported results from the local Windows 11 environment using Java 17.0.20.1 and 
 
 | Check | Result |
 |---|---|
-| Full custom test suite (recorded run) | **43 passed, 0 failed** |
+| Full integration suite (recorded pre-JUnit run) | **43 passed, 0 failed** |
 | Raft snapshot installation test | **20/20 repeated runs passed** |
 | Web server integration test | **20/20 repeated runs passed** |
 | One-hour soak test | **47/47 cycles passed** |
@@ -426,6 +429,12 @@ Reported results from the local Windows 11 environment using Java 17.0.20.1 and 
 These results describe the tested local environment and do not establish production readiness or physical multi-host reliability. Evidence included in the repository includes the full-suite Maven log, repeated snapshot/web test log, and the one-hour soak bundle at `artifacts/raft-soak-20261023-075243/` (summary, CSV, 47 cycle logs, and final clean-suite log). The soak summary records that all 47 cycles and the final clean suite passed, all expected test classes were present, and the duration requirement was met. It also explicitly identifies the run as a same-host process soak, not physical-machine or availability-SLO evidence. The 555.7 ops/s benchmark is a separate single-node sequential measurement, not a distributed-cluster benchmark.
 
 A separate Docker validation run is recorded at `artifacts/docker-cluster-20261022-144638/summary.json`. It reports a PASS for a three-container cluster on one physical host, including initial leader election, write replication/readback across the three HTTPS endpoints, follower stop/restart catch-up, loss-of-quorum behavior, and certificate rotation. The same summary explicitly sets `physicalMachineTest` to `false` and records the Docker bridge partition test as `not-run`; do not present it as a physical multi-host test.
+
+A newer disposable Docker run is recorded at `artifacts/docker-rolling-20261031-183852/summary.json`. It verified three-container Raft replication, follower restart/catch-up, quorum rejection while both peers were detached from the Docker bridge, recovery and replica catch-up after reattachment, and one-node-at-a-time certificate rotation under old/new CA trust overlap. The cluster kept committing writes and all three HTTPS endpoints served the new certificate after their individual restarts. This used the cached Java 17 application image (`applicationImageBuiltDuringRun=false`); `physicalMachineTest` remains `false`, and the test does not prove in-process TLS hot reload or physical network/firewall behavior.
+
+Prometheus and Alertmanager deployment examples are in `monitoring/`. Their syntax and alert rules passed `promtool`/`amtool` checks. The repeatable `scripts/validate-alertmanager-delivery.py` test passed locally; its firing-and-clearing webhook evidence is at `artifacts/alertmanager-validation-20261031-182108/summary.json`. It confirms local synthetic receiver delivery only, not production routing, credentials, on-call acknowledgement, or alerts generated from a running KVStore deployment.
+
+A Java 17 developer-laptop benchmark attempt is preserved at `artifacts/local-capacity-baseline-20261031-184115/`. All nine TCP/RESP subruns completed without errors; the original Multi-Raft repeatability attempt had a quorum failure in its third repetition. A standalone follow-up completed three Multi-Raft runs, but it does not erase the aggregate failure. The evidence is marked `INCOMPLETE`; these workstation results are not a production-hardware capacity benchmark.
 
 **Test coverage by area** (`src/test/java`): Raft consensus, linearizability, log persistence, dynamic membership, network partitions, slow-disk faults, snapshot installation, multi-process failover and rebalancing · Multi-Raft routing and cross-group transactions · WAL, MemTable/B+ Tree, SSTable, manifest, compaction, crash-recovery and orphan-SSTable handling · Bloom filter, MVCC and asynchronous write batching · RocksDB integration · RPC codec, transport and TLS · sharding and consistent hashing · RESP server and web-server integration.
 
@@ -440,7 +449,7 @@ java -version
 mvn -version
 ```
 
-Run the project's custom test suite from the repository root:
+Run the project's JUnit Jupiter integration suite from the repository root:
 
 ```powershell
 mvn "-Daether.syncContext.named.factory=rwlock-local" clean test
@@ -458,12 +467,17 @@ Review the cycle logs and final summary before treating a validation run as succ
 
 ## Current Limitations
 
-- The `KV_SHARD_NODES` sharding mode is local to one process; it is separate from Multi-Raft cluster mode.
+- The `KV_SHARD_NODES` and `/api/shards` modes remain local to one process. Distributed sharding and RPC-based migration use the Multi-Raft ownership groups and `/api/raft/rebalance`.
+- Multi-Raft provides the distributed sharding path: `/api/raft/rebalance` elects the current first-group leader as coordinator, quorum-commits the migration intent and freezes, copies moved values through Raft RPC, commits ownership epochs, and live routers adopt the new manifest. Only already-provisioned groups can be selected.
+- Every Multi-Raft process watches the first group for a committed migration intent. After coordinator failure and Raft leader election, the new leader resumes the same target automatically; retries rescan every group's committed data before cutover and cleanup. Routing stays frozen until the migration completes, so clients may see temporary unavailability while quorum or coordinator leadership recovers.
+- Active Raft snapshot creation, chunked installation, recovery, and committed-prefix log compaction are implemented in `RaftGroup`/`RaftLog`. The archived `com.distributedkv` implementation has been moved to `legacy/` and is outside Maven source roots; its TODOs are not part of the active runtime.
+- Raft snapshots are bounded to 128 MiB. A snapshot that exceeds the limit is not compacted; monitor retained log growth for large state machines.
 - The LSM-style `StorageEngine` is a separate component and is not selected by `Main.java` as the active `RedisStore` backend.
-- Docker images currently use Java 25, while the Maven source/target release remains Java 17.
-- The Maven compiler configuration excludes a number of legacy/incomplete source files and packages. Their presence in `src/` does not mean they are compiled into the executable; see the `<excludes>` section in `pom.xml`.
+- Maven Surefire discovers JUnit Jupiter tests. Existing integration scenario bodies are wrapped by JUnit methods and run in separate forks; migrate individual assertions and fixtures to idiomatic JUnit as follow-up cleanup.
+- An archived parallel `com.distributedkv` implementation is stored under `legacy/` and is intentionally outside Maven source roots. Only maintained `com.codecrafters.redis` sources compile into the executable.
+- The recorded one-hour soak and current clean build are local-environment evidence. A 24-hour soak and production-hardware benchmark run have not been recorded; follow the procedures in `scripts/PHYSICAL_CLUSTER_VALIDATION.md` and keep their reports with the deployment evidence.
 
-Physical multi-host cluster validation, end-to-end firewall-scope review from both trusted and untrusted network vantage points, and certificate rotation against a deployed test environment require separate evidence. The repository includes runbooks and scripts for these procedures, but a script or prepared procedure is not itself proof that the procedure passed. Local JVM tests and a three-container single-host cluster check are not substitutes for genuine multi-host validation.
+Three physical-host validation, end-to-end firewall-scope review from trusted and untrusted network vantage points, zero-downtime certificate rotation against deployed hosts, production Alertmanager/on-call delivery, production-hardware capacity measurements, and a 24-hour soak remain pending and require separate evidence. The repository includes runbooks and scripts for these procedures, but a script or prepared procedure is not itself proof that the procedure passed. Local JVM tests and a three-container single-host cluster check are not substitutes for genuine multi-host validation.
 
 ---
 
@@ -673,7 +687,6 @@ DistributedKVStore/
         │
         └── java/com/codecrafters/redis/
             │
-            ├── AllTestsRunner.java                 # Custom test suite runner
             ├── RedisServerTest.java
             ├── TcpRespBenchmark.java               # TCP/RESP benchmark
             │

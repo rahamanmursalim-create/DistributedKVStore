@@ -9,19 +9,56 @@ function Get-MavenLauncher {
     throw 'Maven was not found. Open a shell with the project JDK and Maven configured.'
 }
 
-function Assert-NoConcurrentMaven {
+function Assert-NoConcurrentBuildWriter {
     try {
-        $matches = @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+        $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+        $matches = @($processes | Where-Object {
             $_.CommandLine -match 'org\.codehaus\.plexus\.classworlds\.launcher\.Launcher|org\.apache\.maven\.cli\.MavenCli'
         })
         if ($matches.Count -gt 0) {
             $details = ($matches | ForEach-Object { "PID=$($_.ProcessId) $($_.CommandLine)" }) -join [Environment]::NewLine
             throw "Another Maven process appears to be running. Stop it before starting validation to avoid overlapping builds.`n$details"
         }
+        $foreignBuildWriters = @($processes | Where-Object {
+            $_.Name -match '^javac\.exe$' -or
+            $_.CommandLine -match 'com\.sun\.tools\.javac\.Main|org\.gradle\.launcher|GradleDaemon|org\.eclipse\.equinox\.launcher|org\.eclipse\.jdt\.ls\.core|org\.eclipse\.jdt\.internal\.compiler'
+        })
+        if ($foreignBuildWriters.Count -gt 0) {
+            $details = ($foreignBuildWriters | ForEach-Object { "PID=$($_.ProcessId) $($_.Name) $($_.CommandLine)" }) -join [Environment]::NewLine
+            throw "A non-Maven Java/build compiler is active and may write compiler output concurrently. Close it or run in an isolated checkout before Maven validation.`n$details"
+        }
     } catch {
-        if ($_.Exception.Message -like 'Another Maven process appears*') { throw }
-        Write-Warning "Could not inspect all running processes for Maven overlap: $($_.Exception.Message)"
+        if ($_.Exception.Message -like 'Another Maven process appears*' -or
+            $_.Exception.Message -like 'A non-Maven Java/build compiler is active*') { throw }
+        throw "Cannot verify that the build/compiler process list is clear. Validation is stopped to avoid corrupting target/classes. Run from an account that can inspect process command lines or use an isolated checkout and retry. Details: $($_.Exception.Message)"
     }
+}
+
+function Assert-Java17ClassFiles {
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)][string[]]$Directories)
+
+    $files = @()
+    foreach ($directory in $Directories) {
+        if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+            throw "Expected compiled class directory is missing: $directory"
+        }
+        $files += @(Get-ChildItem -LiteralPath $directory -Filter '*.class' -File -Recurse)
+    }
+    if ($files.Count -eq 0) { throw 'No generated Java class files were found to verify.' }
+    foreach ($file in $files) {
+        $stream = [System.IO.File]::OpenRead($file.FullName)
+        try {
+            $header = New-Object byte[] 8
+            if ($stream.Read($header, 0, $header.Length) -ne $header.Length)
+                { throw "Truncated Java class file: $($file.FullName)" }
+        } finally { $stream.Dispose() }
+        if ($header[0] -ne 0xCA -or $header[1] -ne 0xFE -or $header[2] -ne 0xBA -or $header[3] -ne 0xBE)
+            { throw "Invalid Java class magic: $($file.FullName)" }
+        $major = ([int]$header[6] * 256) + [int]$header[7]
+        if ($major -ne 61) { throw "Expected Java 17 class version 61, found $major in $($file.FullName)" }
+    }
+    Write-Host "Verified Java 17 class-file version 61 in $($files.Count) generated classes."
 }
 
 function Invoke-BoundedMaven {

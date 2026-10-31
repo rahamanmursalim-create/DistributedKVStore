@@ -1,6 +1,8 @@
 
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -191,5 +193,10 @@ public class WriteAheadLogTest {
         if (!condition) {
             throw new AssertionError(message);
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

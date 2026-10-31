@@ -18,9 +18,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Routes each key to one independently replicated Raft group using a virtual-node hash ring. */
 public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
+    private static final System.Logger LOGGER = System.getLogger(MultiRaftStore.class.getName());
     public record LeadershipStatus(String leaderId, boolean localLeader, long term,
                                    long commitIndex, long ownershipEpoch) { }
     private final Map<String, RaftGroup> groups;
@@ -30,6 +35,8 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     private final long maxFollowerCommitLag;
     private final int virtualNodesPerGroup;
     private final ReentrantReadWriteLock routingLock = new ReentrantReadWriteLock(true);
+    private final AtomicBoolean recoveryRunning = new AtomicBoolean();
+    private final ScheduledExecutorService migrationRecovery;
 
     public MultiRaftStore(Map<String, RaftGroup> groups, int virtualNodesPerGroup, boolean followerReads) {
         this(groups, virtualNodesPerGroup, followerReads, 0);
@@ -63,9 +70,46 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
         this.followerReads = followerReads;
         if (maxFollowerCommitLag < 0) throw new IllegalArgumentException("follower lag bound cannot be negative");
         this.maxFollowerCommitLag = maxFollowerCommitLag;
+        migrationRecovery = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "raft-migration-recovery");
+            thread.setDaemon(true);
+            return thread;
+        });
+        migrationRecovery.scheduleWithFixedDelay(this::recoverInterruptedMigration, 500, 1_000, TimeUnit.MILLISECONDS);
     }
 
-    public String groupFor(String key) { return ring.getNode(Objects.requireNonNull(key, "key")); }
+    public String groupFor(String key) {
+        refreshOwnershipFromRaft();
+        return routeKey(key);
+    }
+
+    /** Adopts ownership committed by a migration coordinator on another node. */
+    private void refreshOwnershipFromRaft() {
+        routingLock.writeLock().lock();
+        try {
+            if (groups.values().stream().anyMatch(RaftGroup::isMaintenanceFrozen))
+                throw new IllegalStateException("Raft shard migration is in progress");
+            List<String> manifest = null;
+            for (RaftGroup group : groups.values()) {
+                List<String> current = group.getOwnershipGroups();
+                if (current.isEmpty()) continue;
+                if (manifest != null && !manifest.equals(current))
+                    throw new IllegalStateException("Raft groups disagree on ownership manifest; routing is paused");
+                manifest = current;
+            }
+            if (manifest == null) return;
+            if (manifest.isEmpty() || !groups.keySet().containsAll(manifest))
+                throw new IllegalStateException("Raft ownership manifest references an unprovisioned group");
+            if (!manifest.equals(ringNodes())) {
+                ConsistentHash<String> updated = new ConsistentHash<>(virtualNodesPerGroup);
+                manifest.forEach(updated::addNode);
+                ring = updated;
+            }
+            groups.forEach((id, group) -> ownershipEpochs.put(id, group.getOwnershipEpoch()));
+        } finally { routingLock.writeLock().unlock(); }
+    }
+
+    private String routeKey(String key) { return ring.getNode(Objects.requireNonNull(key, "key")); }
 
     /** Current per-group leadership and durable progress for authenticated diagnostics. */
     public Map<String, LeadershipStatus> leadershipStatus() {
@@ -75,14 +119,52 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
         return Collections.unmodifiableMap(status);
     }
 
+    /** The first configured group elects one cluster-wide rebalance coordinator. */
+    public boolean isRebalanceCoordinator() {
+        return groups.values().iterator().next().isLeader();
+    }
+
+    private void recoverInterruptedMigration() {
+        RaftGroup coordinator = groups.values().iterator().next();
+        List<String> intent = coordinator.getMigrationIntent();
+        if (intent.isEmpty() || !coordinator.isLeader() || coordinator.isMigrationCoordinatorBusy()
+                || !recoveryRunning.compareAndSet(false, true)) return;
+        try { rebalanceGroups(intent, true); }
+        catch (IOException | RuntimeException ignored) {
+            // The committed intent remains durable; the elected coordinator retries.
+            LOGGER.log(System.Logger.Level.WARNING, "Automatic Raft migration recovery attempt failed: {0}", ignored.getMessage());
+        } finally { recoveryRunning.set(false); }
+    }
+
+    /** Per-group local applied key counts for monitoring without routing or quorum reads. */
+    public Map<String, Integer> localStoreKeyCounts() {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        groups.forEach((id, group) -> counts.put(id, group.getLocalStoreKeyCount()));
+        return Collections.unmodifiableMap(counts);
+    }
+
     /**
      * Rebalances between Raft groups already provisioned on every cluster node.
      * All groups are quorum-frozen before copying, the new ring is published only
      * after destination writes commit, and source copies are removed afterward.
-     * Each cluster process must be administered with the same group set and change.
+     * Every process adopts the committed manifest from its configured groups.
      */
     public void rebalanceGroups(java.util.Collection<String> activeGroupIds) throws IOException {
+        rebalanceGroups(activeGroupIds, false);
+    }
+
+    /** Resumes an interrupted migration only when the administrator opts in explicitly. */
+    public void rebalanceGroups(java.util.Collection<String> activeGroupIds, boolean resumeInterrupted) throws IOException {
         Objects.requireNonNull(activeGroupIds, "activeGroupIds");
+        RaftGroup coordinator = groups.values().iterator().next();
+        if (!coordinator.tryAcquireMigrationCoordinator())
+            throw new IOException("A migration coordinator is already active on this Raft leader");
+        try { rebalanceGroupsUnderCoordinator(activeGroupIds, resumeInterrupted); }
+        finally { coordinator.releaseMigrationCoordinator(); }
+    }
+
+    private void rebalanceGroupsUnderCoordinator(java.util.Collection<String> activeGroupIds,
+                                                  boolean resumeInterrupted) throws IOException {
         routingLock.writeLock().lock();
         java.util.List<RaftGroup> frozen = new java.util.ArrayList<>();
         java.util.List<Move> copied = new java.util.ArrayList<>();
@@ -92,12 +174,23 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
             java.util.LinkedHashSet<String> desired = new java.util.LinkedHashSet<>(activeGroupIds);
             if (desired.isEmpty() || desired.size() != activeGroupIds.size() || !groups.keySet().containsAll(desired))
                 throw new IllegalArgumentException("Active group set must contain unique provisioned groups");
+            RaftGroup coordinator = groups.values().iterator().next();
+            if (!coordinator.isLeader()) throw new IOException("Only the current first-group Raft leader may coordinate a rebalance");
+            List<String> committedIntent = coordinator.getMigrationIntent();
+            if (!committedIntent.isEmpty() && !new java.util.LinkedHashSet<>(committedIntent).equals(desired))
+                throw new IOException("A different committed migration intent is active");
+            if (!committedIntent.isEmpty()) resumeInterrupted = true;
+            if (!resumeInterrupted && groups.values().stream().anyMatch(RaftGroup::isMaintenanceFrozen))
+                throw new IOException("An interrupted or concurrent migration is still frozen; explicitly resume after verifying the target group set");
             ConsistentHash<String> next = new ConsistentHash<>(virtualNodesPerGroup);
             desired.forEach(next::addNode);
             if (new java.util.LinkedHashSet<>(ringNodes()).equals(desired)
                     && groups.values().stream().noneMatch(RaftGroup::isMaintenanceFrozen)
                     && groups.values().stream().allMatch(group -> group.getOwnershipGroups().isEmpty()
-                    || new java.util.LinkedHashSet<>(group.getOwnershipGroups()).equals(desired))) return;
+                    || new java.util.LinkedHashSet<>(group.getOwnershipGroups()).equals(desired))) {
+                if (!committedIntent.isEmpty()) coordinator.setMigrationIntent(List.of());
+                return;
+            }
             java.util.Set<String> currentOwners = new java.util.LinkedHashSet<>(ringNodes());
             for (RaftGroup group : groups.values()) {
                 List<String> persisted = group.getOwnershipGroups();
@@ -106,6 +199,7 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
                         && !new java.util.LinkedHashSet<>(persisted).equals(desired))
                     throw new IOException("A different interrupted ownership transition must be resolved first");
             }
+            if (committedIntent.isEmpty()) coordinator.setMigrationIntent(List.copyOf(desired));
             try {
                 for (RaftGroup group : groups.values()) {
                     group.setMaintenanceFrozen(true);
@@ -116,9 +210,10 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
                 throw freezeFailure;
             }
 
-            java.util.List<String> oldOwners = ringNodes();
             Map<String, Map<String, ValueEntry>> snapshots = new LinkedHashMap<>();
-            for (String owner : oldOwners) snapshots.put(owner, groups.get(owner).snapshotEntriesWithReadIndex());
+            // Scan every group so a retry after partial epoch advancement or
+            // source cleanup can reconstruct the target from any surviving copy.
+            for (String owner : groups.keySet()) snapshots.put(owner, groups.get(owner).snapshotEntriesWithReadIndex());
             for (Map.Entry<String, Map<String, ValueEntry>> shard : snapshots.entrySet()) {
                 for (Map.Entry<String, ValueEntry> entry : shard.getValue().entrySet()) {
                     String destination = next.getNode(entry.getKey());
@@ -153,6 +248,16 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
                 }
             }
             if (deletionFailure != null) throw deletionFailure;
+            IOException unfreezeFailure = null;
+            for (RaftGroup group : frozen) {
+                try { group.setMaintenanceFrozen(false); }
+                catch (IOException e) {
+                    if (unfreezeFailure == null) unfreezeFailure = new IOException("Could not release every Raft shard after rebalance");
+                    unfreezeFailure.addSuppressed(e);
+                }
+            }
+            if (unfreezeFailure != null) throw unfreezeFailure;
+            coordinator.setMigrationIntent(List.of());
         } catch (IOException | RuntimeException failure) {
             if (!routingPublished && !ownershipTransitionStarted) {
                 for (Move move : copied) {
@@ -163,7 +268,7 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
             // A failed transition may have advanced only some group logs. Keep each
             // local router aligned with those durable values before releasing freezes.
             groups.forEach((id, group) -> ownershipEpochs.put(id, group.getOwnershipEpoch()));
-            if (!ownershipTransitionStarted) for (RaftGroup group : frozen) {
+            if (!ownershipTransitionStarted && groups.values().iterator().next().getMigrationIntent().isEmpty()) for (RaftGroup group : frozen) {
                 try { group.setMaintenanceFrozen(false); }
                 catch (IOException e) { failure.addSuppressed(e); }
             }
@@ -171,12 +276,6 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
         } finally {
             routingLock.writeLock().unlock();
         }
-        IOException unfreezeFailure = null;
-        for (RaftGroup group : frozen) {
-            try { group.setMaintenanceFrozen(false); }
-            catch (IOException e) { if (unfreezeFailure == null) unfreezeFailure = new IOException("Could not release every Raft shard after rebalance"); unfreezeFailure.addSuppressed(e); }
-        }
-        if (unfreezeFailure != null) throw unfreezeFailure;
     }
 
     private record Move(String source, String destination, String key) { }
@@ -320,14 +419,15 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     }
 
     @Override public String get(String key) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock();
         try {
         try { recoverTransactionsLocked(false); }
         catch (IOException e) { throw new UncheckedIOException("Transaction recovery failed", e); }
-        RaftGroup group = groups.get(groupFor(key));
+        RaftGroup group = groups.get(routeKey(key));
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
         while (true) try {
-            byte[] value = fenced(groupFor(key), () -> followerReads && !group.isLeader()
+            byte[] value = fenced(routeKey(key), () -> followerReads && !group.isLeader()
                     ? group.getBoundedStalenessRead(key, maxFollowerCommitLag) : group.getWithReadIndex(key));
             return value == null ? null : new String(value, StandardCharsets.UTF_8);
         } catch (IOException e) {
@@ -345,23 +445,26 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     }
 
     @Override public void set(String key, String value) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock(); try {
-        try { fenced(groupFor(key), () -> groups.get(groupFor(key)).put(key, value.getBytes(StandardCharsets.UTF_8))); }
+        try { String owner = routeKey(key); fenced(owner, () -> groups.get(owner).put(key, value.getBytes(StandardCharsets.UTF_8))); }
         catch (IOException e) { throw new UncheckedIOException("Raft write failed", e); }
         } finally { routingLock.readLock().unlock(); }
     }
 
     @Override public void set(String key, String value, long expiryMillis) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock(); try {
-        try { fenced(groupFor(key), () -> groups.get(groupFor(key)).setWithExpiry(key, value.getBytes(StandardCharsets.UTF_8), expiryMillis)); }
+        try { String owner = routeKey(key); fenced(owner, () -> groups.get(owner).setWithExpiry(key, value.getBytes(StandardCharsets.UTF_8), expiryMillis)); }
         catch (IOException e) { throw new UncheckedIOException("Raft expiring write failed", e); }
         } finally { routingLock.readLock().unlock(); }
     }
 
     @Override public void setBatch(Map<String, String> values) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock(); try {
         Map<String, Map<String, byte[]>> batches = new LinkedHashMap<>();
-        values.forEach((key, value) -> batches.computeIfAbsent(groupFor(key), ignored -> new LinkedHashMap<>())
+        values.forEach((key, value) -> batches.computeIfAbsent(routeKey(key), ignored -> new LinkedHashMap<>())
                 .put(key, value.getBytes(StandardCharsets.UTF_8)));
         try { recoverTransactionsLocked(false); }
         catch (IOException e) { throw new UncheckedIOException("Transaction recovery failed", e); }
@@ -384,13 +487,14 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     }
 
     @Override public int delete(String... keys) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock(); try {
         try { recoverTransactionsLocked(false); }
         catch (IOException e) { throw new UncheckedIOException("Transaction recovery failed", e); }
         Map<String, Map<String, String>> changes = new LinkedHashMap<>();
         java.util.LinkedHashSet<String> owners = new java.util.LinkedHashSet<>();
         for (String key : keys) {
-            String owner = groupFor(key); owners.add(owner);
+            String owner = routeKey(key); owners.add(owner);
             changes.computeIfAbsent(owner, ignored -> new LinkedHashMap<>()).put(key, null);
         }
         if (owners.size() > 1) {
@@ -408,7 +512,7 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     }
 
     private String getWithoutRecovery(String key) {
-        RaftGroup group = groups.get(groupFor(key));
+        RaftGroup group = groups.get(routeKey(key));
         try {
             byte[] value = fenced(group.getGroupId(), () -> followerReads && !group.isLeader()
                     ? group.getBoundedStalenessRead(key, maxFollowerCommitLag) : group.getWithReadIndex(key));
@@ -417,6 +521,7 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     }
 
     @Override public List<String> keys(String pattern) {
+        refreshOwnershipFromRaft();
         routingLock.readLock().lock(); try {
         try { recoverTransactionsLocked(false); }
         catch (IOException e) { throw new UncheckedIOException("Transaction recovery failed", e); }
@@ -434,6 +539,7 @@ public final class MultiRaftStore implements KeyValueAccess, AutoCloseable {
     @Override public int size() { return keys("*").size(); }
 
     @Override public void close() {
+        migrationRecovery.shutdownNow();
         RuntimeException failure = null;
         for (RaftGroup group : groups.values()) {
             try { group.close(); }

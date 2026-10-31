@@ -1,5 +1,7 @@
 package com.codecrafters.redis.cluster;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.Map;
 
 public final class ClusterRuntimeConfigTest {
@@ -39,5 +41,10 @@ public final class ClusterRuntimeConfigTest {
         try { ClusterRuntimeConfig.fromEnvironment(environment); }
         catch (IllegalArgumentException expected) { rejected = true; }
         assert rejected : "Expected invalid cluster configuration to be rejected";
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }
