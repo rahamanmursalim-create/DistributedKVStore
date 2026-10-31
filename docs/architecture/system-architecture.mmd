@@ -1,0 +1,72 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Segoe UI, Arial","fontSize":"15px","primaryColor":"#EEF2FF","primaryBorderColor":"#6366F1","primaryTextColor":"#1E1B4B","lineColor":"#475569","clusterBkg":"#F8FAFC","clusterBorder":"#CBD5E1"}}}%%
+flowchart TB
+    subgraph CLIENTS["Clients"]
+        direction LR
+        C1["RESP clients<br/>(redis-cli, applications)"]
+        C2["HTTP / HTTPS clients<br/>(browser dashboard, curl)"]
+    end
+
+    subgraph EDGE["Client-facing endpoints  ·  both started by Main.java"]
+        direction LR
+        TCP["TCP server :6379<br/>RESP · AUTH token · optional TLS<br/>virtual thread per connection"]
+        WEB["HTTP/HTTPS server :8080<br/>/api/health · /api/keys<br/>/api/raft/status · /api/shards<br/>bearer-token auth · dashboard at /"]
+    end
+
+    CH["CommandHandler<br/>PING · ECHO · SET/PUT · GET · DEL · EXISTS · KEYS · INFO"]
+    WB["AsyncWriteBatcher<br/>queue 4,096 · batch 128 · 2 ms"]
+
+    ROUTER{{"KeyValueAccess<br/>chosen at startup"}}
+
+    subgraph MODES["Runtime modes"]
+        direction LR
+        M1["Single node<br/>RedisStore"]
+        M2["Sharded<br/>ShardedStore + ShardAdminService<br/>consistent-hash ring<br/>KV_SHARD_NODES"]
+        M3["Multi-Raft cluster<br/>MultiRaftStore<br/>KV_NODE_ID + KV_RAFT_PEERS"]
+    end
+
+    subgraph RAFT["Replication  ·  one RaftGroup per group ID"]
+        direction LR
+        RG["RaftGroup<br/>leader election · log replication<br/>ReadIndex · follower reads<br/>snapshots · membership changes"]
+        RPC["RPC transport<br/>length-framed RpcCodec<br/>mutual TLS + cluster token"]
+    end
+
+    subgraph STORE["Persistence  ·  KV_STORAGE_BACKEND = wal | rocksdb"]
+        direction LR
+        RS["RedisStore<br/>B+ Tree index · TTL · size limits"]
+        WAL[("Write-ahead log<br/>checksummed records")]
+        ROCKS[("RocksDB<br/>B+ Tree store")]
+    end
+
+    LSM[("Storage-engine components<br/>MemTable · SSTable · manifest<br/>Bloom filter · compaction")]
+    MVCC["MVCC transaction<br/>components"]
+
+    C1 --> TCP
+    C2 --> WEB
+    TCP --> CH
+    CH --> WB
+    CH --> ROUTER
+    WB --> ROUTER
+    WEB --> ROUTER
+    ROUTER --> M1
+    ROUTER --> M2
+    ROUTER --> M3
+    M3 --> RG
+    RG <--> RPC
+    M1 --> RS
+    M2 --> RS
+    RG --> RS
+    RS --> WAL
+    RS --> ROCKS
+
+    classDef client fill:#ECFEFF,stroke:#0891B2,color:#164E63;
+    classDef edge fill:#FEF3C7,stroke:#D97706,color:#78350F;
+    classDef core fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B;
+    classDef raft fill:#DCFCE7,stroke:#16A34A,color:#14532D;
+    classDef store fill:#FCE7F3,stroke:#DB2777,color:#831843;
+    classDef side fill:#F1F5F9,stroke:#94A3B8,color:#334155,stroke-dasharray:4 3;
+    class C1,C2 client;
+    class TCP,WEB edge;
+    class CH,WB,ROUTER,M1,M2,M3 core;
+    class RG,RPC raft;
+    class RS,WAL,ROCKS store;
+    class LSM,MVCC side;
