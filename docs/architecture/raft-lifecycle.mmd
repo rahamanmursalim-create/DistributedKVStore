@@ -1,0 +1,19 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Segoe UI, Arial","fontSize":"15px","lineColor":"#475569"}}}%%
+flowchart LR
+    START(("start /<br/>restart")) -->|"state recovered<br/>from persisted log"| F
+    F["<b>Follower</b><br/>replicates leader's log"]
+    C["<b>Candidate</b><br/>requests votes for new term"]
+    L["<b>Leader</b><br/>heartbeats · AppendEntries<br/>ReadIndex · snapshots"]
+
+    F -->|"election timeout<br/>350–650 ms (randomized)"| C
+    C -->|"majority of votes"| L
+    C -->|"higher term seen<br/>or election lost"| F
+    C -->|"split vote:<br/>new election, new term"| C
+    L -->|"higher term seen"| F
+    L -.->|"InstallSnapshot, 8 MiB chunks,<br/>to lagging followers"| F
+    L -.->|"snapshot once the log<br/>reaches 10,000 entries"| L
+
+    classDef f fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B;
+    classDef c fill:#FEF3C7,stroke:#D97706,color:#78350F;
+    classDef l fill:#DCFCE7,stroke:#16A34A,color:#14532D;
+    class F f; class C c; class L l;

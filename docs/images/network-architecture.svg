@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1114" width="1500" height="1114" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="aG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16A34A"/></marker>
+<marker id="aK" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+<marker id="aB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563EB"/></marker>
+<marker id="aT" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0D9488"/></marker>
+<marker id="aP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7C3AED"/></marker>
+<linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#312E81"/><stop offset="1" stop-color="#4F46E5"/></linearGradient>
+<filter id="sh" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.12"/></filter>
+</defs>
+<rect width="1500" height="1114" fill="#FFFFFF"/>
+<text x="750" y="40" text-anchor="middle" font-size="26" font-weight="700" fill="#0F172A">Network architecture — three-node Raft cluster</text>
+<text x="750" y="64" text-anchor="middle" font-size="14" fill="#64748B">Every node serves clients and talks to every other node. Followers forward client commands to the group leader over the peer port.</text>
+<rect x="30" y="86" width="1440" height="112" rx="14" fill="#F0F9FF" stroke="#7DD3FC" stroke-width="1.5"/>
+<text x="52" y="110" font-size="13" font-weight="700" fill="#0369A1" letter-spacing="1">CLIENT NETWORK  ·  trusted subnets only  ·  clients may use any node</text>
+<rect x="230" y="120" width="440" height="68" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5" filter="url(#sh)"/>
+<text x="450.0" y="147" text-anchor="middle" font-size="16" font-weight="700" fill="#1D4ED8">Browser · curl · HTTP clients</text>
+<text x="450.0" y="169" text-anchor="middle" font-size="13" fill="#334155">HTTP(S) :8080  ·  Authorization: Bearer &lt;KV_CLIENT_TOKEN&gt;</text>
+<rect x="830" y="120" width="440" height="68" rx="10" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.5" filter="url(#sh)"/>
+<text x="1050.0" y="147" text-anchor="middle" font-size="16" font-weight="700" fill="#0F766E">RESP clients · redis-cli · applications</text>
+<text x="1050.0" y="169" text-anchor="middle" font-size="13" fill="#334155">RESP :6379 (TLS)  ·  AUTH &lt;KV_CLIENT_TOKEN&gt;</text>
+<rect x="30" y="256" width="1440" height="586" rx="14" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="52" y="282" font-size="13" font-weight="700" fill="#475569" letter-spacing="1">RAFT CLUSTER NETWORK  ·  Docker bridge network or separate hosts  ·  each node must reach every other node's Raft port</text>
+<line x1="150" y1="230" x2="1350" y2="230" stroke="#2563EB" stroke-width="2.5"/>
+<line x1="150" y1="244" x2="1350" y2="244" stroke="#0D9488" stroke-width="2.5"/>
+<text x="1358" y="234" font-size="11" fill="#2563EB" font-weight="700">HTTP(S)</text>
+<text x="1358" y="248" font-size="11" fill="#0D9488" font-weight="700">RESP</text>
+<line x1="450" y1="188" x2="450" y2="230" stroke="#2563EB" stroke-width="2.5"/>
+<line x1="1050" y1="188" x2="1050" y2="244" stroke="#0D9488" stroke-width="2.5"/>
+<rect x="60" y="306" width="400" height="440" rx="12" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5" filter="url(#sh)"/>
+<path d="M60,318 a12,12 0 0 1 12,-12 h376 a12,12 0 0 1 12,12 v26 h-400 z" fill="url(#hdr)"/>
+<text x="80" y="332" font-size="16" font-weight="700" fill="#FFFFFF">Node n1</text>
+<rect x="274" y="314" width="172" height="22" rx="11" fill="#16A34A"/>
+<text x="283" y="330" font-size="12" font-weight="700" fill="#FFFFFF">leader of g1 (example)</text>
+<text x="80" y="368" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">CLIENT LISTENERS</text>
+<rect x="80" y="378" width="170" height="40" rx="8" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+<text x="165" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#1E3A8A">HTTP(S) :8080</text>
+<rect x="270" y="378" width="170" height="40" rx="8" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.5"/>
+<text x="355" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#115E59">RESP :6379</text>
+<line x1="165" y1="230" x2="165" y2="306" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="165" y1="346" x2="165" y2="378" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="355" y1="244" x2="355" y2="306" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<line x1="355" y1="346" x2="355" y2="378" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<text x="80" y="452" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">APPLICATION RUNTIME</text>
+<rect x="80" y="462" width="360" height="104" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+<text x="260" y="488" text-anchor="middle" font-size="14" font-weight="700" fill="#312E81">CommandHandler · WebServer</text>
+<text x="260" y="510" text-anchor="middle" font-size="13" fill="#3730A3">MultiRaftStore  →  groupFor(key)</text>
+<text x="260" y="532" text-anchor="middle" font-size="13" fill="#3730A3">RaftGroup g1 … gN  (one replica of each group)</text>
+<text x="260" y="554" text-anchor="middle" font-size="12" fill="#6366F1">state machine: RedisStore</text>
+<line x1="165" y1="418" x2="165" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<line x1="355" y1="418" x2="355" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<text x="80" y="598" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">PEER LISTENER</text>
+<rect x="80" y="608" width="360" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.8"/>
+<text x="260" y="635" text-anchor="middle" font-size="14" font-weight="700" fill="#14532D">Raft RPC :7000 + group index  ·  mutual TLS</text>
+<line x1="260" y1="566" x2="260" y2="608" stroke="#16A34A" stroke-width="1.5" marker-end="url(#aG)" marker-start="url(#aG)"/>
+<text x="80" y="678" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">LOCAL STORAGE (not shared between nodes)</text>
+<rect x="80" y="688" width="360" height="44" rx="8" fill="#FCE7F3" stroke="#DB2777" stroke-width="1.5"/>
+<text x="260" y="707" text-anchor="middle" font-size="13" font-weight="700" fill="#831843">DATA_DIR/raft/&lt;group&gt;/</text>
+<text x="260" y="723" text-anchor="middle" font-size="12" fill="#9D174D">Raft log · metadata · state (WAL or RocksDB) · snapshots</text>
+<rect x="550" y="306" width="400" height="440" rx="12" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5" filter="url(#sh)"/>
+<path d="M550,318 a12,12 0 0 1 12,-12 h376 a12,12 0 0 1 12,12 v26 h-400 z" fill="url(#hdr)"/>
+<text x="570" y="332" font-size="16" font-weight="700" fill="#FFFFFF">Node n2</text>
+<rect x="820" y="314" width="116" height="22" rx="11" fill="#64748B"/>
+<text x="829" y="330" font-size="12" font-weight="700" fill="#FFFFFF">follower of g1</text>
+<text x="570" y="368" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">CLIENT LISTENERS</text>
+<rect x="570" y="378" width="170" height="40" rx="8" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+<text x="655" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#1E3A8A">HTTP(S) :8080</text>
+<rect x="760" y="378" width="170" height="40" rx="8" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.5"/>
+<text x="845" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#115E59">RESP :6379</text>
+<line x1="655" y1="230" x2="655" y2="306" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="655" y1="346" x2="655" y2="378" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="845" y1="244" x2="845" y2="306" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<line x1="845" y1="346" x2="845" y2="378" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<text x="570" y="452" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">APPLICATION RUNTIME</text>
+<rect x="570" y="462" width="360" height="104" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+<text x="750" y="488" text-anchor="middle" font-size="14" font-weight="700" fill="#312E81">CommandHandler · WebServer</text>
+<text x="750" y="510" text-anchor="middle" font-size="13" fill="#3730A3">MultiRaftStore  →  groupFor(key)</text>
+<text x="750" y="532" text-anchor="middle" font-size="13" fill="#3730A3">RaftGroup g1 … gN  (one replica of each group)</text>
+<text x="750" y="554" text-anchor="middle" font-size="12" fill="#6366F1">state machine: RedisStore</text>
+<line x1="655" y1="418" x2="655" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<line x1="845" y1="418" x2="845" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<text x="570" y="598" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">PEER LISTENER</text>
+<rect x="570" y="608" width="360" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.8"/>
+<text x="750" y="635" text-anchor="middle" font-size="14" font-weight="700" fill="#14532D">Raft RPC :7000 + group index  ·  mutual TLS</text>
+<line x1="750" y1="566" x2="750" y2="608" stroke="#16A34A" stroke-width="1.5" marker-end="url(#aG)" marker-start="url(#aG)"/>
+<text x="570" y="678" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">LOCAL STORAGE (not shared between nodes)</text>
+<rect x="570" y="688" width="360" height="44" rx="8" fill="#FCE7F3" stroke="#DB2777" stroke-width="1.5"/>
+<text x="750" y="707" text-anchor="middle" font-size="13" font-weight="700" fill="#831843">DATA_DIR/raft/&lt;group&gt;/</text>
+<text x="750" y="723" text-anchor="middle" font-size="12" fill="#9D174D">Raft log · metadata · state (WAL or RocksDB) · snapshots</text>
+<rect x="1040" y="306" width="400" height="440" rx="12" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5" filter="url(#sh)"/>
+<path d="M1040,318 a12,12 0 0 1 12,-12 h376 a12,12 0 0 1 12,12 v26 h-400 z" fill="url(#hdr)"/>
+<text x="1060" y="332" font-size="16" font-weight="700" fill="#FFFFFF">Node n3</text>
+<rect x="1310" y="314" width="116" height="22" rx="11" fill="#64748B"/>
+<text x="1319" y="330" font-size="12" font-weight="700" fill="#FFFFFF">follower of g1</text>
+<text x="1060" y="368" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">CLIENT LISTENERS</text>
+<rect x="1060" y="378" width="170" height="40" rx="8" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+<text x="1145" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#1E3A8A">HTTP(S) :8080</text>
+<rect x="1250" y="378" width="170" height="40" rx="8" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.5"/>
+<text x="1335" y="403" text-anchor="middle" font-size="14" font-weight="600" fill="#115E59">RESP :6379</text>
+<line x1="1145" y1="230" x2="1145" y2="306" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="1145" y1="346" x2="1145" y2="378" stroke="#2563EB" stroke-width="2.5" marker-end="url(#aB)"/>
+<line x1="1335" y1="244" x2="1335" y2="306" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<line x1="1335" y1="346" x2="1335" y2="378" stroke="#0D9488" stroke-width="2.5" marker-end="url(#aT)"/>
+<text x="1060" y="452" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">APPLICATION RUNTIME</text>
+<rect x="1060" y="462" width="360" height="104" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+<text x="1240" y="488" text-anchor="middle" font-size="14" font-weight="700" fill="#312E81">CommandHandler · WebServer</text>
+<text x="1240" y="510" text-anchor="middle" font-size="13" fill="#3730A3">MultiRaftStore  →  groupFor(key)</text>
+<text x="1240" y="532" text-anchor="middle" font-size="13" fill="#3730A3">RaftGroup g1 … gN  (one replica of each group)</text>
+<text x="1240" y="554" text-anchor="middle" font-size="12" fill="#6366F1">state machine: RedisStore</text>
+<line x1="1145" y1="418" x2="1145" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<line x1="1335" y1="418" x2="1335" y2="462" stroke="#475569" stroke-width="1.5" marker-end="url(#aK)"/>
+<text x="1060" y="598" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">PEER LISTENER</text>
+<rect x="1060" y="608" width="360" height="44" rx="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.8"/>
+<text x="1240" y="635" text-anchor="middle" font-size="14" font-weight="700" fill="#14532D">Raft RPC :7000 + group index  ·  mutual TLS</text>
+<line x1="1240" y1="566" x2="1240" y2="608" stroke="#16A34A" stroke-width="1.5" marker-end="url(#aG)" marker-start="url(#aG)"/>
+<text x="1060" y="678" font-size="11" font-weight="700" fill="#64748B" letter-spacing="1">LOCAL STORAGE (not shared between nodes)</text>
+<rect x="1060" y="688" width="360" height="44" rx="8" fill="#FCE7F3" stroke="#DB2777" stroke-width="1.5"/>
+<text x="1240" y="707" text-anchor="middle" font-size="13" font-weight="700" fill="#831843">DATA_DIR/raft/&lt;group&gt;/</text>
+<text x="1240" y="723" text-anchor="middle" font-size="12" fill="#9D174D">Raft log · metadata · state (WAL or RocksDB) · snapshots</text>
+<line x1="460" y1="630" x2="560" y2="630" stroke="#16A34A" stroke-width="3" marker-start="url(#aG)" marker-end="url(#aG)"/>
+<text x="510.0" y="622" text-anchor="middle" font-size="11" font-weight="700" fill="#166534">mTLS</text>
+<line x1="950" y1="630" x2="1050" y2="630" stroke="#16A34A" stroke-width="3" marker-start="url(#aG)" marker-end="url(#aG)"/>
+<text x="1000.0" y="622" text-anchor="middle" font-size="11" font-weight="700" fill="#166534">mTLS</text>
+<path d="M260,746 V790 H1240 V746" fill="none" stroke="#16A34A" stroke-width="3" marker-start="url(#aG)" marker-end="url(#aG)"/>
+<rect x="470" y="776" width="560" height="28" rx="14" fill="#FFFFFF" stroke="#16A34A"/>
+<text x="750" y="795" text-anchor="middle" font-size="12" font-weight="700" fill="#166534">full reachability · each call opens its own mutual-TLS connection</text>
+<circle cx="1145" cy="275" r="14" fill="#7C3AED" stroke="#FFFFFF" stroke-width="2"/>
+<text x="1145" y="280" text-anchor="middle" font-size="14" font-weight="700" fill="#FFFFFF">1</text>
+<text x="1166" y="279" font-size="11" font-weight="700" fill="#6D28D9">write → follower n3</text>
+<circle cx="1240" cy="770" r="14" fill="#7C3AED" stroke="#FFFFFF" stroke-width="2"/>
+<text x="1240" y="775" text-anchor="middle" font-size="14" font-weight="700" fill="#FFFFFF">2</text>
+<path d="M1240,746 V790" stroke="none"/>
+<text x="1010" y="830" font-size="11" font-weight="700" fill="#6D28D9">forwarded command (REQUEST) → leader n1</text>
+<circle cx="505" cy="600" r="14" fill="#7C3AED" stroke="#FFFFFF" stroke-width="2"/>
+<text x="505" y="605" text-anchor="middle" font-size="14" font-weight="700" fill="#FFFFFF">3</text>
+<text x="505" y="660" text-anchor="middle" font-size="11" font-weight="700" fill="#6D28D9">replicate</text>
+<rect x="30" y="858" width="345" height="236" rx="12" fill="#0F172A"/>
+<text x="50" y="888" font-size="12" font-weight="700" fill="#7DD3FC" letter-spacing="1.2">CLIENT PLANE</text>
+<text x="50" y="916" font-size="12.5" fill="#E2E8F0" xml:space="preserve">HTTP(S) :8080 and RESP :6379 on every node.</text>
+<text x="50" y="940" font-size="12.5" fill="#E2E8F0" xml:space="preserve">TLS is enabled when KV_TLS_KEYSTORE is set;</text>
+<text x="50" y="964" font-size="12.5" fill="#E2E8F0" xml:space="preserve">the server proves its identity to the client.</text>
+<text x="50" y="988" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Callers authenticate with a Bearer token</text>
+<text x="50" y="1012" font-size="12.5" fill="#E2E8F0" xml:space="preserve">(HTTP) or AUTH (RESP): KV_CLIENT_TOKEN.</text>
+<text x="50" y="1036" font-size="12.5" fill="#E2E8F0" xml:space="preserve">A non-loopback KV_BIND_HOST requires TLS</text>
+<text x="50" y="1060" font-size="12.5" fill="#E2E8F0" xml:space="preserve">and KV_CLIENT_TOKEN, or startup is refused.</text>
+<rect x="395" y="858" width="345" height="236" rx="12" fill="#0F172A"/>
+<text x="415" y="888" font-size="12" font-weight="700" fill="#86EFAC" letter-spacing="1.2">PEER PLANE</text>
+<text x="415" y="916" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Raft RPC on :7000 + group index (KV_RAFT_PORT),</text>
+<text x="415" y="940" font-size="12.5" fill="#E2E8F0" xml:space="preserve">bound to KV_RAFT_BIND_HOST (default 0.0.0.0).</text>
+<text x="415" y="964" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Mutual TLS: the server requires a client</text>
+<text x="415" y="988" font-size="12.5" fill="#E2E8F0" xml:space="preserve">certificate. Every call also carries the</text>
+<text x="415" y="1012" font-size="12.5" fill="#E2E8F0" xml:space="preserve">group ID and KV_CLUSTER_TOKEN (constant-time</text>
+<text x="415" y="1036" font-size="12.5" fill="#E2E8F0" xml:space="preserve">check). Non-loopback peers require both</text>
+<text x="415" y="1060" font-size="12.5" fill="#E2E8F0" xml:space="preserve">mutual TLS and the token, or startup fails.</text>
+<rect x="760" y="858" width="345" height="236" rx="12" fill="#0F172A"/>
+<text x="780" y="888" font-size="12" font-weight="700" fill="#FCD34D" letter-spacing="1.2">PEER RPC WIRE FORMAT</text>
+<text x="780" y="916" font-size="12.5" fill="#E2E8F0" xml:space="preserve">One request per TCP connection, new handshake.</text>
+<text x="780" y="940" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Length-prefixed frame, at most 16 MiB.</text>
+<text x="780" y="964" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Source and target node IDs are validated</text>
+<text x="780" y="988" font-size="12.5" fill="#E2E8F0" xml:space="preserve">against the KV_RAFT_PEERS list.</text>
+<text x="780" y="1012" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Types: VOTE, APPEND_ENTRIES, HEARTBEAT,</text>
+<text x="780" y="1036" font-size="12.5" fill="#E2E8F0" xml:space="preserve">INSTALL_SNAPSHOT, REQUEST (forwarded</text>
+<text x="780" y="1060" font-size="12.5" fill="#E2E8F0" xml:space="preserve">commands/reads), READ_FRESHNESS.</text>
+<rect x="1125" y="858" width="345" height="236" rx="12" fill="#0F172A"/>
+<text x="1145" y="888" font-size="12" font-weight="700" fill="#C4B5FD" letter-spacing="1.2">WRITE FLOW OVER THE NETWORK</text>
+<text x="1145" y="916" font-size="12.5" fill="#E2E8F0" xml:space="preserve">1  Client sends the write to any node (n3).</text>
+<text x="1145" y="940" font-size="12.5" fill="#E2E8F0" xml:space="preserve">2  A follower forwards it to the group leader</text>
+<text x="1145" y="964" font-size="12.5" fill="#E2E8F0" xml:space="preserve">    (n1) over the peer port.</text>
+<text x="1145" y="988" font-size="12.5" fill="#E2E8F0" xml:space="preserve">3  The leader replicates AppendEntries; a</text>
+<text x="1145" y="1012" font-size="12.5" fill="#E2E8F0" xml:space="preserve">    majority acknowledgement commits it.</text>
+<text x="1145" y="1036" font-size="12.5" fill="#E2E8F0" xml:space="preserve">4  The reply returns leader → n3 → client.</text>
+<text x="1145" y="1060" font-size="12.5" fill="#E2E8F0" xml:space="preserve">Follower reads ask the leader READ_FRESHNESS.</text>
+</svg>
