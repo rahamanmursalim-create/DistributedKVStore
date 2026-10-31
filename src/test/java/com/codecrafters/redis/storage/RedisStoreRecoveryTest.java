@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -48,5 +50,10 @@ public class RedisStoreRecoveryTest {
             throw new AssertionError("FAIL: " + name);
         }
         System.out.println("[PASS] " + name);
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

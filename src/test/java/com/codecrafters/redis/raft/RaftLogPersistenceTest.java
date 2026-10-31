@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -81,5 +83,10 @@ public final class RaftLogPersistenceTest {
                 });
             }
         }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

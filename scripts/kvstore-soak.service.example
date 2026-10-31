@@ -1,0 +1,22 @@
+[Unit]
+Description=DistributedKVStore 24-hour integration soak
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kvstore
+Group=kvstore
+WorkingDirectory=/opt/distributed-kvstore
+Environment=JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+Environment=PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/distributed-kvstore/scripts/run-24h-soak.sh 24 /var/lib/kvstore-soak/artifacts
+TimeoutStartSec=infinity
+TimeoutStopSec=10min
+KillMode=control-group
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+# Start manually with systemctl start; do not enable at boot. A reboot must
+# result in an INCOMPLETE run, not an automatic run that appears continuous.

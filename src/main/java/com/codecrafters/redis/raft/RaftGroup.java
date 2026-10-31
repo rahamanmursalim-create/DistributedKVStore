@@ -66,7 +66,9 @@ public final class RaftGroup implements AutoCloseable {
     private boolean maintenanceFrozen;
     private long ownershipEpoch;
     private List<String> ownershipGroups = List.of();
+    private List<String> migrationIntent = List.of();
     private final ThreadLocal<Long> requestOwnershipEpoch = new ThreadLocal<>();
+    private final java.util.concurrent.atomic.AtomicBoolean migrationCoordinatorBusy = new java.util.concurrent.atomic.AtomicBoolean();
     private final Map<String, TransactionRecord> transactions = new LinkedHashMap<>();
     private final Map<String, String> preparedKeyOwners = new java.util.HashMap<>();
     private SnapshotTransfer snapshotTransfer;
@@ -150,8 +152,21 @@ public final class RaftGroup implements AutoCloseable {
     public synchronized long getLastLogIndex() { return log.lastIndex(); }
     public synchronized long getLastLogTerm() { return log.lastTerm(); }
     public synchronized long getOwnershipEpoch() { return ownershipEpoch; }
+    /** Local applied key count for monitoring; does not perform a quorum read. */
+    public int getLocalStoreKeyCount() { return store.size(); }
     public synchronized List<String> getOwnershipGroups() { return ownershipGroups; }
+    public synchronized List<String> getMigrationIntent() { return migrationIntent; }
     public synchronized boolean isMaintenanceFrozen() { return maintenanceFrozen; }
+    public boolean tryAcquireMigrationCoordinator() { return migrationCoordinatorBusy.compareAndSet(false, true); }
+    public boolean isMigrationCoordinatorBusy() { return migrationCoordinatorBusy.get(); }
+    public void releaseMigrationCoordinator() { migrationCoordinatorBusy.set(false); }
+
+    /** Stores the active cluster migration target in this group's replicated log. */
+    public void setMigrationIntent(List<String> targetGroups) throws IOException {
+        Objects.requireNonNull(targetGroups, "targetGroups");
+        byte[] command = encode(out -> { out.writeByte(21); writeStrings(out, targetGroups); });
+        commitCommand(command);
+    }
     public synchronized Set<String> getVoterIds() { return Set.copyOf(voters); }
 
     /** Creates a durable checkpoint then compacts the committed prefix of the active Raft log. */
@@ -186,10 +201,25 @@ public final class RaftGroup implements AutoCloseable {
         if (activeGroups == null || activeGroups.isEmpty()) throw new IllegalArgumentException("At least one owner group is required");
         byte[] command = encode(out -> { out.writeByte(20); out.writeLong(nextEpoch); writeStrings(out, activeGroups); });
         synchronized (this) {
+            if (role == Role.LEADER && nextEpoch == ownershipEpoch
+                    && ownershipGroups.equals(activeGroups)) return commitIndex;
             if (role == Role.LEADER && nextEpoch != ownershipEpoch + 1)
                 throw new IOException("Ownership epoch must increase by exactly one");
         }
-        return commitCommand(command);
+        long committed = commitCommand(command);
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            synchronized (this) {
+                if (ownershipEpoch == nextEpoch && ownershipGroups.equals(activeGroups)) return committed;
+                if (ownershipEpoch > nextEpoch) throw new IOException("Ownership epoch advanced beyond requested migration epoch");
+            }
+            try { Thread.sleep(10); }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted waiting for committed ownership epoch to apply", e);
+            }
+        }
+        throw new IOException("Committed ownership epoch was not applied locally before timeout");
     }
 
     /**
@@ -463,7 +493,7 @@ public final class RaftGroup implements AutoCloseable {
             if (expectedEpoch >= 0 && expectedEpoch != ownershipEpoch)
                 throw new IOException("Stale shard owner: request epoch=" + expectedEpoch + ", current epoch=" + ownershipEpoch);
             int op = command.length == 0 ? -1 : command[0] & 0xff;
-            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20)
+            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21)
                 throw new IOException("Raft group is frozen for shard migration");
             if (role == Role.LEADER) validateOwnershipCommand(command);
             validateNoPreparedConflict(command);
@@ -760,7 +790,7 @@ public final class RaftGroup implements AutoCloseable {
         try {
             if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
             int op = command.length == 0 ? -1 : command[0] & 0xff;
-            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20)
+            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21)
                 throw new IOException("Raft group is frozen for shard migration");
             long index = expectedEpoch == null ? commitCommand(command) : commitCommand(command, expectedEpoch);
             boolean existed = keyExisted;
@@ -826,6 +856,10 @@ public final class RaftGroup implements AutoCloseable {
             if (in.readLong() <= 0) throw new IOException("Invalid ownership epoch");
             List<String> groups = readStrings(in);
             if (groups.isEmpty()) throw new IOException("Ownership manifest cannot be empty");
+        } else if (operation == 21) {
+            List<String> groups = readStrings(in);
+            if (groups.size() > 100_000 || new java.util.LinkedHashSet<>(groups).size() != groups.size())
+                throw new IOException("Invalid migration target group list");
         } else throw new IOException("Unknown state machine operation");
         if (in.available() != 0) throw new IOException("Trailing bytes in Raft command");
     }
@@ -1004,7 +1038,7 @@ public final class RaftGroup implements AutoCloseable {
                                 Map<String, InetSocketAddress> voters,
                                 Map<String, InetSocketAddress> jointVoters,
                                 Map<String, InetSocketAddress> pendingVoters,
-                                List<TransactionRecord> transactions) { }
+                                List<TransactionRecord> transactions, List<String> migrationIntent) { }
 
     private byte[] encodeSnapshot(long index, long includedTerm) throws IOException {
         ByteArrayOutputStream payload = new ByteArrayOutputStream();
@@ -1026,6 +1060,7 @@ public final class RaftGroup implements AutoCloseable {
             }
             out.writeInt(transactions.size());
             for (TransactionRecord record : transactions.values()) writeTransactionRecord(out, record);
+            writeStringList(out, migrationIntent);
         }
         byte[] body = payload.toByteArray();
         CRC32 crc = new CRC32(); crc.update(body);
@@ -1041,6 +1076,7 @@ public final class RaftGroup implements AutoCloseable {
         store.replaceSnapshot(data.entries());
         maintenanceFrozen = data.frozen(); ownershipEpoch = data.ownershipEpoch();
         ownershipGroups = data.ownershipGroups();
+        migrationIntent = data.migrationIntent();
         voters.clear(); voters.addAll(data.voters().keySet());
         if (data.voters().containsKey(nodeId)) selfEndpoint = data.voters().get(nodeId);
         peers.clear(); data.voters().forEach((id, address) -> { if (!id.equals(nodeId)) peers.put(id, address); });
@@ -1084,9 +1120,10 @@ public final class RaftGroup implements AutoCloseable {
             int txnCount = in.readInt(); if (txnCount < 0 || txnCount > 1_000_000) throw new IOException("Invalid snapshot transaction count");
             List<TransactionRecord> records = new java.util.ArrayList<>(txnCount);
             for (int i = 0; i < txnCount; i++) records.add(readTransactionRecord(in));
+            List<String> migrationIntent = in.available() == 0 ? List.of() : readStringList(in, 100_000);
             if (in.available() != 0) throw new IOException("Trailing Raft snapshot data");
             return new SnapshotData(new SnapshotHeader(index, term), entries, frozen, epoch, groups,
-                    voters, joint, pending, List.copyOf(records));
+                    voters, joint, pending, List.copyOf(records), migrationIntent);
         } catch (java.io.EOFException | IllegalArgumentException e) { throw new IOException("Malformed Raft snapshot", e); }
     }
 
@@ -1355,6 +1392,7 @@ public final class RaftGroup implements AutoCloseable {
             int op = in.readUnsignedByte();
             if (op == 0) continue;
             if (op == 7) { maintenanceFrozen = in.readUnsignedByte() != 0; continue; }
+            if (op == 21) { migrationIntent = readStringList(in, 100_000); continue; }
             if (op == 18) {
                 Map<String, InetSocketAddress> target = readVoterConfig(in);
                 jointVoters = new java.util.LinkedHashSet<>(target.keySet());
@@ -1715,6 +1753,7 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     @Override public synchronized void close() throws IOException {
-        running = false; scheduler.shutdownNow(); transport.close(); log.close();
+        running = false; role = Role.FOLLOWER; leaderId = null;
+        scheduler.shutdownNow(); transport.close(); log.close();
     }
 }

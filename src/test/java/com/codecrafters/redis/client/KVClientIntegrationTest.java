@@ -1,5 +1,7 @@
 package com.codecrafters.redis.client;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.Server;
 import com.codecrafters.redis.storage.RedisStore;
 import java.net.ServerSocket;
@@ -38,5 +40,10 @@ public final class KVClientIntegrationTest {
             server.close();
         }
         System.out.println("KVClientIntegrationTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

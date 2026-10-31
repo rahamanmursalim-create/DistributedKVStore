@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLContext;
 
 public final class WebServer implements AutoCloseable {
@@ -27,6 +28,9 @@ public final class WebServer implements AutoCloseable {
     private final boolean followerReads;
     private final ShardAdminService shardAdmin;
     private final String clientToken;
+    private final String clusterAdminToken;
+    private final AtomicBoolean rebalanceInProgress = new AtomicBoolean();
+    private final long startedAtMillis = System.currentTimeMillis();
     private final HttpServer server;
     private final ExecutorService httpExecutor;
 
@@ -59,12 +63,22 @@ public final class WebServer implements AutoCloseable {
     public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
                      boolean followerReads, ShardAdminService shardAdmin, String clientToken,
                      SSLContext tlsContext) throws IOException {
+        this(store, access, port, raftGroup, followerReads, shardAdmin, clientToken, tlsContext,
+                System.getenv("KV_CLUSTER_ADMIN_TOKEN"));
+    }
+
+    /** Explicit cluster-admin credential for embedded deployments and integration tests. */
+    public WebServer(RedisStore store, KeyValueAccess access, int port, RaftGroup raftGroup,
+                     boolean followerReads, ShardAdminService shardAdmin, String clientToken,
+                     SSLContext tlsContext, String clusterAdminToken) throws IOException {
         this.store = store;
         this.access = access;
         this.raftGroup = raftGroup;
         this.followerReads = followerReads;
         this.shardAdmin = shardAdmin;
         this.clientToken = clientToken == null || clientToken.isBlank() ? null : clientToken;
+        this.clusterAdminToken = clusterAdminToken == null || clusterAdminToken.isBlank()
+                ? null : clusterAdminToken;
         String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
         if (tlsContext != null) {
             HttpsServer https = HttpsServer.create(new InetSocketAddress(bindHost, port), 0);
@@ -74,6 +88,8 @@ public final class WebServer implements AutoCloseable {
 
         server.createContext("/api/health", this::health);
         server.createContext("/api/raft/status", this::raftStatus);
+        server.createContext("/api/raft/rebalance", this::raftRebalance);
+        server.createContext("/api/metrics", this::metrics);
         server.createContext("/api/keys", this::keys);
         server.createContext("/api/shards", this::shards);
         server.createContext("/", this::dashboard);
@@ -134,6 +150,119 @@ public final class WebServer implements AutoCloseable {
                 + "\",\"localLeader\":" + raftGroup.isLeader() + ",\"term\":" + raftGroup.getTerm()
                 + ",\"commitIndex\":" + raftGroup.getCommitIndex() + ",\"ownershipEpoch\":"
                 + raftGroup.getOwnershipEpoch() + "}}}");
+    }
+
+    /** One Raft-elected admin coordinator drives a quorum-fenced Multi-Raft migration. */
+    private void raftRebalance(HttpExchange exchange) throws IOException {
+        if (!"/api/raft/rebalance".equals(exchange.getRequestURI().getPath())) {
+            send(exchange, 404, "application/json", "{\"error\":\"Unknown endpoint\"}");
+            return;
+        }
+        if (!authorized(exchange)) return;
+        if (clusterAdminToken == null) {
+            send(exchange, 404, "application/json", "{\"error\":\"Cluster administration is disabled\"}");
+            return;
+        }
+        String supplied = exchange.getRequestHeaders().getFirst("X-Cluster-Admin-Token");
+        if (supplied == null || !java.security.MessageDigest.isEqual(
+                clusterAdminToken.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8))) {
+            send(exchange, 401, "application/json", "{\"error\":\"Cluster admin authentication required\"}");
+            return;
+        }
+        if (!(access instanceof MultiRaftStore multi)) {
+            send(exchange, 404, "application/json", "{\"error\":\"Multi-Raft is not enabled\"}");
+            return;
+        }
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            send(exchange, 405, "text/plain", "Method not allowed");
+            return;
+        }
+        if (!multi.isRebalanceCoordinator()) {
+            send(exchange, 409, "application/json", "{\"error\":\"Submit rebalance to the current leader of the first configured Raft group\"}");
+            return;
+        }
+        if (!rebalanceInProgress.compareAndSet(false, true)) {
+            send(exchange, 409, "application/json", "{\"error\":\"A local rebalance is already running\"}");
+            return;
+        }
+        try {
+            byte[] bytes = exchange.getRequestBody().readNBytes(16_385);
+            if (bytes.length == 0 || bytes.length > 16_384)
+                throw new IllegalArgumentException("Body must contain a comma-separated active group list under 16 KiB");
+            String body = new String(bytes, StandardCharsets.UTF_8).trim();
+            List<String> desired = java.util.Arrays.stream(body.split(",", -1)).map(String::trim).toList();
+            if (desired.stream().anyMatch(id -> !id.matches("[A-Za-z0-9._-]{1,128}")))
+                throw new IllegalArgumentException("Group IDs may contain only letters, digits, '.', '_' or '-'");
+            boolean resume = "true".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("X-Resume-Rebalance"));
+            multi.rebalanceGroups(desired, resume);
+            send(exchange, 200, "application/json", "{\"status\":\"committed\",\"groups\":["
+                    + desired.stream().map(id -> "\"" + escape(id) + "\"").collect(java.util.stream.Collectors.joining(",")) + "]}");
+        } catch (IllegalArgumentException e) {
+            send(exchange, 400, "application/json", errorJson(new IOException(e.getMessage(), e)));
+        } catch (IOException | RuntimeException e) {
+            send(exchange, 503, "application/json", errorJson(new IOException(e.getMessage(), e)));
+        } finally { rebalanceInProgress.set(false); }
+    }
+
+    /** Prometheus text exposition for process/store state and Raft group progress. */
+    private void metrics(HttpExchange exchange) throws IOException {
+        if (!authorized(exchange)) return;
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            send(exchange, 405, "text/plain", "Method not allowed");
+            return;
+        }
+        StringBuilder body = new StringBuilder(512);
+        body.append("# HELP kv_process_up Whether the process can serve this metrics request.\n")
+                .append("# TYPE kv_process_up gauge\nkv_process_up 1\n")
+                .append("# HELP kv_process_uptime_seconds Process uptime in seconds.\n")
+                .append("# TYPE kv_process_uptime_seconds gauge\nkv_process_uptime_seconds ")
+                .append(Math.max(0, System.currentTimeMillis() - startedAtMillis) / 1000.0).append('\n');
+        if (access instanceof MultiRaftStore multi) {
+            appendRaftMetrics(body, multi.leadershipStatus());
+            body.append("# HELP kv_raft_group_local_keys Locally applied key count; replicas may contain duplicate keys.\n")
+                    .append("# TYPE kv_raft_group_local_keys gauge\n");
+            multi.localStoreKeyCounts().forEach((group, count) -> body.append("kv_raft_group_local_keys{group=\"")
+                    .append(promEscape(group)).append("\"} ").append(count).append('\n'));
+        } else if (raftGroup != null) {
+            body.append("# HELP kv_raft_group_local_keys Locally applied key count.\n")
+                    .append("# TYPE kv_raft_group_local_keys gauge\nkv_raft_group_local_keys{group=\"")
+                    .append(promEscape(raftGroup.getGroupId())).append("\"} ")
+                    .append(raftGroup.getLocalStoreKeyCount()).append('\n');
+            body.append("kv_raft_group_is_leader{group=\"").append(promEscape(raftGroup.getGroupId()))
+                    .append("\",leader=\"").append(promEscape(raftGroup.getLeaderId() == null ? "" : raftGroup.getLeaderId()))
+                    .append("\"} ").append(raftGroup.isLeader() ? 1 : 0).append('\n')
+                    .append("kv_raft_group_term{group=\"").append(promEscape(raftGroup.getGroupId()))
+                    .append("\"} ").append(raftGroup.getTerm()).append('\n')
+                    .append("kv_raft_group_commit_index{group=\"").append(promEscape(raftGroup.getGroupId()))
+                    .append("\"} ").append(raftGroup.getCommitIndex()).append('\n')
+                    .append("kv_raft_group_ownership_epoch{group=\"").append(promEscape(raftGroup.getGroupId()))
+                    .append("\"} ").append(raftGroup.getOwnershipEpoch()).append('\n');
+        } else {
+            body.append("# HELP kv_store_keys Number of live keys in the local access path.\n")
+                    .append("# TYPE kv_store_keys gauge\nkv_store_keys ").append(access.size()).append('\n');
+        }
+        send(exchange, 200, "text/plain; version=0.0.4; charset=utf-8", body.toString());
+    }
+
+    private static void appendRaftMetrics(StringBuilder body,
+            java.util.Map<String, MultiRaftStore.LeadershipStatus> groups) {
+        for (var entry : groups.entrySet()) {
+            String group = promEscape(entry.getKey());
+            var status = entry.getValue();
+            body.append("kv_raft_group_is_leader{group=\"").append(group).append("\",leader=\"")
+                    .append(promEscape(status.leaderId() == null ? "" : status.leaderId())).append("\"} ")
+                    .append(status.localLeader() ? 1 : 0).append('\n')
+                    .append("kv_raft_group_term{group=\"").append(group).append("\"} ")
+                    .append(status.term()).append('\n')
+                    .append("kv_raft_group_commit_index{group=\"").append(group).append("\"} ")
+                    .append(status.commitIndex()).append('\n')
+                    .append("kv_raft_group_ownership_epoch{group=\"").append(group).append("\"} ")
+                    .append(status.ownershipEpoch()).append('\n');
+        }
+    }
+
+    private static String promEscape(String value) {
+        return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\"", "\\\"");
     }
 
     private void keys(HttpExchange exchange) throws IOException {

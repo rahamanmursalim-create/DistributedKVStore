@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,5 +59,10 @@ public final class ShardedStoreRebalanceTest {
             assert sharded.delete("key-20"); assert sharded.get("key-20") == null;
             System.out.println("ShardedStoreRebalanceTest passed; moved=" + moved);
         } finally { sharded.close(); second.close(); }
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

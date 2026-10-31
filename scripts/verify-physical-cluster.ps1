@@ -62,7 +62,10 @@ foreach ($node in $parsed) {
             if ($status -eq 'FAIL') { $failures++ }
             $probeRows.Add([pscustomobject]@{NodeId=$node.NodeId; Host=$node.Host; Port=$port; Check='Must be closed from this client'; Status=$status; Detail=$(if ($probe.TcpTestSucceeded) {'reachable: review firewall scope'} else {'not reachable'}); Timestamp=(Get-Date).ToString('o')})
         } catch {
-            $probeRows.Add([pscustomobject]@{NodeId=$node.NodeId; Host=$node.Host; Port=$port; Check='Must be closed from this client'; Status='PASS'; Detail='connection probe failed/closed'; Timestamp=(Get-Date).ToString('o')})
+            # A probe exception can mean DNS, local policy, or tooling failure;
+            # it is not evidence that the remote firewall blocked the port.
+            $failures++
+            $probeRows.Add([pscustomobject]@{NodeId=$node.NodeId; Host=$node.Host; Port=$port; Check='Must be closed from this client'; Status='INCONCLUSIVE'; Detail="probe failed; closure was not demonstrated: $($_.Exception.Message)"; Timestamp=(Get-Date).ToString('o')})
         }
     }
 }
@@ -71,7 +74,7 @@ $report = [ordered]@{
     startedAt=$started.ToString('o'); finishedAt=(Get-Date).ToString('o'); initiatingComputer=$env:COMPUTERNAME
     nodeCount=$parsed.Count; nodes=@($parsed); portsChecked=@($Ports); closedFromClientPorts=@($PortsExpectedClosedFromThisClient)
     checks=@($probeRows); passCount=@($probeRows | Where-Object Status -eq 'PASS').Count
-    failCount=@($probeRows | Where-Object Status -eq 'FAIL').Count
+    failCount=$failures; inconclusiveCount=@($probeRows | Where-Object Status -eq 'INCONCLUSIVE').Count
     conclusion=$(if ($failures -eq 0) {'PREFLIGHT_PASS_ONLY'} else {'PREFLIGHT_FAILED'})
     limitation='Reachability proves only that endpoints responded from this vantage point. It does not prove the nodes are physical machines, a shared Raft cluster, or that failover/migration is correct. Collect node IDs from server logs and run the failure scenarios in PHYSICAL_CLUSTER_VALIDATION.md.'
 }

@@ -70,8 +70,7 @@ public final class ShardAdminService {
             desired.add(nodeId);
             Map<String, String> desiredPaths = new LinkedHashMap<>(storagePaths);
             desiredPaths.put(nodeId, "shards/" + nodeId);
-            persistMembership(desired, desiredPaths);
-            store.addNode(nodeId, nodeStore);
+            store.addNode(nodeId, nodeStore, () -> persistMembership(desired, desiredPaths));
             storagePaths.clear();
             storagePaths.putAll(desiredPaths);
             added = true;
@@ -87,10 +86,10 @@ public final class ShardAdminService {
     public void removeNode(String nodeId) {
         validateNodeId(nodeId);
         if (!store.nodeIds().contains(nodeId)) throw new IllegalArgumentException("Unknown shard: " + nodeId);
-        store.removeNode(nodeId);
         Map<String, String> desiredPaths = new LinkedHashMap<>(storagePaths);
         desiredPaths.remove(nodeId);
-        persistMembership(store.nodeIds(), desiredPaths);
+        List<String> desiredNodes = store.nodeIds().stream().filter(id -> !id.equals(nodeId)).toList();
+        store.removeNode(nodeId, () -> persistMembership(desiredNodes, desiredPaths));
         storagePaths.clear();
         storagePaths.putAll(desiredPaths);
     }

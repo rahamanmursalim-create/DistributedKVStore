@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,5 +61,10 @@ public final class ConsistentHashTest {
         Map<String, String> owners = new HashMap<>();
         for (int i = 0; i < count; i++) owners.put("key-" + i, ring.getNode("key-" + i));
         return owners;
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

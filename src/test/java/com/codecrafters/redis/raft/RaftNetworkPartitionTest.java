@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -117,4 +119,9 @@ public final class RaftNetworkPartitionTest {
         return -1;
     }
     private static int port() throws IOException { try (ServerSocket socket = new ServerSocket(0)) { return socket.getLocalPort(); } }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
+    }
 }

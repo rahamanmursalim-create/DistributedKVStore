@@ -11,3 +11,14 @@ wal-working-backup.log
 
 target/
 /debug-2c6764.log
+
+# Runtime and validation output
+artifacts/
+backups/
+*.log
+*.rdb
+*.sst
+MANIFEST
+CURRENT
+OPTIONS-*
+*.lock

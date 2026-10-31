@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.web.WebServer;
 import com.codecrafters.redis.storage.RedisStore;
 
@@ -64,5 +66,10 @@ public final class ShardAdminIntegrationTest {
                 .method(method, HttpRequest.BodyPublishers.noBody())
                 .build();
         return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

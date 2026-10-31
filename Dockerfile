@@ -1,12 +1,12 @@
-# Build the Java application with Maven and Java 25
-FROM maven:3.9-eclipse-temurin-25 AS build
+# Build the Java application with Maven and Java 17
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 RUN mvn -B clean package -DskipTests
 
-# Run the packaged application on a small Java 25 runtime
-FROM eclipse-temurin:25-jre
+# Run the packaged application on Java 17, matching the compiler release
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/redis-java-clone-1.0.0.jar /app/app.jar
 

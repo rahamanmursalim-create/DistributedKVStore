@@ -20,6 +20,12 @@
             <artifactId>rocksdbjni</artifactId>
             <version>11.8.1</version>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -31,46 +37,6 @@
                 <version>3.11.0</version>
                 <configuration>
                     <release>17</release>
-                    <excludes>
-                        <!--
-                            These files are a separate, incomplete com.distributedkv implementation
-                            stored under the com/codecrafters source tree. The executable and tests
-                            use the com.codecrafters.redis implementation instead. Keep the legacy
-                            sources available without compiling their missing Netty/protobuf APIs.
-                        -->
-                        <exclude>com/codecrafters/redis/Networks/protocol/**/*.java</exclude>
-                        <exclude>com/codecrafters/redis/Networks/handler/**/*.java</exclude>
-                        <exclude>com/codecrafters/redis/Networks/server/**/*.java</exclude>
-                        <exclude>com/codecrafters/redis/Networks/client/NettyClient.java</exclude>
-                        <exclude>com/codecrafters/redis/Networks/client/RpcClient.java</exclude>
-                        <exclude>com/codecrafters/redis/Server/NodeManager.java</exclude>
-                        <exclude>com/codecrafters/redis/Server/KVServer.java</exclude>
-                        <exclude>com/codecrafters/redis/Server/ClusterManager.java</exclude>
-                        <exclude>com/codecrafters/redis/common/util/**/*.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/AsyncApplier.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/FollowerRead.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/KVStateMachine.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/Log.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/LogEntry.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/RaftPeer.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/ReadIndex.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/StateMachine.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/election/**/*.java</exclude>
-                        <exclude>com/codecrafters/redis/rpc/RpcClient.java</exclude>
-                        <exclude>com/codecrafters/redis/rpc/RpcServer.java</exclude>
-                        <exclude>com/codecrafters/redis/storage/StorageManager.java</exclude>
-                        <exclude>com/codecrafters/redis/storage/RocksDBEngine.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/Shard.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/ShardManager.java</exclude>
-                        <exclude>com/codecrafters/redis/sharding/DataMigrator.java</exclude>
-                        <exclude>com/codecrafters/redis/cluster/NodeConfig.java</exclude>
-                        <exclude>com/codecrafters/redis/cluster/ClusterManager.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/RaftGroupManager.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/RaftNode.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/RaftStorage.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/Snapshot.java</exclude>
-                        <exclude>com/codecrafters/redis/raft/RaftMessage.java</exclude>
-                    </excludes>
                 </configuration>
             </plugin>
 
@@ -119,34 +85,16 @@
                 </executions>
             </plugin>
 
-            <!-- Disable default Surefire runner (tests use native main() runners with assertions) -->
+            <!-- Existing integration scenarios are exposed as isolated JUnit Jupiter tests. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.1.2</version>
                 <configuration>
-                    <skip>true</skip>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <enableAssertions>true</enableAssertions>
                 </configuration>
-            </plugin>
-
-            <!-- Cross-platform test suite executor for 'mvn test' and 'mvn clean test' -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>run-all-tests</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <configuration>
-                            <mainClass>com.codecrafters.redis.AllTestsRunner</mainClass>
-                            <classpathScope>test</classpathScope>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

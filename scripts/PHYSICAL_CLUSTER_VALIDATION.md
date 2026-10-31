@@ -89,7 +89,7 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 .\scripts\verify-long-soak.ps1 -DurationHours 24 -RequireEveryTestPresent -FullSuiteEveryCycles 6
 ```
 
-Each soak cycle runs `mvn test`, which invokes the project's `AllTestsRunner` custom suite and runs all discovered `*Test` main classes sequentially. This avoids launching an individual test through `exec:java`, where Maven's project classpath does not become the subprocess classpath required by tests that start child JVMs. Each cycle has a bounded runtime and its own log; the run also performs a final clean suite. Expected long-soak test classes are recorded as missing; use `-RequireEveryTestPresent` to make missing coverage fail closed. The script never launches concurrent Maven invocations.
+Each soak cycle runs `mvn test` through Maven Surefire/JUnit Jupiter. Integration test classes run in separate JVM forks because several scenarios launch child Raft processes. Each cycle has a bounded runtime and its own log; the run also performs a final clean suite. Expected long-soak test classes are recorded as missing; use `-RequireEveryTestPresent` to make missing coverage fail closed. The script never launches concurrent Maven invocations.
 
 A one-day run requires the workstation not to sleep/reboot and sufficient free disk for logs. For long runs, save system event logs, process exit data, and the complete `summary.json`/`results.csv`. A passed 24-hour local process soak remains local-host evidence, not a physical-cluster availability SLO.
 
@@ -119,6 +119,19 @@ Run only on a dedicated test cluster and keep an observer/client outside the nod
 9. Start a distributed shard migration with concurrent writes, interrupt the source/destination process during copy and cutover, restart, and verify ownership epoch, stale-owner rejection, TTLs, deletes, transactions, idempotency records, and source/destination checksums.
 10. Save logs and client operation histories. If linearizability is claimed, feed the history to the project's checker/reference model and preserve the output.
 
+For the Multi-Raft ownership rebalance, set a unique `KV_CLUSTER_ADMIN_TOKEN` on all nodes and retain the normal `KV_CLIENT_TOKEN` for API authentication. Find the current leader for the first configured group from `/api/raft/status`, then send exactly one request to that node:
+
+```powershell
+$headers = @{
+  'X-Cluster-Admin-Token' = $env:KV_CLUSTER_ADMIN_TOKEN
+  Authorization = "Bearer $env:KV_CLIENT_TOKEN"
+}
+Invoke-RestMethod -Method Post -Uri 'https://kv1.example.test:8443/api/raft/rebalance' `
+  -Headers $headers -ContentType 'text/plain' -Body 'g1,g2'
+```
+
+The body lists the active, already provisioned Raft groups. The request commits the migration intent, freeze, copy, ownership-epoch cutover and unfreeze through Raft; live routers adopt the committed ownership manifest on their next request. If the coordinator stops mid-transition, the newly elected first-group leader automatically retries the committed target. Inspect `/api/raft/status` if routing remains frozen; after confirming the target, an operator may submit that same target with `X-Resume-Rebalance: true` to trigger an immediate retry. Do not submit a different migration target while a committed transition is active.
+
 For Windows host failure, use the approved process-control method from that host. For network partition, use a temporary, tightly scoped firewall rule for the peer port only. Do not use a broad firewall disable command. For Linux, use an equivalent host firewall/network namespace tool only on the test cluster.
 
 ## 7. Evidence checklist
@@ -132,3 +145,57 @@ For each run preserve:
 - Benchmark workload/hardware metadata or soak JSON/CSV summary.
 
 Do not mark physical testing `PASS` unless the evidence came from at least three independently identified physical hosts. If using VMs, report it as a multi-host VM test, not a physical-machine test.
+
+## 8. Monitoring and alert validation
+
+Scrape the authenticated Prometheus endpoint (`GET /api/metrics`) over HTTPS from the monitoring network. It exports `kv_process_up`, `kv_process_uptime_seconds`, `kv_store_keys` for standalone/local-shard mode, and per-group `kv_raft_group_local_keys`, `kv_raft_group_is_leader`, `kv_raft_group_term`, `kv_raft_group_commit_index`, and `kv_raft_group_ownership_epoch` for Raft mode. Raft key counts are local and replica-duplicated; scrape does not run a quorum read. The endpoint is protected by `KV_CLIENT_TOKEN`; store the token in the monitoring system's secret manager and never in a scrape URL or dashboard export.
+
+Example Prometheus configuration (replace addresses and provide credentials from a secret-managed file):
+
+```yaml
+scrape_configs:
+  - job_name: distributed-kvstore
+    scheme: https
+    metrics_path: /api/metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['kv1.example.test:8443', 'kv2.example.test:8443', 'kv3.example.test:8443']
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/kv-client-token
+```
+
+Suggested initial alerts to exercise in a test environment:
+
+```yaml
+groups:
+  - name: distributed-kvstore
+    rules:
+      - alert: KVNodeDown
+        expr: up{job="distributed-kvstore"} == 0 or kv_process_up == 0
+        for: 1m
+      - alert: KVRaftGroupHasNoLeader
+        expr: sum by (group) (kv_raft_group_is_leader) == 0
+        for: 30s
+      - alert: KVStoreNearKeyLimit
+        expr: kv_store_keys > 80000 or kv_raft_group_local_keys > 80000
+        for: 10m
+```
+
+These are starter rules, not a complete monitoring product. Before production, validate alert delivery and on-call acknowledgement, add disk/inode, JVM memory/GC, WAL/Raft-log growth, RPC failure, replication lag, backup, certificate-expiry, and request error/latency telemetry. The application endpoint does not currently export those host/runtime histograms, so obtain them from the host/JVM agent and a client-side synthetic probe. Test both alert firing and resolution and preserve Alertmanager notification evidence.
+
+## 9. Capacity, scalability, and SLO acceptance
+
+Known application limits are defaults, not measured cluster capacity: key 1 KiB, value 1 MiB, 100,000 live keys and 64 MiB live key/value bytes per `RedisStore` (`KV_MAX_*` settings). A deployment with multiple stores has a multiplied theoretical key budget, not a guaranteed capacity; WAL/RocksDB indexes, Raft logs, snapshots, replicas, transactions, compaction space, and operating-system reserve add overhead. There is no validated maximum node, shard, or Raft-group count.
+
+For each production hardware/storage profile, benchmark 1/3/5/9 nodes and 1/2/4/8 groups with WAL and RocksDB; ramp key counts and value sizes to configured limits; include TTL churn, concurrent reads/writes, rebalance, restart and replica catch-up. Record throughput, p50/p95/p99 latency, errors, CPU, heap/GC, disk bytes/IOPS, log/snapshot size, recovery time and replication progress. Stop before 70% disk use or any agreed host safety threshold. Repeat on the target hardware; local benchmark values are not a capacity claim.
+
+Proposed initial service objectives for a three-voter deployment, pending product/operator approval and measurement: monthly write/read API availability 99.9%; acknowledged committed writes lost after a single-node failure 0 (RPO 0); quorum-loss write rejection within 2 seconds; healthy-quorum leader recovery within 30 seconds; and recovery to full replica parity within 15 minutes for the tested dataset. Measure availability with an external probe at 15-second intervals and define maintenance/error-budget exclusions before treating these as an SLO. These targets are a starting proposal, not a demonstrated guarantee; change them if workload, topology or business requirements demand it.
+
+The long-soak runner accepts up to 168 hours. A 24-hour run is:
+
+```powershell
+.\scripts\verify-long-soak.ps1 -DurationHours 24 -RequireEveryTestPresent -FullSuiteEveryCycles 6
+```
+
+Run on a monitored, powered host with no concurrent Maven builds. Retain the complete artifacts directory and OS event logs; a completed local soak is still not multi-host or production hardware evidence.

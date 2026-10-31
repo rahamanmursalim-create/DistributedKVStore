@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -101,5 +103,10 @@ public final class RaftSnapshotInstallTest {
             if (node != null && candidate.getLeaderId().equals(node.getLeaderId())) recognizingVoters++;
         }
         return recognizingVoters >= 2;
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

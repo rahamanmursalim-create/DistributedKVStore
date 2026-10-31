@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.List;
 
 public class BloomFilterTest {
@@ -24,5 +26,10 @@ public class BloomFilterTest {
         }
 
         System.out.println("Bloom Filter tests passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -1,5 +1,7 @@
 package com.codecrafters.redis.raft;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -105,5 +107,10 @@ public final class RaftLinearizabilityTest {
             used[i] = false;
         }
         return false;
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

@@ -1,5 +1,7 @@
 package com.codecrafters.redis.sharding;
 
+import org.junit.jupiter.api.Test;
+
 import com.codecrafters.redis.storage.RedisStore;
 
 import java.nio.file.Files;
@@ -29,5 +31,10 @@ public final class ShardedStoreRestartTest {
             }
         }
         System.out.println("ShardedStoreRestartTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

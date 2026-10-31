@@ -1,5 +1,7 @@
 package com.codecrafters.redis.rpc;
 
+import org.junit.jupiter.api.Test;
+
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.UUID;
@@ -25,5 +27,10 @@ public final class RpcTransportTest {
             assert Arrays.equals(response.getPayload(), payload);
         }
         System.out.println("RpcTransportTest passed");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

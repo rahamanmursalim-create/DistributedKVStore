@@ -1,5 +1,7 @@
 package com.codecrafters.redis.storage;
 
+import org.junit.jupiter.api.Test;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,5 +36,10 @@ public final class AsyncWriteBatcherTest {
             System.out.println("PASS: closed batcher rejects new writes");
         }
         System.out.println("PASS: all 500 batched writes recovered after restart");
+    }
+
+    @Test
+    void runsExistingScenarioUnderJUnit() throws Exception {
+        main(new String[0]);
     }
 }

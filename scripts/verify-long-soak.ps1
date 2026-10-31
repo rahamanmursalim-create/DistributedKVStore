@@ -1,10 +1,10 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateRange(1, 168)][int]$DurationHours = 1,
     [ValidateRange(1, 120)][int]$TestTimeoutMinutes = 10,
     [ValidateRange(0, 1000)][int]$FullSuiteEveryCycles = 0,
     # Optional bounded run for validating the harness itself. Each cycle still
-    # executes the complete Maven custom suite; zero means run to duration.
+    # executes the complete Maven Surefire/JUnit suite; zero means run to duration.
     [ValidateRange(0, 10000)][int]$MaxCycles = 0,
     # Resolve script-dependent defaults after the param block: automatic
     # variables such as $PSScriptRoot are not reliable in parameter defaults.
@@ -48,14 +48,16 @@ $cycle = 0
 $failed = $false
 $missing = [System.Collections.Generic.List[string]]::new()
 
-# Expected main-method integration tests in the current project. The Maven
-# test phase runs the complete custom suite through AllTestsRunner.
+# Expected JUnit Jupiter integration tests in the current project. Surefire
+# runs each class in a separate fork for process isolation.
 $testClasses = @(
     'com.codecrafters.redis.raft.RaftMultiProcessTest',
     'com.codecrafters.redis.raft.RaftGroupConsensusTest',
     'com.codecrafters.redis.raft.RaftDynamicMembershipTest',
     'com.codecrafters.redis.raft.MultiRaftStoreTest',
     'com.codecrafters.redis.raft.RaftRebalanceIntegrationTest',
+    'com.codecrafters.redis.raft.RaftRebalanceAdminTest',
+    'com.codecrafters.redis.raft.RaftMigrationCoordinatorFailoverTest',
     'com.codecrafters.redis.raft.RaftSnapshotInstallTest',
     'com.codecrafters.redis.raft.RaftSlowDiskFaultTest',
     'com.codecrafters.redis.raft.RaftLinearizabilityTest',
@@ -109,18 +111,30 @@ function Invoke-CapturedShellCommand {
     }
 }
 
-function Assert-CustomMavenTestRunner {
+function Assert-JUnitSurefireRunner {
     $pomPath = Join-Path $RepoRoot 'pom.xml'
     [xml]$pom = Get-Content -LiteralPath $pomPath -Raw
-    $binding = $pom.SelectSingleNode("/*[local-name()='project']/*[local-name()='build']/*[local-name()='plugins']/*[local-name()='plugin'][*[local-name()='groupId']='org.codehaus.mojo' and *[local-name()='artifactId']='exec-maven-plugin']/*[local-name()='executions']/*[local-name()='execution'][*[local-name()='phase']='test']")
-    if (-not $binding) { throw 'pom.xml must bind the custom test runner to Maven phase test.' }
-    $goal = $binding.SelectSingleNode("./*[local-name()='goals']/*[local-name()='goal']")
-    $mainClass = $binding.SelectSingleNode("./*[local-name()='configuration']/*[local-name()='mainClass']")
-    $scope = $binding.SelectSingleNode("./*[local-name()='configuration']/*[local-name()='classpathScope']")
-    if (-not $goal -or $goal.InnerText -ne 'java' -or
-        -not $mainClass -or $mainClass.InnerText -ne 'com.codecrafters.redis.AllTestsRunner' -or
-        -not $scope -or $scope.InnerText -ne 'test') {
-        throw 'Maven test phase must run com.codecrafters.redis.AllTestsRunner with test classpath scope.'
+    $junit = $pom.SelectSingleNode("/*[local-name()='project']/*[local-name()='dependencies']/*[local-name()='dependency'][*[local-name()='groupId']='org.junit.jupiter' and *[local-name()='artifactId']='junit-jupiter' and *[local-name()='scope']='test']")
+    $surefire = $pom.SelectSingleNode("/*[local-name()='project']/*[local-name()='build']/*[local-name()='plugins']/*[local-name()='plugin'][*[local-name()='artifactId']='maven-surefire-plugin']")
+    $compiler = $pom.SelectSingleNode("/*[local-name()='project']/*[local-name()='build']/*[local-name()='plugins']/*[local-name()='plugin'][*[local-name()='artifactId']='maven-compiler-plugin']")
+    $release = $compiler.SelectSingleNode("./*[local-name()='configuration']/*[local-name()='release']")
+    if (-not $junit -or -not $surefire) { throw 'pom.xml must enable JUnit Jupiter and Maven Surefire.' }
+    if (-not $release -or $release.InnerText -ne '17') { throw 'maven-compiler-plugin must compile for Java 17.' }
+    $skip = $surefire.SelectSingleNode("./*[local-name()='configuration']/*[local-name()='skip']")
+    if ($skip -and $skip.InnerText -eq 'true') { throw 'Maven Surefire must not skip the JUnit suite.' }
+}
+
+function Get-ClassFileVerificationExitCode {
+    param([Parameter(Mandatory=$true)][string]$LogPath)
+    try {
+        Assert-Java17ClassFiles -Directories @(
+            (Join-Path $RepoRoot 'target/classes'),
+            (Join-Path $RepoRoot 'target/test-classes')
+        )
+        return 0
+    } catch {
+        [IO.File]::AppendAllText($LogPath, [Environment]::NewLine + "CLASS FILE VERIFICATION FAILED: $($_.Exception.Message)" + [Environment]::NewLine)
+        return 1
     }
 }
 
@@ -135,7 +149,7 @@ function Save-SoakSummary {
         requestedDurationHours = $DurationHours
         maxCycles = $MaxCycles
         soakDurationSatisfied = ($soakTimer -and $soakTimer.Elapsed -ge [TimeSpan]::FromHours($DurationHours))
-        mavenTestRunner = 'mvn clean test -> com.codecrafters.redis.AllTestsRunner (test classpath)'
+        mavenTestRunner = 'mvn clean test -> Maven Surefire / JUnit Jupiter'
         elapsedTotalSeconds = [Math]::Round($timer.Elapsed.TotalSeconds, 2)
         soakElapsedSeconds = $(if ($soakTimer) { [Math]::Round($soakTimer.Elapsed.TotalSeconds, 2) } else { 0 })
         cyclesStarted = $cycle
@@ -150,8 +164,8 @@ function Save-SoakSummary {
 }
 
 try {
-    Assert-NoConcurrentMaven
-    Assert-CustomMavenTestRunner
+    Assert-NoConcurrentBuildWriter
+    Assert-JUnitSurefireRunner
     $javaVersion = Invoke-CapturedShellCommand -CommandText 'java -version' -WorkingDirectory $RepoRoot -TimeoutSeconds 10
     if ($javaVersion.ExitCode -ne 0) { throw "java -version failed with exit code $($javaVersion.ExitCode): $($javaVersion.Output)" }
     $javaLines = @($javaVersion.Output -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -171,13 +185,14 @@ try {
     }
 
     $compile = Invoke-BoundedMaven -RepoRoot $RepoRoot -MavenArguments @('-q','-Daether.syncContext.named.factory=rwlock-local','clean','test-compile') -LogPath (Join-Path $outDir '00-test-compile.log') -TimeoutSeconds 900
+    if ($compile.ExitCode -eq 0) { Assert-Java17ClassFiles -Directories @((Join-Path $RepoRoot 'target/classes'), (Join-Path $RepoRoot 'target/test-classes')) }
     $results.Add([pscustomobject]@{ Cycle=0; TestClass='test-compile'; ExitCode=$compile.ExitCode; TimedOut=$compile.TimedOut; ElapsedSeconds=$compile.ElapsedSeconds; LogPath=$compile.LogPath; Status=$(if ($compile.ExitCode -eq 0) {'PASS'} else {'FAIL'}) })
     if ($compile.ExitCode -ne 0) { throw "test-compile failed; see $($compile.LogPath)" }
 
     # Also pick up newly added partition/fault/snapshot tests by name, without
     # depending on one specific class name from a previous code revision.
     $dynamicTests = @(Get-ChildItem (Join-Path $RepoRoot 'target/test-classes/com/codecrafters/redis') -Filter '*Test.class' -Recurse -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -notmatch '\$' -and $_.Name -match '(Raft.*(Partition|Fault|Snapshot|SlowDisk|Linearizability|DynamicMembership|Rebalance|MultiProcess|Consensus).*Test|TlsTransportTest|WebServerIntegrationTest)\.class$'
+        $_.Name -notmatch '\$' -and $_.Name -match '(Raft.*(Partition|Fault|Snapshot|SlowDisk|Linearizability|DynamicMembership|Rebalance|MigrationCoordinatorFailover|MultiProcess|Consensus).*Test|TlsTransportTest|WebServerIntegrationTest)\.class$'
     } | ForEach-Object {
         $relative = $_.FullName.Substring((Join-Path $RepoRoot 'target/test-classes').Length + 1)
         ($relative -replace '\\','.') -replace '\.class$',''
@@ -202,40 +217,48 @@ try {
         $cycle++
         Write-Host "Soak cycle $cycle; elapsed $([Math]::Round($soakTimer.Elapsed.TotalMinutes,1)) minutes / target $($DurationHours * 60) minutes"
         if ([DateTimeOffset]::Now -lt $deadline) {
-            $logPath = Join-Path $outDir ('cycle-{0:D4}-custom-test-suite.log' -f $cycle)
-            # Always invoke the project lifecycle. Calling exec:java with a
-            # test mainClass directly does not provide the forked process with
-            # target/test-classes and breaks RaftMultiProcessTest's child JVM.
+            $logPath = Join-Path $outDir ('cycle-{0:D4}-junit-suite.log' -f $cycle)
+            # Invoke the project lifecycle so Surefire applies its isolated
+            # JVM fork to each JUnit class.
             # Clean every cycle so stale output from a different JDK/build can
             # never be reused, and fail before mutating target/ if another
             # Maven process appeared after the initial preflight.
-            Assert-NoConcurrentMaven
+            Assert-NoConcurrentBuildWriter
             $suiteArgs = @('-q','-Daether.syncContext.named.factory=rwlock-local','clean','test')
             $suite = Invoke-BoundedMaven -RepoRoot $RepoRoot -MavenArguments $suiteArgs -LogPath $logPath -TimeoutSeconds ($TestTimeoutMinutes * 60)
-            $status = if ($suite.ExitCode -eq 0 -and -not $suite.TimedOut) {'PASS'} else {'FAIL'}
-            $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='mvn clean test (AllTestsRunner custom suite)'; ExitCode=$suite.ExitCode; TimedOut=$suite.TimedOut; ElapsedSeconds=$suite.ElapsedSeconds; LogPath=$suite.LogPath; Status=$status })
+            $suiteExitCode = $suite.ExitCode
+            if ($suiteExitCode -eq 0 -and -not $suite.TimedOut) { $suiteExitCode = Get-ClassFileVerificationExitCode -LogPath $logPath }
+            $status = if ($suiteExitCode -eq 0 -and -not $suite.TimedOut) {'PASS'} else {'FAIL'}
+            $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='mvn clean test (JUnit Jupiter suite)'; ExitCode=$suiteExitCode; TimedOut=$suite.TimedOut; ElapsedSeconds=$suite.ElapsedSeconds; LogPath=$suite.LogPath; Status=$status })
             if ($status -eq 'FAIL') {
                 $failed = $true
-                Write-Warning "Failure in the custom Maven test suite; continuing to collect evidence. Log: $logPath"
+                throw "Soak stopped after failed cycle $cycle. Failure log: $logPath"
             }
         }
         if ($FullSuiteEveryCycles -gt 0 -and ($cycle % $FullSuiteEveryCycles) -eq 0 -and [DateTimeOffset]::Now -lt $deadline) {
             $logPath = Join-Path $outDir ('cycle-{0:D4}-full-suite.log' -f $cycle)
-            Assert-NoConcurrentMaven
+            Assert-NoConcurrentBuildWriter
             $full = Invoke-BoundedMaven -RepoRoot $RepoRoot -MavenArguments @('-q','-Daether.syncContext.named.factory=rwlock-local','clean','test') -LogPath $logPath -TimeoutSeconds ($TestTimeoutMinutes * 60)
-            $status = if ($full.ExitCode -eq 0 -and -not $full.TimedOut) {'PASS'} else {'FAIL'}
-            $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='mvn clean test'; ExitCode=$full.ExitCode; TimedOut=$full.TimedOut; ElapsedSeconds=$full.ElapsedSeconds; LogPath=$full.LogPath; Status=$status })
-            if ($status -eq 'FAIL') { $failed = $true }
+            $fullExitCode = $full.ExitCode
+            if ($fullExitCode -eq 0 -and -not $full.TimedOut) { $fullExitCode = Get-ClassFileVerificationExitCode -LogPath $logPath }
+            $status = if ($fullExitCode -eq 0 -and -not $full.TimedOut) {'PASS'} else {'FAIL'}
+            $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='mvn clean test'; ExitCode=$fullExitCode; TimedOut=$full.TimedOut; ElapsedSeconds=$full.ElapsedSeconds; LogPath=$full.LogPath; Status=$status })
+            if ($status -eq 'FAIL') {
+                $failed = $true
+                throw "Soak stopped after failed full-suite cycle $cycle. Failure log: $logPath"
+            }
         }
     }
 
     if (-not $SkipFinalFullSuite) {
         Write-Host 'Soak loop ended. Running one sequential clean full suite.'
         $logPath = Join-Path $outDir 'final-clean-test.log'
-        Assert-NoConcurrentMaven
+        Assert-NoConcurrentBuildWriter
         $full = Invoke-BoundedMaven -RepoRoot $RepoRoot -MavenArguments @('-q','-Daether.syncContext.named.factory=rwlock-local','clean','test') -LogPath $logPath -TimeoutSeconds ($TestTimeoutMinutes * 60)
-        $status = if ($full.ExitCode -eq 0 -and -not $full.TimedOut) {'PASS'} else {'FAIL'}
-        $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='final mvn clean test'; ExitCode=$full.ExitCode; TimedOut=$full.TimedOut; ElapsedSeconds=$full.ElapsedSeconds; LogPath=$full.LogPath; Status=$status })
+        $fullExitCode = $full.ExitCode
+        if ($fullExitCode -eq 0 -and -not $full.TimedOut) { $fullExitCode = Get-ClassFileVerificationExitCode -LogPath $logPath }
+        $status = if ($fullExitCode -eq 0 -and -not $full.TimedOut) {'PASS'} else {'FAIL'}
+        $results.Add([pscustomobject]@{ Cycle=$cycle; TestClass='final mvn clean test'; ExitCode=$fullExitCode; TimedOut=$full.TimedOut; ElapsedSeconds=$full.ElapsedSeconds; LogPath=$full.LogPath; Status=$status })
         if ($status -eq 'FAIL') { $failed = $true }
     }
 } catch {
@@ -248,3 +271,4 @@ try {
 }
 
 if ($failed) { exit 1 }
+
