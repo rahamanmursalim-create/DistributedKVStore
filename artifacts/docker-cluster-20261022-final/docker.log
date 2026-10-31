@@ -1,0 +1,77 @@
+ Image distributed-kvstore:docker-check Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 560B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.verify
+#2 transferring dockerfile: 364B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:25-jre
+#3 DONE 0.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/4] FROM docker.io/library/eclipse-temurin:25-jre@sha256:dbb43d81099eec91e0800226ed2296d03146ee7857165b95112372ad0d67e87f
+#5 resolve docker.io/library/eclipse-temurin:25-jre@sha256:dbb43d81099eec91e0800226ed2296d03146ee7857165b95112372ad0d67e87f 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 92.18MB 4.1s done
+#6 DONE 4.1s
+
+#7 [2/4] WORKDIR /app
+#7 CACHED
+
+#8 [3/4] COPY target/redis-java-clone-1.0.0.jar /app/app.jar
+#8 DONE 0.2s
+
+#9 [4/4] RUN mkdir -p /var/data && useradd --system --uid 10001 appuser && chown -R appuser:appuser /app /var/data
+#9 0.466 useradd warning: appuser's uid 10001 is greater than SYS_UID_MAX 999
+#9 DONE 0.7s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 3.4s done
+#10 exporting manifest sha256:9c926212c32536b6e1bef1c8f6be2d8863faa5d25b9178a84ce71985174eeb49 0.0s done
+#10 exporting config sha256:e37b40d3959be5196176bcd10890545c78ce79bbcded3a5d3002ce3fdbe2c5e7 0.0s done
+#10 exporting attestation manifest sha256:ba89bfddc0c6113f29474003967d42b64a0ae4548b21343a48c9a9a13f1e4ab5 0.0s done
+#10 exporting manifest list sha256:79a92891f03217a21975e8eea83e50019a1a45fd03052839bfe43a07e40452c6 0.0s done
+#10 naming to docker.io/library/distributed-kvstore:docker-check done
+#10 unpacking to docker.io/library/distributed-kvstore:docker-check
+#10 unpacking to docker.io/library/distributed-kvstore:docker-check 1.1s done
+#10 DONE 4.6s
+
+#11 resolving provenance for metadata file
+#11 DONE 0.0s
+ Image distributed-kvstore:docker-check Built 
+ Volume kvverify_kv3data Creating 
+ Volume kvverify_kv2data Creating 
+ Network kvverify-raftnet Creating 
+ Volume kvverify_kv1data Creating 
+ Volume kvverify_kv1data Creating 
+ Volume kvverify_kv2data Creating 
+ Volume kvverify_kv3data Creating 
+ Network kvverify-raftnet Creating 
+ Volume kvverify_kv1data Created 
+ Volume kvverify_kv1data Created 
+ Volume kvverify_kv2data Created 
+ Volume kvverify_kv2data Created 
+ Volume kvverify_kv3data Created 
+ Volume kvverify_kv3data Created 
+ Network kvverify-raftnet Created 
+ Network kvverify-raftnet Created 
+ Container kvverify-n3 Creating 
+ Container kvverify-n2 Creating 
+ Container kvverify-n1 Creating 
+ Container kvverify-n1 Created 
+ Container kvverify-n3 Created 
+ Container kvverify-n2 Created 
+ Container kvverify-n1 Starting 
+ Container kvverify-n2 Starting 
+ Container kvverify-n3 Starting 
+ Container kvverify-n3 Started 
+ Container kvverify-n2 Started 
+ Container kvverify-n1 Started 

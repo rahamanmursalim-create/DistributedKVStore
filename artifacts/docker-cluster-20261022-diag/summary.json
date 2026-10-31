@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T14:00:14.2595661+05:30",
+    "error":  "Local Maven package build failed.",
+    "checks":  [
+
+               ],
+    "physicalMachineTest":  false
+}

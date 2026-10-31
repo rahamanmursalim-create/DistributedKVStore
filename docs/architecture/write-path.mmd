@@ -1,0 +1,25 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Segoe UI, Arial","fontSize":"14px","actorBkg":"#EEF2FF","actorBorder":"#6366F1","actorTextColor":"#1E1B4B","signalColor":"#334155","noteBkgColor":"#FEF3C7","noteBorderColor":"#D97706","noteTextColor":"#78350F","activationBkgColor":"#DCFCE7","activationBorderColor":"#16A34A"}}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as TCP / HTTP endpoint
+    participant M as MultiRaftStore
+    participant L as Group leader
+    participant F as Follower replicas
+    participant SM as State machine (RedisStore)
+
+    C->>S: SET key value  /  PUT /api/keys/key
+    S->>M: authenticate, then set(key, value)
+    Note over M: groupFor(key) selects the owning group<br/>on the virtual-node hash ring
+    M->>L: propose write to the owning group (a follower forwards it to the leader over peer RPC)
+    activate L
+    Note over L: append entry to the durable Raft log
+    L->>F: AppendEntries over mutual-TLS RPC
+    F-->>L: acknowledged by a majority
+    Note over L: advance commit index
+    L->>SM: apply committed entry (WAL or RocksDB write)
+    deactivate L
+    L-->>M: committed
+    M-->>S: OK
+    S-->>C: +OK  /  200 saved
+
+    Note over C,SM: Reads go through ReadIndex on the leader. With KV_FOLLOWER_READS=true, a follower may serve reads while within KV_FOLLOWER_MAX_COMMIT_LAG.

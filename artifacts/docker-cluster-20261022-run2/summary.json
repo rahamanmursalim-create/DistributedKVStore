@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T13:25:45.6021347+05:30",
+    "error":  "Only 0/3 HTTPS nodes became ready.",
+    "checks":  [
+                   "Docker Engine 29.7.2"
+               ],
+    "physicalMachineTest":  false
+}

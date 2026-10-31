@@ -1,0 +1,309 @@
+Started: 2026-10-23T08:05:25.7616710+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local clean test
+ElapsedSeconds: 56.946
+TimedOut: False
+ExitCode: 0
+--- STDOUT ---
+=================================================
+     DistributedKVStore Test Suite Runner        
+=================================================
+
+>> RUNNING: com.codecrafters.redis.RedisServerTest
+   =================================================
+   Running Redis Server & RESP Protocol Test Suite
+   =================================================
+   
+   --- Test RESP Serialization ---
+    [PASS] Encode PONG simple string
+    [PASS] Encode error
+    [PASS] Encode integer
+    [PASS] Encode bulk string
+    [PASS] Encode null bulk string
+    [PASS] Encode array
+   
+   --- Test RESP Parsing ---
+    [PASS] Parsed array is not null
+    [PASS] Parsed array type
+    [PASS] Parsed array size
+    [PASS] Parsed array elem 0
+    [PASS] Parsed array elem 1
+    [PASS] Parsed inline is not null
+    [PASS] Parsed inline size
+    [PASS] Parsed inline elem 0
+    [PASS] Parsed inline elem 1
+   
+   --- Test RESP Fragmented TCP Stream ---
+    [PASS] Parsed fragmented stream not null
+    [PASS] Parsed fragmented command
+    [PASS] Parsed fragmented arg
+   
+   --- Test RESP Input Limits ---
+    [PASS] Reject oversized bulk string
+    [PASS] Reject oversized array
+    [PASS] Reject malformed length
+    [PASS] Reject oversized line
+   
+   --- Test RedisStore In-Memory & Commands ---
+    [PASS] Get existing key
+    [PASS] Get non-existing key
+    [PASS] Get deleted key
+   
+   --- Test RedisStore Key Expiry (PX) ---
+    [PASS] Get before expiry
+    [PASS] Get after expiry (passive eviction)
+    [PASS] Key is removed from store
+   
+   --- Test Live Server End-to-End Across All Stages ---
+   Redis server listening on port 6380...
+    [PASS] PING response not null
+    [PASS] Stage 1/2: PING response
+    [PASS] PING with argument response
+    [PASS] ECHO response not null
+    [PASS] Stage 4: ECHO response
+    [PASS] Stage 5: SET response
+    [PASS] Stage 5: GET response
+    [PASS] Stage 5: GET missing key is Null Bulk String
+    [PASS] Stage 6: SET with PX response
+    [PASS] Stage 6: GET before PX expiry
+    [PASS] Stage 6: GET after PX expiry returns Null Bulk String
+   --- Testing 50 Concurrent Clients in Parallel ---
+    [PASS] Concurrent clients completed in time
+    [PASS] Stage 3: All concurrent client transactions succeeded
+   
+   =================================================
+   Test Results: 41 Passed, 0 Failed
+   =================================================
+   [PASS] com.codecrafters.redis.RedisServerTest (1023ms)
+
+>> RUNNING: com.codecrafters.redis.client.KVClientIntegrationTest
+   Redis server listening on port 54450...
+   KVClientIntegrationTest passed
+   [PASS] com.codecrafters.redis.client.KVClientIntegrationTest (459ms)
+
+>> RUNNING: com.codecrafters.redis.cluster.ClusterMembershipTest
+   TEST 1 PASSED: Node lifecycle in cluster membership
+   TEST 2 PASSED: Cluster membership validation
+   ALL CLUSTER MEMBERSHIP TESTS PASSED
+   [PASS] com.codecrafters.redis.cluster.ClusterMembershipTest (91ms)
+
+>> RUNNING: com.codecrafters.redis.cluster.ClusterRuntimeConfigTest
+   ClusterRuntimeConfigTest passed
+   [PASS] com.codecrafters.redis.cluster.ClusterRuntimeConfigTest (92ms)
+
+>> RUNNING: com.codecrafters.redis.raft.MultiRaftStoreTest
+   MultiRaftStoreTest passed
+   [PASS] com.codecrafters.redis.raft.MultiRaftStoreTest (1286ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftDynamicMembershipTest
+   RaftDynamicMembershipTest passed: learner catch-up, joint replacement, leader removal
+   [PASS] com.codecrafters.redis.raft.RaftDynamicMembershipTest (1248ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftGroupConsensusTest
+   RaftGroupConsensusTest passed
+   [PASS] com.codecrafters.redis.raft.RaftGroupConsensusTest (1611ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftLinearizabilityTest
+   RaftLinearizabilityTest passed; seed=1592639710, concurrentOps=48, modelOps=1000
+   [PASS] com.codecrafters.redis.raft.RaftLinearizabilityTest (1883ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftLogPersistenceTest
+   RaftLogPersistenceTest passed
+   [PASS] com.codecrafters.redis.raft.RaftLogPersistenceTest (219ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftLogTest
+   TEST 1 PASSED: RaftLogEntry basics and defensive copy
+   TEST 2 PASSED: RaftLogEntry parameter validation
+   TEST 3 PASSED: RaftLog empty state
+   TEST 4 PASSED: RaftLog append and get
+   TEST 5 PASSED: RaftLog entriesFrom slice validation
+   TEST 6 PASSED: RaftLog truncateFrom
+   ALL RAFT LOG TESTS PASSED
+   [PASS] com.codecrafters.redis.raft.RaftLogTest (126ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftMultiProcessTest
+   RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+   [PASS] com.codecrafters.redis.raft.RaftMultiProcessTest (3084ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftNetworkPartitionTest
+   RaftNetworkPartitionTest passed: minority isolation, majority progress, heal/catch-up, no-quorum rejection
+   [PASS] com.codecrafters.redis.raft.RaftNetworkPartitionTest (1112ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+   RaftRebalanceIntegrationTest passed: moved=80, replicas=3, ttl=preserved
+   [PASS] com.codecrafters.redis.raft.RaftRebalanceIntegrationTest (3709ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftSlowDiskFaultTest
+   RaftSlowDiskFaultTest passed; injected 35ms per durable force
+   [PASS] com.codecrafters.redis.raft.RaftSlowDiskFaultTest (399ms)
+
+>> RUNNING: com.codecrafters.redis.raft.RaftSnapshotInstallTest
+   RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+   [PASS] com.codecrafters.redis.raft.RaftSnapshotInstallTest (1543ms)
+
+>> RUNNING: com.codecrafters.redis.rpc.RpcCodecTest
+   TEST 1 PASSED: RPC round-trip serialization
+   TEST 2 PASSED: RPC message validation
+   ALL RPC CODEC TESTS PASSED
+   [PASS] com.codecrafters.redis.rpc.RpcCodecTest (93ms)
+
+>> RUNNING: com.codecrafters.redis.rpc.RpcTransportTest
+   RpcTransportTest passed
+   [PASS] com.codecrafters.redis.rpc.RpcTransportTest (175ms)
+
+>> RUNNING: com.codecrafters.redis.rpc.TlsTransportTest
+   TlsTransportTest passed
+   [PASS] com.codecrafters.redis.rpc.TlsTransportTest (1615ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ConsistentHashTest
+   ConsistentHashTest passed
+   [PASS] com.codecrafters.redis.sharding.ConsistentHashTest (304ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ShardAdminIntegrationTest
+   HTTP dashboard listening on port 58203
+   ShardAdminIntegrationTest passed
+   [PASS] com.codecrafters.redis.sharding.ShardAdminIntegrationTest (1703ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ShardMetadataTest
+   TEST 1 PASSED: Shard migration state transitions
+   TEST 2 PASSED: Shard invalid transition guards
+   ALL SHARD METADATA TESTS PASSED
+   [PASS] com.codecrafters.redis.sharding.ShardMetadataTest (89ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ShardedCommandRoutingTest
+   ShardedCommandRoutingTest passed
+   [PASS] com.codecrafters.redis.sharding.ShardedCommandRoutingTest (345ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ShardedStoreRebalanceTest
+   ShardedStoreRebalanceTest passed; moved=1062
+   [PASS] com.codecrafters.redis.sharding.ShardedStoreRebalanceTest (2866ms)
+
+>> RUNNING: com.codecrafters.redis.sharding.ShardedStoreRestartTest
+   ShardedStoreRestartTest passed
+   [PASS] com.codecrafters.redis.sharding.ShardedStoreRestartTest (1110ms)
+
+>> RUNNING: com.codecrafters.redis.storage.AsyncWriteBatcherTest
+   PASS: closed batcher rejects new writes
+   PASS: all 500 batched writes recovered after restart
+   [PASS] com.codecrafters.redis.storage.AsyncWriteBatcherTest (452ms)
+
+>> RUNNING: com.codecrafters.redis.storage.BPlusTreeMemTableTest
+   BPlusTreeMemTableTest passed
+   [PASS] com.codecrafters.redis.storage.BPlusTreeMemTableTest (495ms)
+
+>> RUNNING: com.codecrafters.redis.storage.BloomFilterTest
+   PASS: All existing keys are detected
+   Bloom Filter tests passed
+   [PASS] com.codecrafters.redis.storage.BloomFilterTest (178ms)
+
+>> RUNNING: com.codecrafters.redis.storage.MVCCTransactionTest
+   MVCCTransactionTest passed
+   [PASS] com.codecrafters.redis.storage.MVCCTransactionTest (255ms)
+
+>> RUNNING: com.codecrafters.redis.storage.RedisStoreBPlusTreeTest
+   RedisStoreBPlusTreeTest passed
+   [PASS] com.codecrafters.redis.storage.RedisStoreBPlusTreeTest (1088ms)
+
+>> RUNNING: com.codecrafters.redis.storage.RedisStoreRecoveryTest
+   [PASS] Non-expired key survives restart
+   [PASS] Expired key stays absent after restart
+   [PASS] Per-value memory quota rejects oversized input
+   RedisStore recovery tests completed.
+   [PASS] com.codecrafters.redis.storage.RedisStoreRecoveryTest (638ms)
+
+>> RUNNING: com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+   RedisStoreRocksDBIntegrationTest passed
+   [PASS] com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest (1197ms)
+
+>> RUNNING: com.codecrafters.redis.storage.RocksDBBPlusTreeStoreTest
+   RocksDBBPlusTreeStoreTest passed
+   [PASS] com.codecrafters.redis.storage.RocksDBBPlusTreeStoreTest (703ms)
+
+>> RUNNING: com.codecrafters.redis.storage.SSTableManifestTest
+   TEST 1 PASSED: Manifest round-trip
+   TEST 2 PASSED: Legacy manifest compatibility
+   TEST 3 PASSED: Invalid ID rejected
+   TEST 4 PASSED: Corrupted entry rejected
+   TEST 5 PASSED: Invalid save input rejected
+   TEST 6 PASSED: Invalid save preserves manifest
+   TEST 7 PASSED: Duplicate IDs rejected
+   TEST 8 PASSED: Duplicate IDs in loaded manifest rejected
+   ALL MANIFEST TESTS PASSED
+   [PASS] com.codecrafters.redis.storage.SSTableManifestTest (266ms)
+
+>> RUNNING: com.codecrafters.redis.storage.SSTableTest
+   PASS: 1,000-key sparse-index lookups
+   PASS: LRU cache capacity and eviction
+   SSTable baseline tests passed
+   [PASS] com.codecrafters.redis.storage.SSTableTest (6323ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineCompactionTest
+   Recovered snapshot: {language=Java 21}
+   TEST PASSED: Compaction restart recovery
+   [PASS] com.codecrafters.redis.storage.StorageEngineCompactionTest (335ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineCompactionWalTest
+   Recovered snapshot: {another=persisted-too, new=unflushed, old=persisted}
+   TEST PASSED: Compaction preserves unflushed WAL data
+   [PASS] com.codecrafters.redis.storage.StorageEngineCompactionWalTest (327ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineConcurrencyTest
+   TEST PASSED: 8 concurrent workers, 800 keys, parallel writes/reads and flushes
+   [PASS] com.codecrafters.redis.storage.StorageEngineConcurrencyTest (2727ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineConcurrentDeleteTest
+   TEST PASSED: 400 concurrent deletes, flushes, and restart recovery
+   [PASS] com.codecrafters.redis.storage.StorageEngineConcurrentDeleteTest (3463ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineOrphanSSTableTest
+   TEST PASSED: Orphan SSTable recovery and subsequent flush
+   [PASS] com.codecrafters.redis.storage.StorageEngineOrphanSSTableTest (283ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineTest
+   First instance: {language=Java, name=Mursalim}
+   Recovered name: Mursalim
+   Recovered language: Java
+   Recovered SSTables: 1
+   TEST 1 PASSED: Restart recovery
+   TEST 2 PASSED: Delete and snapshot
+   TEST 3 PASSED: Tombstone flush
+   Recovered snapshot: {language=Java}
+   Recovered SSTables: 2
+   TEST 4 PASSED: Tombstone restart recovery
+   TEST 5 PASSED: Compaction data integrity
+   ALL STORAGE ENGINE TESTS PASSED
+   [PASS] com.codecrafters.redis.storage.StorageEngineTest (314ms)
+
+>> RUNNING: com.codecrafters.redis.storage.StorageEngineWalRecoveryTest
+   TEST 1 PASSED: Unflushed PUT recovery
+   TEST 2 PASSED: Unflushed DELETE recovery
+   ALL STORAGE ENGINE WAL RECOVERY TESTS PASSED
+   [PASS] com.codecrafters.redis.storage.StorageEngineWalRecoveryTest (318ms)
+
+>> RUNNING: com.codecrafters.redis.storage.WriteAheadLogTest
+   TEST 1 PASSED: PUT and DELETE replay
+   TEST 2 PASSED: WAL restart recovery
+   TEST 3 PASSED: Incomplete tail recovery
+   TEST 3B PASSED: Recovery survives another restart
+   TEST 4 PASSED: Checksum corruption detected
+   TEST 5 PASSED: Legacy WAL compatibility
+   TEST 6 PASSED: Closed WAL rejects operations
+   ALL WAL TESTS PASSED
+   [PASS] com.codecrafters.redis.storage.WriteAheadLogTest (234ms)
+
+>> RUNNING: com.codecrafters.redis.web.WebServerIntegrationTest
+   HTTP dashboard listening on port 58209
+   HTTP dashboard listening on port 58212
+   HTTP dashboard listening on port 58215
+   HTTP dashboard listening on port 58222
+   WebServerIntegrationTest passed all tests.
+   [PASS] com.codecrafters.redis.web.WebServerIntegrationTest (2928ms)
+
+=================================================
+                 TEST SUMMARY                    
+=================================================
+Total:  43
+Passed: 43
+Failed: 0
+
+--- STDERR ---

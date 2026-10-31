@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T13:06:39.8383721+05:30",
+    "error":  " Image distributed-kvstore:docker-check Pulling ",
+    "checks":  [
+                   "Docker Engine 29.7.2"
+               ],
+    "physicalMachineTest":  false
+}

@@ -1,0 +1,30 @@
+﻿{
+    "runId":  "raft-soak-20261022-163127",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T16:31:28.0028744+05:30",
+    "finishedAt":  "2026-10-22T16:31:28.5216631+05:30",
+    "requestedDurationHours":  1,
+    "maxCycles":  0,
+    "soakDurationSatisfied":  false,
+    "mavenTestRunner":  "mvn test -\u003e com.codecrafters.redis.AllTestsRunner (test classpath)",
+    "elapsedTotalSeconds":  0.51,
+    "soakElapsedSeconds":  0,
+    "cyclesStarted":  0,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "harness",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  0,
+                        "LogPath":  "",
+                        "Status":  "FAIL: Another Maven process appears to be running. Stop it before starting validation to avoid overlapping builds.\nPID=31768 \"C:\\Users\\mursa\\AppData\\Local\\Programs\\Temurin17\\PFiles64\\Eclipse Adoptium\\jdk-17.0.20.101-hotspot\\bin\\java.exe\"       --enable-native-access=ALL-UNNAMED          -classpath \"C:\\Users\\mursa\\Downloads\\apache-maven-3.10.0-bin\\apache-maven-3.10.0\\boot\\plexus-classworlds-2.12.1.jar\"   \"-Dclassworlds.conf=C:\\Users\\mursa\\Downloads\\apache-maven-3.10.0-bin\\apache-maven-3.10.0\\bin\\m2.conf\"   \"-Dmaven.home=C:\\Users\\mursa\\Downloads\\apache-maven-3.10.0-bin\\apache-maven-3.10.0\"   \"-Dlibrary.jline.path=C:\\Users\\mursa\\Downloads\\apache-maven-3.10.0-bin\\apache-maven-3.10.0\\lib\\jline-native\"   \"-Dorg.jline.terminal.exec.redirectPipeCreationMode=native,reflection\"   \"-Dmaven.multiModuleProjectDirectory=C:\\Users\\mursa\\Downloads\\DistributedKVStore\"   org.codehaus.plexus.classworlds.launcher.Launcher  -q -Daether.syncContext.named.factory=rwlock-local clean test"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

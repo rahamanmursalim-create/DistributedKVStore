@@ -1,0 +1,164 @@
+[2026-10-22T15:30:40.6356107+05:30] iteration=1 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:43.7331243+05:30] iteration=2 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:46.8184618+05:30] iteration=3 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:49.8817443+05:30] iteration=4 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:52.9444605+05:30] iteration=5 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:55.9944825+05:30] iteration=6 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:30:59.0513292+05:30] iteration=7 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:02.1211769+05:30] iteration=8 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:05.2144542+05:30] iteration=9 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:08.2709469+05:30] iteration=10 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:12.3541235+05:30] iteration=11 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:15.4277793+05:30] iteration=12 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:18.4951917+05:30] iteration=13 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:22.5817937+05:30] iteration=14 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:25.6373197+05:30] iteration=15 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:28.6929766+05:30] iteration=16 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:32.7667264+05:30] iteration=17 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:35.8328637+05:30] iteration=18 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:38.8872370+05:30] iteration=19 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:41.9694016+05:30] iteration=20 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:45.0277266+05:30] iteration=21 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:49.0993497+05:30] iteration=22 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:52.1536265+05:30] iteration=23 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:55.2161235+05:30] iteration=24 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:31:58.2820590+05:30] iteration=25 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:02.3621437+05:30] iteration=26 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:05.4334987+05:30] iteration=27 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:08.5002022+05:30] iteration=28 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:12.5750247+05:30] iteration=29 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:15.6406243+05:30] iteration=30 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:18.7026945+05:30] iteration=31 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:22.7846260+05:30] iteration=32 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:25.8671824+05:30] iteration=33 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:28.9385628+05:30] iteration=34 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:32.0051205+05:30] iteration=35 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:35.0625599+05:30] iteration=36 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:38.1330054+05:30] iteration=37 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:41.1886502+05:30] iteration=38 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:44.2638423+05:30] iteration=39 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:47.3191310+05:30] iteration=40 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:50.3906800+05:30] iteration=41 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:55.4678146+05:30] iteration=42 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:32:58.5119733+05:30] iteration=43 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:01.5524910+05:30] iteration=44 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:04.6114608+05:30] iteration=45 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:07.6888765+05:30] iteration=46 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:10.7563952+05:30] iteration=47 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:13.8241048+05:30] iteration=48 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:16.8900336+05:30] iteration=49 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:20.9594294+05:30] iteration=50 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:24.0353501+05:30] iteration=51 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:27.1116876+05:30] iteration=52 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:30.1818106+05:30] iteration=53 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:33.2369873+05:30] iteration=54 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:36.3143584+05:30] iteration=55 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:39.3853393+05:30] iteration=56 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:42.4642185+05:30] iteration=57 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:45.5549741+05:30] iteration=58 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:48.6356611+05:30] iteration=59 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:51.6921738+05:30] iteration=60 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:54.7717578+05:30] iteration=61 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:33:57.8297579+05:30] iteration=62 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:01.9095943+05:30] iteration=63 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:04.9764621+05:30] iteration=64 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:08.0440965+05:30] iteration=65 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:11.1215110+05:30] iteration=66 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:14.2038852+05:30] iteration=67 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:17.2675037+05:30] iteration=68 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:20.3264799+05:30] iteration=69 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:23.3946415+05:30] iteration=70 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:26.4481778+05:30] iteration=71 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:29.5120114+05:30] iteration=72 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:32.5868667+05:30] iteration=73 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:35.6411379+05:30] iteration=74 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:38.7259522+05:30] iteration=75 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:41.7905107+05:30] iteration=76 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:44.8395350+05:30] iteration=77 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:47.9081142+05:30] iteration=78 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:50.9582028+05:30] iteration=79 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:54.0256560+05:30] iteration=80 forceDelayMs=35
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+[2026-10-22T15:34:57.0610289+05:30] iteration=81 forceDelayMs=35
+Exception in thread "main" java.lang.AssertionError: Expected VALUE YWZ0ZXItZmFpbHVyZQ== after catch-up but got NULL
+	at com.codecrafters.redis.raft.RaftMultiProcessTest.commandEventually(RaftMultiProcessTest.java:128)
+	at com.codecrafters.redis.raft.RaftMultiProcessTest.main(RaftMultiProcessTest.java:65)

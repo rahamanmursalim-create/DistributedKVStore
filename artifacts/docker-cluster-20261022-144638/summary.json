@@ -1,0 +1,18 @@
+{
+    "result":  "PASS",
+    "finishedAt":  "2026-10-22T14:48:28.3058929+05:30",
+    "dockerEngine":  "29.7.2",
+    "certificateThumbprint":  "EEB4184836D95C9539B984D4018954CFFE87248C",
+    "checks":  [
+                   "Docker Engine 29.7.2",
+                   "three isolated containers ready; HTTPS authentication enforced",
+                   "initial leader n2",
+                   "seed write replicated and read through all container HTTPS endpoints",
+                   "follower n1 stopped; majority committed, restarted follower caught up",
+                   "single running voter could not commit without quorum; peers resumed",
+                   "cluster certificate rotated from 585063652ED8FD1EF102EF148423B1A9A66DAA2F to EEB4184836D95C9539B984D4018954CFFE87248C; old pin rejected after restart"
+               ],
+    "dockerBridgePartitionTest":  "not-run; Docker Desktop bridge disconnect timed out in prior attempt",
+    "physicalMachineTest":  false,
+    "note":  "Three distinct container network namespaces on one physical host."
+}

@@ -1,0 +1,4 @@
+﻿"Cycle","TestClass","ExitCode","TimedOut","ElapsedSeconds","LogPath","Status"
+"0","test-compile","0","False","19.547","C:\Users\mursa\Downloads\DistributedKVStore\artifacts\raft-soak-20261022-170440\00-test-compile.log","PASS"
+"1","mvn clean test (AllTestsRunner custom suite)","0","False","60.484","C:\Users\mursa\Downloads\DistributedKVStore\artifacts\raft-soak-20261022-170440\cycle-0001-custom-test-suite.log","PASS"
+"1","final mvn clean test","0","False","69.012","C:\Users\mursa\Downloads\DistributedKVStore\artifacts\raft-soak-20261022-170440\final-clean-test.log","PASS"

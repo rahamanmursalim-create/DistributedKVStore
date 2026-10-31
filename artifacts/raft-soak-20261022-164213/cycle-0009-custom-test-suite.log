@@ -1,0 +1,72 @@
+Started: 2026-10-22T16:56:21.0921767+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local clean test
+ElapsedSeconds: 7.944
+TimedOut: False
+ExitCode: 1
+--- STDOUT ---
+[ERROR] COMPILATION ERROR : 
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[81,36] cannot access com.codecrafters.redis.raft.RaftGroup
+  bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\RaftGroup.class
+    class file has wrong version 69.0, should be 61.0
+    Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[68,37] cannot access com.codecrafters.redis.raft.MultiRaftStore
+  bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\MultiRaftStore.class
+    class file has wrong version 69.0, should be 61.0
+    Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ConsistentHashTest.java:[58,47] cannot access com.codecrafters.redis.sharding.ConsistentHash
+  bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\sharding\ConsistentHash.class
+    class file has wrong version 69.0, should be 61.0
+    Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,43] cannot access com.codecrafters.redis.storage.KeyValueAccess
+  bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\storage\KeyValueAccess.class
+    class file has wrong version 69.0, should be 61.0
+    Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,59] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftLogTest.java:[54,9] cannot access com.codecrafters.redis.raft.RaftLog
+  bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\RaftLog.class
+    class file has wrong version 69.0, should be 61.0
+    Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[39,72] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[68,58] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[90,59] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[22,56] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[19,59] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[24,66] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:testCompile (default-testCompile) on project redis-java-clone: Compilation failure: Compilation failure: 
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[81,36] cannot access com.codecrafters.redis.raft.RaftGroup
+[ERROR]   bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\RaftGroup.class
+[ERROR]     class file has wrong version 69.0, should be 61.0
+[ERROR]     Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[68,37] cannot access com.codecrafters.redis.raft.MultiRaftStore
+[ERROR]   bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\MultiRaftStore.class
+[ERROR]     class file has wrong version 69.0, should be 61.0
+[ERROR]     Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ConsistentHashTest.java:[58,47] cannot access com.codecrafters.redis.sharding.ConsistentHash
+[ERROR]   bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\sharding\ConsistentHash.class
+[ERROR]     class file has wrong version 69.0, should be 61.0
+[ERROR]     Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,43] cannot access com.codecrafters.redis.storage.KeyValueAccess
+[ERROR]   bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\storage\KeyValueAccess.class
+[ERROR]     class file has wrong version 69.0, should be 61.0
+[ERROR]     Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,59] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftLogTest.java:[54,9] cannot access com.codecrafters.redis.raft.RaftLog
+[ERROR]   bad class file: C:\Users\mursa\Downloads\DistributedKVStore\target\classes\com\codecrafters\redis\raft\RaftLog.class
+[ERROR]     class file has wrong version 69.0, should be 61.0
+[ERROR]     Please remove or make sure it appears in the correct subdirectory of the classpath.
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[39,72] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[68,58] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[90,59] incompatible types: com.codecrafters.redis.storage.RedisStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[22,56] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[19,59] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[24,66] incompatible types: com.codecrafters.redis.sharding.ShardedStore cannot be converted to com.codecrafters.redis.storage.KeyValueAccess
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+
+--- STDERR ---

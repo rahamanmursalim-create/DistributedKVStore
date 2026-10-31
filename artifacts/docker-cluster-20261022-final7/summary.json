@@ -1,0 +1,13 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T14:26:11.7987225+05:30",
+    "error":  "GET during-minority-isolation on 18081 did not return committed value majority-available: curl: (28) Connection timed out after 20006 milliseconds",
+    "checks":  [
+                   "Docker Engine 29.7.2",
+                   "three isolated containers ready; HTTPS authentication enforced",
+                   "initial leader n2",
+                   "seed write replicated and read through all container HTTPS endpoints",
+                   "follower n1 stopped; majority committed, restarted follower caught up"
+               ],
+    "physicalMachineTest":  false
+}

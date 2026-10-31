@@ -1,0 +1,14 @@
+Started: 2026-10-22T13:49:22.4377400+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local -Dexec.mainClass=com.codecrafters.redis.web.WebServerIntegrationTest -Dexec.classpathScope=test org.codehaus.mojo:exec-maven-plugin:3.1.0:java
+ElapsedSeconds: 26.662
+TimedOut: False
+ExitCode: 0
+--- STDOUT ---
+HTTP dashboard listening on port 18080
+HTTP dashboard listening on port 51505
+HTTP dashboard listening on port 51507
+HTTP dashboard listening on port 51513
+WebServerIntegrationTest passed all tests.
+
+--- STDERR ---

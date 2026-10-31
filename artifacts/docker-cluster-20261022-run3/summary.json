@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T13:30:17.9244734+05:30",
+    "error":  "Only 0/3 HTTPS nodes became ready. lastError=port=18083 error=System.Management.Automation.MethodInvocationException: Exception calling \"GetResult\" with \"0\" argument(s): \"Cannot send a content-body with this verb-type.\" ---\u003e System.Net.ProtocolViolationException: Cannot send a content-body with this verb-type.\r\n   at System.Net.HttpWebRequest.CheckProtocol(Boolean onRequestStream)\r\n   at System.Net.HttpWebRequest.BeginGetRequestStream(AsyncCallback callback, Object state)\r\n   at System.Net.Http.HttpClientHandler.StartGettingRequestStream(RequestState state)\r\n   at System.Net.Http.HttpClientHandler.PrepareAndStartContentUpload(RequestState state)\r\n--- End of stack trace from previous location where exception was thrown ---\r\n   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()\r\n   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)\r\n   at CallSite.Target(Closure , CallSite , Object )\r\n   --- End of inner exception stack trace ---\r\n   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   at lambda_method(Closure , Object[] , StrongBox`1[] , InterpretedFrame ) expectedThumbprint=3CB03930374640950BB1F2C202F2C1FF84A02F60",
+    "checks":  [
+                   "Docker Engine 29.7.2"
+               ],
+    "physicalMachineTest":  false
+}

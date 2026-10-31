@@ -1,0 +1,16 @@
+Started: 2026-10-22T14:00:30.3200211+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local -Dexec.mainClass=com.codecrafters.redis.raft.RaftSnapshotInstallTest -Dexec.classpathScope=test org.codehaus.mojo:exec-maven-plugin:3.1.0:java
+ElapsedSeconds: 5.218
+TimedOut: False
+ExitCode: 1
+--- STDOUT ---
+[ERROR] Failed to execute goal org.codehaus.mojo:exec-maven-plugin:3.1.0:java (default-cli) on project redis-java-clone: An exception occurred while executing the Java class. com/codecrafters/redis/raft/RaftSnapshotInstallTest has been compiled by a more recent version of the Java Runtime (class file version 69.0), this version of the Java Runtime only recognizes class file versions up to 61.0 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
+
+--- STDERR ---

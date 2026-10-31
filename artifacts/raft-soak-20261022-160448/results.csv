@@ -1,0 +1,3 @@
+﻿"Cycle","TestClass","ExitCode","TimedOut","ElapsedSeconds","LogPath","Status"
+"0","test-compile","1","False","11.183","C:\Users\mursa\Downloads\DistributedKVStore\artifacts\raft-soak-20261022-160448\00-test-compile.log","FAIL"
+"0","harness","1","False","0","","FAIL: test-compile failed; see C:\Users\mursa\Downloads\DistributedKVStore\artifacts\raft-soak-20261022-160448\00-test-compile.log"

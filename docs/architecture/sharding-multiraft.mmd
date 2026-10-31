@@ -1,0 +1,19 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Segoe UI, Arial","fontSize":"15px","lineColor":"#475569"}}}%%
+flowchart TB
+    K["Client key"] --> H["MultiRaftStore.groupFor(key)<br/>virtual-node consistent-hash ring<br/>128 virtual nodes per group"]
+    H --> G1["<b>Group g1</b><br/>replicas on n1 · n2 · n3<br/>own log, leader, snapshots<br/>Raft port + 0"]
+    H --> G2["<b>Group g2</b><br/>replicas on n1 · n2 · n3<br/>own log, leader, snapshots<br/>Raft port + 1"]
+    H --> GN["<b>Group gN</b><br/>replicas on n1 · n2 · n3<br/>own log, leader, snapshots<br/>Raft port + N-1"]
+    G1 -.-> TX
+    GN -.-> TX
+    G1 -.-> RB
+    GN -.-> RB
+    TX["<b>Cross-group batches</b><br/>coordinated as a distributed transaction<br/>with durable coordinator records;<br/>pending transactions resolved on startup"]
+    RB["<b>Rebalancing</b><br/>groups quorum-frozen → keys copied →<br/>new ring published after destination commits →<br/>source copies removed"]
+
+    classDef g fill:#DCFCE7,stroke:#16A34A,color:#14532D;
+    classDef n fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B;
+    classDef x fill:#FEF3C7,stroke:#D97706,color:#78350F;
+    class G1,G2,GN g;
+    class H,K n;
+    class TX,RB x;

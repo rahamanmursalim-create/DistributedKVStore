@@ -1,0 +1,21 @@
+Observed on the uploaded ZIP's bundled compiled classes using OpenJDK 21.0.12.1 (Linux container); no source rebuild was performed.
+
+Commands used (each exited 0):
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.raft.RaftMultiProcessTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.raft.RaftGroupConsensusTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.raft.RaftDynamicMembershipTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.raft.MultiRaftStoreTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.rpc.RpcTransportTest
+java -ea -cp target/test-classes:target/classes com.codecrafters.redis.web.WebServerIntegrationTest
+
+Outputs:
+RaftMultiProcessTest passed: separate JVMs, leader failure, quorum failover, restart catch-up
+RaftGroupConsensusTest passed
+RaftDynamicMembershipTest passed: learner catch-up, joint replacement, leader removal
+RaftRebalanceIntegrationTest passed: moved=80, replicas=3, ttl=preserved
+MultiRaftStoreTest passed
+RpcTransportTest passed
+WebServerIntegrationTest passed all tests.
+
+Additional measurements are in sandbox-benchmark-observed.txt. These results apply only to the archive's bundled precompiled classes and this Linux sandbox. No Java 17 test, TLS endpoint test, one-hour/24-hour soak, or physical-host cluster test was run in this sandbox.

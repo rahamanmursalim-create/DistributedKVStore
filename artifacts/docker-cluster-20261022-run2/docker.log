@@ -1,0 +1,113 @@
+ Image distributed-kvstore:docker-check Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 553B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 692B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/maven:3.9-eclipse-temurin-25
+#3 DONE 0.3s
+
+#4 [internal] load metadata for docker.io/library/eclipse-temurin:25-jre
+#4 DONE 0.3s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B 0.0s done
+#5 DONE 0.0s
+
+#6 [build 1/5] FROM docker.io/library/maven:3.9-eclipse-temurin-25@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976
+#6 resolve docker.io/library/maven:3.9-eclipse-temurin-25@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976 0.1s done
+#6 DONE 0.1s
+
+#7 [stage-1 1/4] FROM docker.io/library/eclipse-temurin:25-jre@sha256:dbb43d81099eec91e0800226ed2296d03146ee7857165b95112372ad0d67e87f
+#7 resolve docker.io/library/eclipse-temurin:25-jre@sha256:dbb43d81099eec91e0800226ed2296d03146ee7857165b95112372ad0d67e87f 0.1s done
+#7 DONE 0.1s
+
+#8 [internal] load build context
+#8 transferring context: 16.28kB 0.0s done
+#8 DONE 0.0s
+
+#9 [build 4/5] COPY src ./src
+#9 CACHED
+
+#10 [build 5/5] RUN mvn -B clean package -DskipTests
+#10 CACHED
+
+#11 [stage-1 3/4] COPY --from=build /app/target/redis-java-clone-1.0.0.jar /app/app.jar
+#11 CACHED
+
+#12 [build 3/5] COPY pom.xml .
+#12 CACHED
+
+#13 [stage-1 2/4] WORKDIR /app
+#13 CACHED
+
+#14 [build 2/5] WORKDIR /app
+#14 CACHED
+
+#15 [stage-1 4/4] RUN mkdir -p /var/data && useradd --system --uid 10001 appuser && chown -R appuser:appuser /app /var/data
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers done
+#16 exporting manifest sha256:aee18845171d78f57f8704ae07fb31302a55a671752f937fa60275813db5ea7a done
+#16 exporting config sha256:fd1ebbc5fa3ca6e4e471d90daed3babb1bf3333a5885ba06dd4f93a7d87bb833 done
+#16 exporting attestation manifest sha256:7591a1b451315f895e4c20d432da4eb3b39df31f42b2952832c3de8270b99fc7 0.0s done
+#16 exporting manifest list sha256:a043ca9880a3243b87f9c66a60445336175e55da91523c90d9beed7e2239f944 0.0s done
+#16 naming to docker.io/library/distributed-kvstore:docker-check done
+#16 unpacking to docker.io/library/distributed-kvstore:docker-check done
+#16 DONE 0.1s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.0s
+ Image distributed-kvstore:docker-check Built 
+ Volume kvverify_kv3data Creating 
+ Volume kvverify_kv2data Creating 
+ Volume kvverify_kv3data Creating 
+ Network kvverify-raftnet Creating 
+ Volume kvverify_kv2data Creating 
+ Volume kvverify_kv1data Creating 
+ Volume kvverify_kv1data Creating 
+ Network kvverify-raftnet Creating 
+ Volume kvverify_kv3data Created 
+ Volume kvverify_kv3data Created 
+ Volume kvverify_kv1data Created 
+ Volume kvverify_kv1data Created 
+ Volume kvverify_kv2data Created 
+ Volume kvverify_kv2data Created 
+ Network kvverify-raftnet Created 
+ Network kvverify-raftnet Created 
+ Container kvverify-n3 Creating 
+ Container kvverify-n1 Creating 
+ Container kvverify-n2 Creating 
+ Container kvverify-n1 Created 
+ Container kvverify-n3 Created 
+ Container kvverify-n2 Created 
+ Container kvverify-n2 Starting 
+ Container kvverify-n3 Starting 
+ Container kvverify-n1 Starting 
+ Container kvverify-n2 Started 
+ Container kvverify-n1 Started 
+ Container kvverify-n3 Started 
+ Container kvverify-n1 Stopping 
+ Container kvverify-n3 Stopping 
+ Container kvverify-n2 Stopping 
+ Container kvverify-n1 Stopped 
+ Container kvverify-n1 Removing 
+ Container kvverify-n1 Removed 
+ Container kvverify-n2 Stopped 
+ Container kvverify-n2 Removing 
+ Container kvverify-n2 Removed 
+ Container kvverify-n3 Stopped 
+ Container kvverify-n3 Removing 
+ Container kvverify-n3 Removed 
+ Volume kvverify_kv3data Removing 
+ Network kvverify-raftnet Removing 
+ Volume kvverify_kv1data Removing 
+ Volume kvverify_kv2data Removing 
+ Volume kvverify_kv3data Removed 
+ Volume kvverify_kv1data Removed 
+ Volume kvverify_kv2data Removed 
+ Network kvverify-raftnet Removed 

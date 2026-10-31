@@ -1,0 +1,55 @@
+﻿services:
+  kv1:
+    build: { context: "C:/Users/mursa/Downloads/DistributedKVStore", dockerfile: Dockerfile }
+    image: distributed-kvstore:docker-check
+    container_name: kvverify-n1
+    hostname: kv1
+    restart: unless-stopped
+    ports: ["18081:8080", "16379:6379"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv1data:/var/data"]
+    environment: &cluster-env
+      PORT: "8080"
+      TCP_PORT: "6379"
+      DATA_DIR: /var/data
+      KV_BIND_HOST: 0.0.0.0
+      KV_CLIENT_TOKEN: "0f1LMMfutxLYrmYzKqp2aJ36HKUjKGPkoDNorHC87CY"
+      KV_CLUSTER_TOKEN: "qNEvGwcjc3ARnNHmFbuZ5yZEdrymkt7fJ0AgrFEWoXQ"
+      KV_TLS_KEYSTORE: /run/kv/identity.p12
+      KV_TLS_TRUSTSTORE: /run/kv/identity.p12
+      KV_TLS_PASSWORD: "x2PhGqmrTCkfCPXrH7Gj1NBvH02WufYA"
+      KV_TLS_STORE_TYPE: PKCS12
+      KV_NODE_ID: n1
+      KV_RAFT_GROUP_ID: docker-check
+      KV_RAFT_BIND_HOST: 0.0.0.0
+      KV_RAFT_PORT: "7000"
+      KV_RAFT_PEERS: n1=kv1:7000,n2=kv2:7000,n3=kv3:7000
+    networks: [raftnet]
+  kv2:
+    image: distributed-kvstore:docker-check
+    container_name: kvverify-n2
+    hostname: kv2
+    restart: unless-stopped
+    ports: ["18082:8080", "16380:6379"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv2data:/var/data"]
+    environment:
+      <<: *cluster-env
+      KV_NODE_ID: n2
+    networks: [raftnet]
+  kv3:
+    image: distributed-kvstore:docker-check
+    container_name: kvverify-n3
+    hostname: kv3
+    restart: unless-stopped
+    ports: ["18083:8080", "16381:6379"]
+    volumes: ["./identity.p12:/run/kv/identity.p12:ro", "kv3data:/var/data"]
+    environment:
+      <<: *cluster-env
+      KV_NODE_ID: n3
+    networks: [raftnet]
+networks:
+  raftnet:
+    name: kvverify-raftnet
+volumes:
+  kv1data:
+  kv2data:
+  kv3data:

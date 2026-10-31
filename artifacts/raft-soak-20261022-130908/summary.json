@@ -1,0 +1,27 @@
+﻿{
+    "runId":  "raft-soak-20261022-130908",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T13:09:08.6895840+05:30",
+    "finishedAt":  "2026-10-22T13:09:09.2980981+05:30",
+    "requestedDurationHours":  1,
+    "elapsedTotalSeconds":  0.6,
+    "soakElapsedSeconds":  0,
+    "cyclesStarted":  0,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "harness",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  0,
+                        "LogPath":  "",
+                        "Status":  "FAIL: openjdk version \"17.0.20.1\" 2026-08-18"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

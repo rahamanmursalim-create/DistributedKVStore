@@ -1,0 +1,1377 @@
+﻿{
+    "runId":  "raft-soak-20261022-133820",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T13:38:20.0248040+05:30",
+    "finishedAt":  "2026-10-22T14:00:44.0969977+05:30",
+    "requestedDurationHours":  1,
+    "elapsedTotalSeconds":  1344.07,
+    "soakElapsedSeconds":  1332.26,
+    "cyclesStarted":  14,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "test-compile",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.444,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\00-test-compile.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.371,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.389,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.922,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.438,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.97,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.837,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.958,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.259,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.726,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.607,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.078,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0001-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.86,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.825,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.245,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.686,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.311,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.908,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.899,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.061,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.615,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.551,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.183,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0002-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.113,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.291,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.947,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.68,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.624,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.039,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.794,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.244,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.292,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.394,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.11,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0003-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.899,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.282,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.075,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.646,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.276,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.833,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.887,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.78,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.195,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.401,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.504,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0004-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.931,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.036,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.371,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  8.281,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.028,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.908,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.808,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.309,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.208,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.579,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.755,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0005-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.058,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.297,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.62,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.906,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.969,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.99,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.861,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.57,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.063,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.227,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.85,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0006-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.912,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.159,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.863,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.994,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.626,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  2.952,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  1.807,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.683,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.462,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  20.492,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.783,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0007-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.788,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.409,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  12.179,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.801,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  23.413,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.837,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftSnapshotInstallTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.981,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  12.967,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.814,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.601,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-WebServerIntegrationTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.697,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0008-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.15,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.321,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.958,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.78,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  25.994,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.779,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.777,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.309,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.112,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  26.662,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  8.32,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0009-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.816,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.493,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.628,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.891,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  16.81,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.957,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.039,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.67,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.124,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  25.923,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.361,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0010-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.692,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  7.665,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.079,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.614,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  18.863,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  6.127,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.554,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.417,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  12.105,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  39.536,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  14.504,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0011-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  13.424,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  13.093,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  12.771,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  15.94,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  27.78,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  15.792,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.831,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.791,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  17.508,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  36.224,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  12.55,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0012-RaftNetworkPartitionTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.173,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  14.697,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftGroupConsensusTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.544,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftDynamicMembershipTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  15.8,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-MultiRaftStoreTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  23.986,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftRebalanceIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  10.563,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftSnapshotInstallTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  9.103,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftLinearizabilityTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  25.503,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftLinearizabilityTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.rpc.TlsTransportTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  17.327,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-TlsTransportTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.web.WebServerIntegrationTest",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  39.127,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-WebServerIntegrationTest.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftNetworkPartitionTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.802,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0013-RaftNetworkPartitionTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftMultiProcessTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.012,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftMultiProcessTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftGroupConsensusTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.317,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftGroupConsensusTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftDynamicMembershipTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.103,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftDynamicMembershipTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.MultiRaftStoreTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.326,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-MultiRaftStoreTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftRebalanceIntegrationTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  3.89,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftRebalanceIntegrationTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSnapshotInstallTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  5.218,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftSnapshotInstallTest.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "com.codecrafters.redis.raft.RaftSlowDiskFaultTest",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  4.574,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-133820\\cycle-0014-RaftSlowDiskFaultTest.log",
+                        "Status":  "FAIL"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

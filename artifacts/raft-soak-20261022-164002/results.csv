@@ -1,0 +1,2 @@
+﻿"Cycle","TestClass","ExitCode","TimedOut","ElapsedSeconds","LogPath","Status"
+"0","harness","1","False","0","","FAIL: This run is intended for Java 17, but 'java -version' reported: java version ""27"" 2026-09-15. Set JAVA_HOME/PATH to Temurin 17 first."

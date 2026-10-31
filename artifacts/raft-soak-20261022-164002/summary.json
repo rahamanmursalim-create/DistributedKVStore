@@ -1,0 +1,30 @@
+﻿{
+    "runId":  "raft-soak-20261022-164002",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T16:40:02.2236997+05:30",
+    "finishedAt":  "2026-10-22T16:40:03.8335640+05:30",
+    "requestedDurationHours":  1,
+    "maxCycles":  0,
+    "soakDurationSatisfied":  false,
+    "mavenTestRunner":  "mvn clean test -\u003e com.codecrafters.redis.AllTestsRunner (test classpath)",
+    "elapsedTotalSeconds":  1.61,
+    "soakElapsedSeconds":  0,
+    "cyclesStarted":  0,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "harness",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  0,
+                        "LogPath":  "",
+                        "Status":  "FAIL: This run is intended for Java 17, but \u0027java -version\u0027 reported: java version \"27\" 2026-09-15. Set JAVA_HOME/PATH to Temurin 17 first."
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

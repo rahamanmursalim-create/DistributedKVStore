@@ -1,0 +1,48 @@
+﻿{
+    "runId":  "raft-soak-20261022-170440",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T17:04:40.1686482+05:30",
+    "finishedAt":  "2026-10-22T17:07:11.4097793+05:30",
+    "requestedDurationHours":  1,
+    "maxCycles":  1,
+    "soakDurationSatisfied":  false,
+    "mavenTestRunner":  "mvn clean test -\u003e com.codecrafters.redis.AllTestsRunner (test classpath)",
+    "elapsedTotalSeconds":  151.24,
+    "soakElapsedSeconds":  130.32,
+    "cyclesStarted":  1,
+    "allExecutedChecksPassed":  true,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "test-compile",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  19.547,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-170440\\00-test-compile.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  60.484,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-170440\\cycle-0001-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "final mvn clean test",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  69.012,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-170440\\final-clean-test.log",
+                        "Status":  "PASS"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

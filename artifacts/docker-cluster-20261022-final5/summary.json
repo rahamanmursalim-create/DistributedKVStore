@@ -1,0 +1,12 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T14:10:43.8229083+05:30",
+    "error":  "PUT after-leader-failure did not commit before timeout: curl: (52) Empty reply from server",
+    "checks":  [
+                   "Docker Engine 29.7.2",
+                   "three isolated containers ready; HTTPS authentication enforced",
+                   "initial leader n2",
+                   "seed write replicated and read through all container HTTPS endpoints"
+               ],
+    "physicalMachineTest":  false
+}

@@ -1,0 +1,558 @@
+Started: 2026-10-22T16:04:58.5831633+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local clean test-compile
+ElapsedSeconds: 11.183
+TimedOut: False
+ExitCode: 1
+--- STDOUT ---
+[ERROR] COMPILATION ERROR : 
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[81,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[90,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[68,37] cannot find symbol
+  symbol:   class MultiRaftStore
+  location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[128,56] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[128,32] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftStoreTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftStoreTest.java:[140,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.MultiRaftStoreTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRebalanceTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftLinearizabilityTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[105,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftNetworkPartitionTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[114,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftNetworkPartitionTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[53,59] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[53,20] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[59,42] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[59,20] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[128,56] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[128,32] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftBenchmark.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[11,34] cannot find symbol
+  symbol:   class TlsContext
+  location: package com.codecrafters.redis.rpc
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[4,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[5,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[7,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[106,36] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftGroupConsensusTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/TcpRespBenchmark.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ConsistentHashTest.java:[58,47] cannot find symbol
+  symbol:   class ConsistentHash
+  location: class com.codecrafters.redis.sharding.ConsistentHashTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[3,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[4,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[5,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[7,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSlowDiskFaultTest.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[3,34] cannot find symbol
+  symbol:   class WebServer
+  location: package com.codecrafters.redis.web
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[4,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[3,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[4,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[5,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[7,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[8,38] cannot find symbol
+  symbol:   class AsyncWriteBatcher
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftProcessNode.java:[3,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/client/KVClientIntegrationTest.java:[3,30] cannot find symbol
+  symbol:   class Server
+  location: package com.codecrafters.redis
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/client/KVClientIntegrationTest.java:[4,38] cannot find symbol
+  symbol:   class RedisStore
+  location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,14] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,33] cannot find symbol
+  symbol:   variable RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[15,18] cannot find symbol
+  symbol:   class MVCCTransaction
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[24,14] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[24,37] cannot find symbol
+  symbol:   variable RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[33,14] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[33,37] cannot find symbol
+  symbol:   variable RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[36,66] cannot find symbol
+  symbol:   class ValueEntry
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[40,14] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[40,37] cannot find symbol
+  symbol:   variable RedisStore
+  location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[13,9] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[13,32] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,9] cannot find symbol
+  symbol:   class AsyncWriteBatcher
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,41] cannot find symbol
+  symbol:   class AsyncWriteBatcher
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[23,14] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[23,41] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[12,14] cannot find symbol
+  symbol:   class ShardedStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[12,41] cannot find symbol
+  symbol:   class ShardedStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[13,42] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[15,43] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[18,9] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[18,32] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[19,9] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[19,33] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[20,14] cannot find symbol
+  symbol:   class ShardedStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[20,43] cannot find symbol
+  symbol:   class ShardedStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[26,17] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[9,14] cannot find symbol
+  symbol:   class RpcTransportServer
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[9,46] cannot find symbol
+  symbol:   class RpcTransportServer
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[11,21] cannot find symbol
+  symbol:   class RpcMessage
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[11,42] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[14,13] cannot find symbol
+  symbol:   class RpcTransportClient
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[14,45] cannot find symbol
+  symbol:   class RpcTransportClient
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,13] cannot find symbol
+  symbol:   class RpcMessage
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,38] cannot find symbol
+  symbol:   class RpcMessage
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,59] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[20,13] cannot find symbol
+  symbol:   class RpcMessage
+  location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[21,52] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[17,9] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[17,33] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[18,9] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[18,35] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[25,33] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[26,32] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[29,18] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[33,13] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[40,18] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[46,13] cannot find symbol
+  symbol:   class RaftGroup
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[59,13] cannot find symbol
+  symbol:   class RedisStore
+  location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:testCompile (default-testCompile) on project redis-java-clone: Compilation failure: Compilation failure: 
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[81,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[90,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[68,37] cannot find symbol
+[ERROR]   symbol:   class MultiRaftStore
+[ERROR]   location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[128,56] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftBenchmark.java:[128,32] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.MultiRaftBenchmark
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftStoreTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/MultiRaftStoreTest.java:[140,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.MultiRaftStoreTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRebalanceTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftLinearizabilityTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[105,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftNetworkPartitionTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftNetworkPartitionTest.java:[114,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftNetworkPartitionTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[53,59] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[53,20] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[59,42] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSnapshotInstallTest.java:[59,20] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftSnapshotInstallTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[128,56] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftRebalanceIntegrationTest.java:[128,32] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftRebalanceIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftBenchmark.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/web/WebServerIntegrationTest.java:[11,34] cannot find symbol
+[ERROR]   symbol:   class TlsContext
+[ERROR]   location: package com.codecrafters.redis.rpc
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[4,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[5,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[7,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftGroupConsensusTest.java:[106,36] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftGroupConsensusTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/TcpRespBenchmark.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ConsistentHashTest.java:[58,47] cannot find symbol
+[ERROR]   symbol:   class ConsistentHash
+[ERROR]   location: class com.codecrafters.redis.sharding.ConsistentHashTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[3,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[4,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[5,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/RedisServerTest.java:[7,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftSlowDiskFaultTest.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[3,34] cannot find symbol
+[ERROR]   symbol:   class WebServer
+[ERROR]   location: package com.codecrafters.redis.web
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardAdminIntegrationTest.java:[4,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[3,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[4,38] package com.codecrafters.redis.command does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[5,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[6,39] package com.codecrafters.redis.protocol does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[7,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedCommandRoutingTest.java:[8,38] cannot find symbol
+[ERROR]   symbol:   class AsyncWriteBatcher
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftProcessNode.java:[3,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/client/KVClientIntegrationTest.java:[3,30] cannot find symbol
+[ERROR]   symbol:   class Server
+[ERROR]   location: package com.codecrafters.redis
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/client/KVClientIntegrationTest.java:[4,38] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: package com.codecrafters.redis.storage
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,14] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[10,33] cannot find symbol
+[ERROR]   symbol:   variable RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[15,18] cannot find symbol
+[ERROR]   symbol:   class MVCCTransaction
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[24,14] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[24,37] cannot find symbol
+[ERROR]   symbol:   variable RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[33,14] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[33,37] cannot find symbol
+[ERROR]   symbol:   variable RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[36,66] cannot find symbol
+[ERROR]   symbol:   class ValueEntry
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[40,14] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/RedisStoreRocksDBIntegrationTest.java:[40,37] cannot find symbol
+[ERROR]   symbol:   variable RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.RedisStoreRocksDBIntegrationTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[13,9] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[13,32] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,9] cannot find symbol
+[ERROR]   symbol:   class AsyncWriteBatcher
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[14,41] cannot find symbol
+[ERROR]   symbol:   class AsyncWriteBatcher
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[23,14] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/storage/AsyncWriteBatcherTest.java:[23,41] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.storage.AsyncWriteBatcherTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[12,14] cannot find symbol
+[ERROR]   symbol:   class ShardedStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[12,41] cannot find symbol
+[ERROR]   symbol:   class ShardedStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[13,42] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[15,43] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[18,9] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[18,32] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[19,9] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[19,33] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[20,14] cannot find symbol
+[ERROR]   symbol:   class ShardedStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[20,43] cannot find symbol
+[ERROR]   symbol:   class ShardedStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/sharding/ShardedStoreRestartTest.java:[26,17] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.sharding.ShardedStoreRestartTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[9,14] cannot find symbol
+[ERROR]   symbol:   class RpcTransportServer
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[9,46] cannot find symbol
+[ERROR]   symbol:   class RpcTransportServer
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[11,21] cannot find symbol
+[ERROR]   symbol:   class RpcMessage
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[11,42] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[14,13] cannot find symbol
+[ERROR]   symbol:   class RpcTransportClient
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[14,45] cannot find symbol
+[ERROR]   symbol:   class RpcTransportClient
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,13] cannot find symbol
+[ERROR]   symbol:   class RpcMessage
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,38] cannot find symbol
+[ERROR]   symbol:   class RpcMessage
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[18,59] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[20,13] cannot find symbol
+[ERROR]   symbol:   class RpcMessage
+[ERROR]   location: class com.codecrafters.redis.rpc.RpcTransportTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/rpc/RpcTransportTest.java:[21,52] package RpcMessage does not exist
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[17,9] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[17,33] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[18,9] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[18,35] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[25,33] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[26,32] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[29,18] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[33,13] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[40,18] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[46,13] cannot find symbol
+[ERROR]   symbol:   class RaftGroup
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] /C:/Users/mursa/Downloads/DistributedKVStore/src/test/java/com/codecrafters/redis/raft/RaftDynamicMembershipTest.java:[59,13] cannot find symbol
+[ERROR]   symbol:   class RedisStore
+[ERROR]   location: class com.codecrafters.redis.raft.RaftDynamicMembershipTest
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+
+--- STDERR ---

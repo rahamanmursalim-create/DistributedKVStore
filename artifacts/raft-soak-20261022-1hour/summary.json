@@ -1,0 +1,11 @@
+{
+    "startedAt":  "2026-10-22T14:49:07.2590486+05:30",
+    "finishedAt":  "2026-10-22T15:22:06.5939864+05:30",
+    "requestedMinutes":  60,
+    "iterations":  694,
+    "forceDelayMillis":  35,
+    "result":  "INTERRUPTED",
+    "java":  "java version \"27\" 2026-09-15 Java(TM) SE Runtime Environment (build 27+35-2325) Java HotSpot(TM) 64-Bit Server VM (build 27+35-2325, mixed mode, sharing)",
+    "machine":  "MURSALIMRAHAMAN",
+    "log":  "soak.log"
+}

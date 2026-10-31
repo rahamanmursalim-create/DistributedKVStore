@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T13:42:15.3965597+05:30",
+    "error":  "Only 0/3 HTTPS nodes became ready. lastError=port=18083 error=System.Management.Automation.RemoteException: curl: (28) Operation timed out after 7016 milliseconds with 0 bytes received expectedThumbprint=1DD632CC0FA0A6AC77A001E70E312FA36597B59E",
+    "checks":  [
+                   "Docker Engine 29.7.2"
+               ],
+    "physicalMachineTest":  false
+}

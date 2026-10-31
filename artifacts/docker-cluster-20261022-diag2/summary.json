@@ -1,0 +1,10 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T14:02:34.9747122+05:30",
+    "error":  "No stable elected leader found among HTTP ports 18081,18082,18083",
+    "checks":  [
+                   "Docker Engine 29.7.2",
+                   "three isolated containers ready; HTTPS authentication enforced"
+               ],
+    "physicalMachineTest":  false
+}

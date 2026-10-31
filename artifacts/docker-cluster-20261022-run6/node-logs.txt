@@ -1,0 +1,19 @@
+kvverify-n1  | Invalid cluster configuration: Leader is not known yet
+kvverify-n1  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n1  | Invalid cluster configuration: Leader is not known yet
+kvverify-n1  | Multi-Raft cluster mode enabled for node n1 across groups [docker-check]
+kvverify-n1  | HTTP dashboard listening on port 8080
+kvverify-n1  | Redis server listening on port 6379...
+kvverify-n3  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Read timed out
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n2  | Invalid cluster configuration: Leader is not known yet
+kvverify-n3  | Invalid cluster configuration: Leader is not known yet
+kvverify-n3  | Invalid cluster configuration: Leader is not known yet
+kvverify-n3  | Multi-Raft cluster mode enabled for node n3 across groups [docker-check]
+kvverify-n3  | HTTP dashboard listening on port 8080
+kvverify-n3  | Redis server listening on port 6379...

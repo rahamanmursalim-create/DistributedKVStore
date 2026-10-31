@@ -1,0 +1,9 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T13:35:40.1792882+05:30",
+    "error":  "Only 0/3 HTTPS nodes became ready. lastError=port=18083 error=System.Management.Automation.MethodInvocationException: Exception calling \"GetResult\" with \"0\" argument(s): \"An error occurred while sending the request.\" ---\u003e System.Net.Http.HttpRequestException: An error occurred while sending the request. ---\u003e System.Net.WebException: The underlying connection was closed: An unexpected error occurred on a send. ---\u003e System.Management.Automation.PSInvalidOperationException: There is no Runspace available to run scripts in this thread. You can provide one in the DefaultRunspace property of the System.Management.Automation.Runspaces.Runspace type. The script block you attempted to invoke was:  param($request...ctedThumbprint \r\n   at System.Net.TlsStream.EndWrite(IAsyncResult asyncResult)\r\n   at System.Net.ConnectStream.WriteHeadersCallback(IAsyncResult ar)\r\n   --- End of inner exception stack trace ---\r\n   at System.Net.HttpWebRequest.EndGetResponse(IAsyncResult asyncResult)\r\n   at System.Net.Http.HttpClientHandler.GetResponseCallback(IAsyncResult ar)\r\n   --- End of inner exception stack trace ---\r\n   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()\r\n   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)\r\n   at CallSite.Target(Closure , CallSite , Object )\r\n   --- End of inner exception stack trace ---\r\n   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)\r\n   at lambda_method(Closure , Object[] , StrongBox`1[] , InterpretedFrame ) expectedThumbprint=7133FD1924820F3BE1638B7D9EA7BB506B537EEA",
+    "checks":  [
+                   "Docker Engine 29.7.2"
+               ],
+    "physicalMachineTest":  false
+}

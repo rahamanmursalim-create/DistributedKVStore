@@ -1,0 +1,10 @@
+Started: 2026-10-22T13:41:21.3756933+05:30
+WorkingDirectory: C:\Users\mursa\Downloads\DistributedKVStore
+Command: "C:\Users\mursa\Downloads\apache-maven-3.10.0-bin\apache-maven-3.10.0\bin\mvn.cmd" -q -Daether.syncContext.named.factory=rwlock-local -Dexec.mainClass=com.codecrafters.redis.raft.RaftLinearizabilityTest -Dexec.classpathScope=test org.codehaus.mojo:exec-maven-plugin:3.1.0:java
+ElapsedSeconds: 4.244
+TimedOut: False
+ExitCode: 0
+--- STDOUT ---
+RaftLinearizabilityTest passed; seed=1592639710, concurrentOps=48, modelOps=1000
+
+--- STDERR ---

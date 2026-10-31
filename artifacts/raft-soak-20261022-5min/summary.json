@@ -1,0 +1,12 @@
+﻿{
+    "startedAt":  "2026-10-22T11:34:04+05:30",
+    "finishedAt":  "2026-10-22T11:39:01+05:30",
+    "requestedMinutes":  5,
+    "iterations":  57,
+    "forceDelayMillis":  35,
+    "result":  "PASS",
+    "java":  "27",
+    "machine":  "MURSALIMRAHAMAN",
+    "log":  "soak.log",
+    "runnerSummary":  "Recorded from completed console run; run preceded automatic summary generation fix"
+}

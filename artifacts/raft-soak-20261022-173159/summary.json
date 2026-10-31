@@ -1,0 +1,291 @@
+﻿{
+    "runId":  "raft-soak-20261022-173159",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T17:31:59.5598637+05:30",
+    "finishedAt":  "2026-10-22T18:38:06.3090165+05:30",
+    "requestedDurationHours":  1,
+    "maxCycles":  0,
+    "soakDurationSatisfied":  true,
+    "mavenTestRunner":  "mvn clean test -\u003e com.codecrafters.redis.AllTestsRunner (test classpath)",
+    "elapsedTotalSeconds":  3966.73,
+    "soakElapsedSeconds":  3944.68,
+    "cyclesStarted":  28,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "test-compile",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  20.436,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\00-test-compile.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  1,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  80.266,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0001-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  2,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  74.244,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0002-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  3,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  72.974,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0003-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  4,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  84.26,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0004-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  5,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  73.65,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0005-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  6,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  71.526,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0006-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  7,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  78.101,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0007-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  8,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  71.558,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0008-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  9,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  75.497,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0009-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  10,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  64.826,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0010-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  11,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  103.524,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0011-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  12,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  74.409,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0012-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  13,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  76.62,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0013-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  14,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  75.941,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0014-custom-test-suite.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  15,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  75.459,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0015-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  16,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  69.346,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0016-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  17,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  90.12,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0017-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  18,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  78.754,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0018-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  19,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  133.653,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0019-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  20,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  99.831,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0020-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  21,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  65.636,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0021-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  22,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  211.963,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0022-custom-test-suite.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  23,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  270.99,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0023-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  24,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  271.528,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0024-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  25,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  266.215,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0025-custom-test-suite.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  26,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  282.245,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0026-custom-test-suite.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  27,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  293.063,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0027-custom-test-suite.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  28,
+                        "TestClass":  "mvn clean test (AllTestsRunner custom suite)",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  318.334,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\cycle-0028-custom-test-suite.log",
+                        "Status":  "PASS"
+                    },
+                    {
+                        "Cycle":  28,
+                        "TestClass":  "final mvn clean test",
+                        "ExitCode":  0,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  319.778,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-173159\\final-clean-test.log",
+                        "Status":  "PASS"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

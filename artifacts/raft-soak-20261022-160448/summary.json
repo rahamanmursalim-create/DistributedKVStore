@@ -1,0 +1,36 @@
+﻿{
+    "runId":  "raft-soak-20261022-160448",
+    "repoRoot":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore",
+    "startedAt":  "2026-10-22T16:04:48.2064900+05:30",
+    "finishedAt":  "2026-10-22T16:05:09.8645112+05:30",
+    "requestedDurationHours":  1,
+    "elapsedTotalSeconds":  21.65,
+    "soakElapsedSeconds":  0,
+    "cyclesStarted":  0,
+    "allExecutedChecksPassed":  false,
+    "allExpectedTestClassesPresent":  true,
+    "missingTestClasses":  [
+
+                           ],
+    "results":  [
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "test-compile",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  11.183,
+                        "LogPath":  "C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-160448\\00-test-compile.log",
+                        "Status":  "FAIL"
+                    },
+                    {
+                        "Cycle":  0,
+                        "TestClass":  "harness",
+                        "ExitCode":  1,
+                        "TimedOut":  false,
+                        "ElapsedSeconds":  0,
+                        "LogPath":  "",
+                        "Status":  "FAIL: test-compile failed; see C:\\Users\\mursa\\Downloads\\DistributedKVStore\\artifacts\\raft-soak-20261022-160448\\00-test-compile.log"
+                    }
+                ],
+    "note":  "This is a same-host process soak. It is not physical-machine or availability-SLO evidence."
+}

@@ -1,0 +1,160 @@
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 1 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 2 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 3 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 4 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 5 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 6 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 7 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 8 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 9 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 10 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 11 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 12 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 13 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 14 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 15 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 16 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 17 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 18 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 19 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.raft.RaftSnapshotInstallTest RUN 20 exit=0
+RaftSnapshotInstallTest passed: active checkpoint, lagging follower install, WAL restart recovery
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 1 exit=0
+HTTP dashboard listening on port 50690
+HTTP dashboard listening on port 50693
+HTTP dashboard listening on port 50696
+HTTP dashboard listening on port 50703
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 2 exit=0
+HTTP dashboard listening on port 50707
+HTTP dashboard listening on port 50710
+HTTP dashboard listening on port 50713
+HTTP dashboard listening on port 50720
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 3 exit=0
+HTTP dashboard listening on port 50724
+HTTP dashboard listening on port 50727
+HTTP dashboard listening on port 50730
+HTTP dashboard listening on port 50737
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 4 exit=0
+HTTP dashboard listening on port 50742
+HTTP dashboard listening on port 50745
+HTTP dashboard listening on port 50748
+HTTP dashboard listening on port 50755
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 5 exit=0
+HTTP dashboard listening on port 50759
+HTTP dashboard listening on port 50762
+HTTP dashboard listening on port 50765
+HTTP dashboard listening on port 50772
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 6 exit=0
+HTTP dashboard listening on port 49840
+HTTP dashboard listening on port 49844
+HTTP dashboard listening on port 49848
+HTTP dashboard listening on port 49855
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 7 exit=0
+HTTP dashboard listening on port 49861
+HTTP dashboard listening on port 49864
+HTTP dashboard listening on port 49868
+HTTP dashboard listening on port 49875
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 8 exit=0
+HTTP dashboard listening on port 49881
+HTTP dashboard listening on port 49885
+HTTP dashboard listening on port 49888
+HTTP dashboard listening on port 49896
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 9 exit=0
+HTTP dashboard listening on port 49906
+HTTP dashboard listening on port 49914
+HTTP dashboard listening on port 49918
+HTTP dashboard listening on port 49927
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 10 exit=0
+HTTP dashboard listening on port 49931
+HTTP dashboard listening on port 49934
+HTTP dashboard listening on port 49938
+HTTP dashboard listening on port 49945
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 11 exit=0
+HTTP dashboard listening on port 49949
+HTTP dashboard listening on port 49952
+HTTP dashboard listening on port 49955
+HTTP dashboard listening on port 49963
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 12 exit=0
+HTTP dashboard listening on port 49967
+HTTP dashboard listening on port 49970
+HTTP dashboard listening on port 49975
+HTTP dashboard listening on port 49984
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 13 exit=0
+HTTP dashboard listening on port 49988
+HTTP dashboard listening on port 49991
+HTTP dashboard listening on port 49997
+HTTP dashboard listening on port 50067
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 14 exit=0
+HTTP dashboard listening on port 50071
+HTTP dashboard listening on port 50075
+HTTP dashboard listening on port 50079
+HTTP dashboard listening on port 50086
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 15 exit=0
+HTTP dashboard listening on port 50090
+HTTP dashboard listening on port 50093
+HTTP dashboard listening on port 50099
+HTTP dashboard listening on port 50106
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 16 exit=0
+HTTP dashboard listening on port 50110
+HTTP dashboard listening on port 50114
+HTTP dashboard listening on port 50117
+HTTP dashboard listening on port 50124
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 17 exit=0
+HTTP dashboard listening on port 50130
+HTTP dashboard listening on port 50133
+HTTP dashboard listening on port 50136
+HTTP dashboard listening on port 50143
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 18 exit=0
+HTTP dashboard listening on port 50147
+HTTP dashboard listening on port 50150
+HTTP dashboard listening on port 50156
+HTTP dashboard listening on port 50163
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 19 exit=0
+HTTP dashboard listening on port 50168
+HTTP dashboard listening on port 50171
+HTTP dashboard listening on port 50176
+HTTP dashboard listening on port 50183
+WebServerIntegrationTest passed all tests.
+com.codecrafters.redis.web.WebServerIntegrationTest RUN 20 exit=0
+HTTP dashboard listening on port 50188
+HTTP dashboard listening on port 50191
+HTTP dashboard listening on port 50194
+HTTP dashboard listening on port 50201
+WebServerIntegrationTest passed all tests.

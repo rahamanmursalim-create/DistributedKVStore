@@ -1,0 +1,26 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Segoe UI, Arial","fontSize":"15px","lineColor":"#475569"}}}%%
+flowchart LR
+    W["Write<br/>put / delete / batch"] --> WAL[("Write-ahead log<br/>PUT2 · DEL2 · TXN2<br/>checksummed records")]
+    WAL --> MT["MemTable<br/>B+ Tree · tombstones"]
+    MT -->|"flush"| SST1[("SSTable<br/>sparse index (every 128 keys)<br/>Bloom filter")]
+    SST1 -->|"compaction"| SST2[("Merged SSTable")]
+    SST1 --> MAN["Manifest<br/>active SSTable IDs"]
+    SST2 --> MAN
+
+    R["Read"] --> MT
+    MT -->|"miss"| BF{"Bloom filter:<br/>key possible?"}
+    BF -->|"yes"| SST1
+    BF -->|"no"| NF["Not found"]
+    SST1 --- LRU["LRU record cache<br/>1,000 entries"]
+
+    REC["Crash recovery"] -.->|"replay WAL"| WAL
+    REC -.->|"reconcile manifest,<br/>detect orphan SSTables"| MAN
+
+    RDB[("RocksDB B+ Tree store<br/>KV_STORAGE_BACKEND=rocksdb")]
+
+    classDef a fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B;
+    classDef b fill:#FCE7F3,stroke:#DB2777,color:#831843;
+    classDef c fill:#FEF3C7,stroke:#D97706,color:#78350F;
+    class W,R,MT,BF,LRU,NF a;
+    class WAL,SST1,SST2,RDB b;
+    class MAN,REC c;

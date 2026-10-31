@@ -1,0 +1,25 @@
+Sandbox observations on the uploaded ZIP's bundled target/classes and target/test-classes
+Date: 2026-10-22
+Environment: Linux 6.18.55 container, OpenJDK 21.0.12.1, 4 CPUs exposed, ~4 GiB system RAM reported by the TCP benchmark, 1 GiB max heap.
+Important: this did not rebuild the current Windows working tree. The archive's bundled compiled classes may not correspond to its source. These are local sandbox observations only.
+
+MultiRaftBenchmark (2 groups x 3 local replicas; four workers; 50% read / 50% write; 512 seeded keys; ~10-byte values):
+run-1: operations=800, throughputOpsSec=432.1, p50=7.534 ms, p95=22.373 ms, p99=28.621 ms, errors=0
+run-2: operations=800, throughputOpsSec=434.3, p50=7.114 ms, p95=22.002 ms, p99=29.273 ms, errors=0
+run-3: operations=800, throughputOpsSec=380.2, p50=8.056 ms, p95=22.749 ms, p99=28.833 ms, errors=0
+
+TcpRespBenchmark with small explicit load (8 clients, 100 warmup ops/client, 750 measured ops/client, 64-byte values, 50% GET / 50% SET):
+run-1: ops=6000, throughputOpsSec=4652.4, p50=1.997 ms, p95=3.683 ms, p99=5.958 ms, errors=0
+run-2: ops=6000, throughputOpsSec=5191.9, p50=2.097 ms, p95=3.267 ms, p99=4.563 ms, errors=0
+run-3: ops=6000, throughputOpsSec=5455.0, p50=2.196 ms, p95=3.062 ms, p99=3.322 ms, errors=0
+
+Observed test class executions against bundled precompiled classes (each exit 0):
+- RaftMultiProcessTest: separate JVMs, leader failure, quorum failover, restart catch-up
+- RaftGroupConsensusTest
+- RaftDynamicMembershipTest: learner catch-up, joint replacement, leader removal
+- RaftRebalanceIntegrationTest: 80 keys moved, three replicas, TTL preserved
+- MultiRaftStoreTest
+- RpcTransportTest
+- WebServerIntegrationTest
+
+These results do not establish user-machine performance, Java 17 source-build correctness, production performance, 50K QPS, P99 SLOs, availability percentage, physical-host cluster correctness, or TLS deployment security.

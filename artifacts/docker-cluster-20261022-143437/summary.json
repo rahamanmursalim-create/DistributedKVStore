@@ -1,0 +1,14 @@
+{
+    "result":  "FAIL",
+    "finishedAt":  "2026-10-22T14:37:25.1125109+05:30",
+    "error":  "curl: (35) Recv failure: Connection was aborted",
+    "checks":  [
+                   "Docker Engine 29.7.2",
+                   "three isolated containers ready; HTTPS authentication enforced",
+                   "initial leader n1",
+                   "seed write replicated and read through all container HTTPS endpoints",
+                   "follower n2 stopped; majority committed, restarted follower caught up",
+                   "single running voter could not commit without quorum; peers resumed"
+               ],
+    "physicalMachineTest":  false
+}

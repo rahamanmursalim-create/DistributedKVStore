@@ -1,0 +1,22 @@
+kvverify-n1  | Picked up JAVA_TOOL_OPTIONS: -Dkv.raft.debug=true
+kvverify-n3  | Picked up JAVA_TOOL_OPTIONS: -Dkv.raft.debug=true
+kvverify-n1  | Multi-Raft cluster mode enabled for node n1 across groups [docker-check]
+kvverify-n1  | HTTP dashboard listening on port 8080
+kvverify-n1  | Redis server listening on port 6379...
+kvverify-n3  | Multi-Raft cluster mode enabled for node n3 across groups [docker-check]
+kvverify-n1  | Raft n1 vote RPC to n2 failed: java.net.SocketTimeoutException: Connect timed out
+kvverify-n3  | HTTP dashboard listening on port 8080
+kvverify-n1  | Raft n1 election term=2 votes=[n1] voters=[n1, n2, n3]
+kvverify-n3  | Redis server listening on port 6379...
+kvverify-n1  | Raft n1 vote RPC to n2 failed: java.net.SocketTimeoutException: Connect timed out
+kvverify-n1  | Raft n1 election term=3 votes=[n1] voters=[n1, n2, n3]
+kvverify-n3  | Raft n3 vote RPC to n2 failed: java.net.SocketTimeoutException: Connect timed out
+kvverify-n3  | Raft n3 election term=2 votes=[n3] voters=[n3, n2, n1]
+kvverify-n3  | Raft n3 vote RPC to n2 failed: java.net.SocketTimeoutException: Connect timed out
+kvverify-n3  | Raft n3 election term=3 votes=[n3] voters=[n3, n2, n1]
+kvverify-n2  | Picked up JAVA_TOOL_OPTIONS: -Dkv.raft.debug=true
+kvverify-n2  | Raft n2 election term=1 votes=[n1, n2, n3] voters=[n2, n3, n1]
+kvverify-n2  | Multi-Raft cluster mode enabled for node n2 across groups [docker-check]
+kvverify-n2  | HTTP dashboard listening on port 8080
+kvverify-n2  | Redis server listening on port 6379...
+kvverify-n2  | Raft n2 no-op replication term=1 replicas=[n1, n2, n3]
