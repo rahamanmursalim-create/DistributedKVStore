@@ -154,10 +154,11 @@ public class RedisServerTest {
     private static void testRespRejectsOversizedLengths() throws IOException {
         System.out.println("\n--- Test RESP Input Limits ---");
 
-        assertRespRejected("oversized bulk string", "$67108865\\r\\n");
-        assertRespRejected("oversized array", "*1000001\\r\\n");
-        assertRespRejected("malformed length", "$not-a-number\\r\\n");
-        assertRespRejected("oversized line", "+" + "x".repeat(65_537) + "\\r\\n");
+        assertRespRejected("oversized bulk string", "$1048577\r\n");
+        assertRespRejected("oversized array", "*10001\r\n");
+        assertRespRejected("excessively nested arrays", "*1\r\n".repeat(34) + "$-1\r\n");
+        assertRespRejected("malformed length", "$not-a-number\r\n");
+        assertRespRejected("oversized line", "+" + "x".repeat(65_537) + "\r\n");
     }
 
     private static void assertRespRejected(String name, String input) throws IOException {
@@ -203,6 +204,8 @@ public class RedisServerTest {
         System.out.println("\n--- Test Live Server End-to-End Across All Stages ---");
 
         int testPort = 6380;
+        String previousReadTimeout = System.getProperty("redis.client.readTimeoutMillis");
+        System.setProperty("redis.client.readTimeoutMillis", "500");
         RedisStore serverStore = new RedisStore(
                 Files.createTempDirectory("redis-server-integration-").resolve("wal.log"), false);
         Server server = new Server(testPort, serverStore);
@@ -220,6 +223,15 @@ public class RedisServerTest {
         Thread.sleep(100);
 
         try {
+            try (Socket slowClient = new Socket("127.0.0.1", testPort)) {
+                slowClient.setSoTimeout(2_000);
+                slowClient.getOutputStream().write("$12\r\npartial".getBytes(StandardCharsets.UTF_8));
+                slowClient.getOutputStream().flush();
+                Thread.sleep(800);
+                assertTrue("Socket read timeout closes stalled RESP request",
+                        slowClient.getInputStream().read() == -1, "Stalled socket was not closed");
+            }
+
             // Stage 1 & 2: PING
             try (Socket socket = new Socket("localhost", testPort)) {
                 OutputStream out = socket.getOutputStream();
@@ -355,6 +367,8 @@ public class RedisServerTest {
             server.stop();
             serverThread.join(2000);
             serverStore.close();
+            if (previousReadTimeout == null) System.clearProperty("redis.client.readTimeoutMillis");
+            else System.setProperty("redis.client.readTimeoutMillis", previousReadTimeout);
         }
     }
 

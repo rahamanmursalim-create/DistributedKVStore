@@ -13,11 +13,21 @@ import java.util.Locale;
  */
 public final class Command {
     private final String name;
-    private final List<String> args;
+    private final List<RespValue> args;
 
     public Command(String name, List<String> args) {
         this.name = name != null ? name.toUpperCase(Locale.ROOT) : "";
-        this.args = args != null ? Collections.unmodifiableList(new ArrayList<>(args)) : Collections.emptyList();
+        if (args == null) this.args = Collections.emptyList();
+        else {
+            List<RespValue> values = new ArrayList<>(args.size());
+            for (String arg : args) values.add(RespValue.bulkString(arg));
+            this.args = Collections.unmodifiableList(values);
+        }
+    }
+
+    private Command(String name, List<RespValue> args, boolean preserveBytes) {
+        this.name = name != null ? name.toUpperCase(Locale.ROOT) : "";
+        this.args = args == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(args));
     }
 
     public static Command fromRespValue(RespValue value) {
@@ -31,12 +41,9 @@ public final class Command {
                 return null;
             }
             String cmdName = elements.get(0).getStringValue();
-            List<String> cmdArgs = new ArrayList<>();
-            for (int i = 1; i < elements.size(); i++) {
-                RespValue elem = elements.get(i);
-                cmdArgs.add(elem.getStringValue() != null ? elem.getStringValue() : (elem.getIntegerValue() != null ? elem.getIntegerValue().toString() : ""));
-            }
-            return new Command(cmdName, cmdArgs);
+            List<RespValue> cmdArgs = new ArrayList<>();
+            for (int i = 1; i < elements.size(); i++) cmdArgs.add(elements.get(i));
+            return new Command(cmdName, cmdArgs, true);
         }
 
         if (value.getType() == RespType.BULK_STRING || value.getType() == RespType.SIMPLE_STRING) {
@@ -60,7 +67,7 @@ public final class Command {
     }
 
     public List<String> getArgs() {
-        return args;
+        return args.stream().map(Command::stringValue).toList();
     }
 
     public int getArgCount() {
@@ -69,9 +76,23 @@ public final class Command {
 
     public String getArg(int index) {
         if (index >= 0 && index < args.size()) {
-            return args.get(index);
+            return stringValue(args.get(index));
         }
         return null;
+    }
+
+    public byte[] getArgBytes(int index) {
+        if (index < 0 || index >= args.size()) return null;
+        RespValue value = args.get(index);
+        if (value.getBytesValue() != null) return value.getBytesValue();
+        if (value.getIntegerValue() != null)
+            return value.getIntegerValue().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new byte[0];
+    }
+
+    private static String stringValue(RespValue value) {
+        if (value.getStringValue() != null) return value.getStringValue();
+        return value.getIntegerValue() == null ? "" : value.getIntegerValue().toString();
     }
 
     @Override

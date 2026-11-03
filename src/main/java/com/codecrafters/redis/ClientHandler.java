@@ -67,11 +67,17 @@ public class ClientHandler implements Runnable {
                 Command command = Command.fromRespValue(value);
                 RespValue response;
                 if ("AUTH".equalsIgnoreCase(command.getName())) {
-                    boolean accepted = command.getArgCount() == 1 && clientToken != null
+                    boolean argumentShape = command.getArgCount() == 1 || command.getArgCount() == 2;
+                    boolean validUser = command.getArgCount() == 1 ||
+                            (command.getArgCount() == 2 && "default".equals(command.getArg(0)));
+                    int passwordIndex = command.getArgCount() == 1 ? 0 : 1;
+                    boolean accepted = argumentShape && validUser && clientToken != null
                             && java.security.MessageDigest.isEqual(clientToken.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                            command.getArg(0).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            command.getArgBytes(passwordIndex));
                     authenticated = accepted;
-                    response = accepted ? RespValue.simpleString("OK") : RespValue.error("WRONGPASS invalid password");
+                    response = accepted ? RespValue.simpleString("OK") : RespValue.error(
+                            argumentShape ? "WRONGPASS invalid username-password pair" :
+                                    "ERR wrong number of arguments for 'auth' command");
                 } else if (!authenticated) response = RespValue.error("NOAUTH Authentication required");
                 else response = commandHandler.execute(command);
 

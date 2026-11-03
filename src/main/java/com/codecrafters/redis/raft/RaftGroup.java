@@ -3,6 +3,7 @@ package com.codecrafters.redis.raft;
 import com.codecrafters.redis.rpc.RpcMessage;
 import com.codecrafters.redis.rpc.RpcTransportClient;
 import com.codecrafters.redis.rpc.RpcTransportServer;
+import com.codecrafters.redis.cluster.RaftTransportSecurity;
 import com.codecrafters.redis.storage.RedisStore;
 import com.codecrafters.redis.storage.ValueEntry;
 
@@ -25,15 +26,25 @@ import java.util.Set;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.CRC32;
 
 /** One independently replicated Raft group hosted by a node. */
 public final class RaftGroup implements AutoCloseable {
     private enum Role { FOLLOWER, CANDIDATE, LEADER }
     private static final int MAX_COMMAND_BYTES = 16 * 1024 * 1024;
+    private static final int SNAPSHOT_MAGIC_LEGACY = 0x4b565331;
+    private static final int SNAPSHOT_MAGIC_UTF8 = 0x4b565332;
     private static final int SNAPSHOT_CHUNK_BYTES = 8 * 1024 * 1024;
     private static final int MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024;
     private static final int SNAPSHOT_LOG_ENTRY_THRESHOLD = positiveSetting("KV_RAFT_SNAPSHOT_LOG_ENTRIES", 10_000);
@@ -53,7 +64,12 @@ public final class RaftGroup implements AutoCloseable {
     private final RedisStore store;
     private final RpcTransportServer transport;
     private final ScheduledExecutorService scheduler;
-    private long term, commitIndex, lastApplied;
+    private final ExecutorService readIndexExecutor;
+    private final ExecutorService replicationExecutor;
+    private final Map<String, AtomicBoolean> replicationInFlight = new ConcurrentHashMap<>();
+    private final Map<String, Object> replicationLocks = new ConcurrentHashMap<>();
+    private volatile long term;
+    private long commitIndex, lastApplied;
     private long lastContactNanos, electionTimeoutNanos, lastHeartbeatNanos;
     private final long electionTimeoutMinMillis = positiveSetting("KV_RAFT_ELECTION_MIN_MS", 350);
     private final long electionTimeoutMaxMillis = positiveSetting("KV_RAFT_ELECTION_MAX_MS", 650);
@@ -70,6 +86,8 @@ public final class RaftGroup implements AutoCloseable {
     private final ThreadLocal<Long> requestOwnershipEpoch = new ThreadLocal<>();
     private final java.util.concurrent.atomic.AtomicBoolean migrationCoordinatorBusy = new java.util.concurrent.atomic.AtomicBoolean();
     private final Map<String, TransactionRecord> transactions = new LinkedHashMap<>();
+    /** Persisted-in-the-log set of transactions which still require coordinator recovery. */
+    private final Set<String> transactionRecoveryIndex = new java.util.LinkedHashSet<>();
     private final Map<String, String> preparedKeyOwners = new java.util.HashMap<>();
     private SnapshotTransfer snapshotTransfer;
     private record SnapshotTransfer(String id, String source, long index, long term,
@@ -107,9 +125,20 @@ public final class RaftGroup implements AutoCloseable {
         if (electionTimeoutMaxMillis <= electionTimeoutMinMillis)
             throw new IllegalArgumentException("KV_RAFT_ELECTION_MAX_MS must exceed KV_RAFT_ELECTION_MIN_MS");
         this.nodeId = require(nodeId, "nodeId");
+        this.readIndexExecutor = new ThreadPoolExecutor(0, 32, 60L, TimeUnit.SECONDS,
+                new SynchronousQueue<>(), task -> {
+                    Thread thread = new Thread(task, "raft-read-index-" + this.groupId + "-" + this.nodeId);
+                    thread.setDaemon(true); return thread;
+                }, new ThreadPoolExecutor.AbortPolicy());
         this.bindAddress = Objects.requireNonNull(bindAddress, "bindAddress");
         this.selfEndpoint = Objects.requireNonNull(advertisedAddress, "advertisedAddress");
         this.peers = new LinkedHashMap<>(Objects.requireNonNull(peers));
+        RaftTransportSecurity.validate(this.bindAddress, this.peers.values(),
+                com.codecrafters.redis.rpc.TlsContext.configured(), System.getenv("KV_CLUSTER_TOKEN"));
+        this.replicationExecutor = Executors.newFixedThreadPool(Math.max(1, Math.min(32, this.peers.size())), task -> {
+            Thread thread = new Thread(task, "raft-replication-" + this.groupId + "-" + this.nodeId);
+            thread.setDaemon(true); return thread;
+        });
         if (this.peers.containsKey(nodeId)) throw new IllegalArgumentException("Peers must not contain this node");
         if (initialVoter) voters.add(nodeId);
         voters.addAll(this.peers.keySet());
@@ -154,6 +183,20 @@ public final class RaftGroup implements AutoCloseable {
     public synchronized long getOwnershipEpoch() { return ownershipEpoch; }
     /** Local applied key count for monitoring; does not perform a quorum read. */
     public int getLocalStoreKeyCount() { return store.size(); }
+    public RedisStore.StorageUsage getStorageUsage() throws IOException { return store.storageUsage(); }
+    /** Replication distance in log entries from this leader's log end for each configured peer. */
+    public synchronized Map<String, Long> replicationLagByPeer() {
+        if (role != Role.LEADER) return Map.of();
+        long last = log.lastIndex();
+        Map<String, Long> lag = new LinkedHashMap<>();
+        synchronized (nextIndexByPeer) {
+            for (String peer : peers.keySet()) {
+                long replicatedThrough = nextIndexByPeer.getOrDefault(peer, 1L) - 1;
+                lag.put(peer, Math.max(0, last - replicatedThrough));
+            }
+        }
+        return java.util.Collections.unmodifiableMap(lag);
+    }
     public synchronized List<String> getOwnershipGroups() { return ownershipGroups; }
     public synchronized List<String> getMigrationIntent() { return migrationIntent; }
     public synchronized boolean isMaintenanceFrozen() { return maintenanceFrozen; }
@@ -332,7 +375,11 @@ public final class RaftGroup implements AutoCloseable {
             if (Boolean.getBoolean("kv.raft.debug"))
                 System.err.println("Raft " + nodeId + " no-op replication term=" + electionTerm + " replicas=" + replicated);
             if (!hasQuorum(replicated)) { role = Role.FOLLOWER; leaderId = null; resetElectionDeadline(); return false; }
-            commitIndex = noOp.getIndex(); metadata.save(term, votedFor, commitIndex); applyCommitted();
+            // A client write may commit a later entry while the election no-op is
+            // being replicated. Committing that prefix already commits the no-op;
+            // never move the durable commit index backwards when election completes.
+            commitIndex = Math.max(commitIndex, noOp.getIndex());
+            metadata.save(term, votedFor, commitIndex); applyCommitted();
             refreshPendingConfiguration();
             notifyCommit(); maybeCreateSnapshot(); lastHeartbeatNanos = System.nanoTime();
             return true;
@@ -409,34 +456,56 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     public void beginTransaction(String id, String digest, List<String> participants) throws IOException {
+        validateParticipantList(participants);
         byte[] command = encode(out -> {
             out.writeByte(11); out.writeUTF(id); out.writeUTF(digest); writeStrings(out, participants);
         });
+        if (command.length > MAX_COMMAND_BYTES) throw new IOException("Transaction participants exceed Raft command capacity");
         commitCommand(command);
     }
 
     public void prepareTransaction(String id, String digest, List<String> participants,
                                    Map<String, String> changes) throws IOException {
-        byte[] command = encode(out -> {
-            out.writeByte(12); out.writeUTF(id); out.writeUTF(digest); writeStrings(out, participants);
+        validateParticipantList(participants);
+        byte[] command = encodeBounded(out -> {
+            out.writeByte(29); writeUtf8(out, id); writeUtf8(out, digest); writeTransactionStrings(out, participants);
             out.writeInt(changes.size());
             for (Map.Entry<String, String> change : changes.entrySet()) {
-                out.writeUTF(change.getKey()); out.writeBoolean(change.getValue() != null);
-                if (change.getValue() != null) out.writeUTF(change.getValue());
+                writeUtf8(out, change.getKey()); out.writeBoolean(change.getValue() != null);
+                if (change.getValue() != null) writeUtf8(out, change.getValue());
             }
-        });
-        if (command.length > MAX_COMMAND_BYTES) throw new IOException("Transaction prepare exceeds Raft command limit");
+        }, MAX_COMMAND_BYTES, "Transaction prepare exceeds Raft command limit");
         synchronized (this) { validatePrepareAvailable(id, changes.keySet()); }
         commitCommand(command);
     }
 
+    /** Confirms the durable prepare still owns its capacity reservation before commit. */
+    public synchronized void validatePreparedTransactionCapacity(String id, String digest) throws IOException {
+        TransactionRecord record = transactions.get(id);
+        if (record == null || !record.prepared() || record.applied() || !record.digest().equals(digest))
+            throw new IOException("Transaction participant is not durably prepared: " + id);
+        try { store.validateAtomicChangesCapacity(id, record.changes()); }
+        catch (RuntimeException failure) {
+            throw new IOException("Prepared transaction no longer fits participant capacity: " + id, failure);
+        }
+    }
+
     public void decideTransaction(String id, String digest, List<String> participants, boolean commit)
             throws IOException {
+        validateParticipantList(participants);
         byte[] command = encode(out -> {
             out.writeByte(13); out.writeUTF(id); out.writeUTF(digest); writeStrings(out, participants);
             out.writeBoolean(commit);
         });
+        if (command.length > MAX_COMMAND_BYTES) throw new IOException("Transaction decision exceeds Raft command capacity");
         commitCommand(command);
+    }
+
+    private static void validateParticipantList(List<String> participants) throws IOException {
+        if (participants == null || participants.isEmpty() || participants.size() > 100_000)
+            throw new IOException("Invalid transaction participant count");
+        if (new java.util.LinkedHashSet<>(participants).size() != participants.size())
+            throw new IOException("Duplicate transaction participant");
     }
 
     public void applyCommittedTransaction(String id, String digest) throws IOException {
@@ -444,8 +513,27 @@ public final class RaftGroup implements AutoCloseable {
         commitCommand(command);
     }
 
+    /** Commits participant application together with the delete count observed at that exact point. */
+    public int applyCommittedTransactionWithDeleteCount(String id, String digest) throws IOException {
+        byte[] command = encode(out -> { out.writeByte(31); out.writeUTF(id); out.writeUTF(digest); });
+        return forwardClientCommand(command).deleteCount();
+    }
+
+    private int countExistingDeletes(TransactionRecord record) {
+        int count = 0;
+        for (Map.Entry<String, String> change : record.changes().entrySet())
+            if (change.getValue() == null && store.exists(change.getKey())) count++;
+        return count;
+    }
+
     public void abortPreparedTransaction(String id, String digest) throws IOException {
         byte[] command = encode(out -> { out.writeByte(15); out.writeUTF(id); out.writeUTF(digest); });
+        commitCommand(command);
+    }
+
+    /** Drops the coordinator checkpoint only after every participant has resolved. */
+    public void completeTransaction(String id, String digest) throws IOException {
+        byte[] command = encode(out -> { out.writeByte(26); out.writeUTF(id); out.writeUTF(digest); });
         commitCommand(command);
     }
 
@@ -470,10 +558,63 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     public synchronized boolean hasUnresolvedLocalTransactions() {
-        for (TransactionRecord record : transactions.values())
-            if (record.decision() == null || record.prepared() || (Boolean.TRUE.equals(record.decision()) && !record.applied()))
-                return true;
-        return false;
+        return !transactionRecoveryIndex.isEmpty();
+    }
+
+    /** Returns only active transaction records, using the durable recovery index. */
+    public List<TransactionRecord> unresolvedTransactionsWithReadIndex() throws IOException {
+        boolean leader;
+        synchronized (this) {
+            leader = role == Role.LEADER;
+        }
+        if (leader) {
+            long index = readIndex();
+            synchronized (this) {
+                while (lastApplied < index) applyCommitted();
+                return unresolvedTransactionRecords();
+            }
+        }
+        DataInputStream in = forwardClientRead(encode(out -> out.writeByte(27)));
+        int count = in.readInt();
+        if (count < 0 || count > 1_000_000) throw new IOException("Invalid unresolved transaction count");
+        List<TransactionRecord> result = new java.util.ArrayList<>(count);
+        for (int i = 0; i < count; i++) result.add(readTransactionRecord(in));
+        return List.copyOf(result);
+    }
+
+    /** Reads one transaction by id, including a participant already applied locally. */
+    public TransactionRecord transactionWithReadIndex(String id) throws IOException {
+        Objects.requireNonNull(id, "id");
+        boolean leader;
+        synchronized (this) { leader = role == Role.LEADER; }
+        if (leader) {
+            long index = readIndex();
+            synchronized (this) {
+                while (lastApplied < index) applyCommitted();
+                return transactions.get(id);
+            }
+        }
+        DataInputStream in = forwardClientRead(encode(out -> { out.writeByte(28); out.writeUTF(id); }));
+        boolean found = in.readBoolean();
+        return found ? readTransactionRecord(in) : null;
+    }
+
+    private synchronized List<TransactionRecord> unresolvedTransactionRecords() {
+        List<TransactionRecord> records = new java.util.ArrayList<>(transactionRecoveryIndex.size());
+        for (String id : transactionRecoveryIndex) {
+            TransactionRecord record = transactions.get(id);
+            if (record != null) records.add(record);
+        }
+        return List.copyOf(records);
+    }
+
+    private void refreshTransactionRecoveryIndex(TransactionRecord record) {
+        boolean coordinatorPending = !record.participants().isEmpty()
+                && record.participants().get(0).equals(groupId);
+        boolean participantPending = record.decision() == null || record.prepared()
+                || Boolean.TRUE.equals(record.decision()) && !record.applied();
+        if (coordinatorPending || participantPending) transactionRecoveryIndex.add(record.id());
+        else transactionRecoveryIndex.remove(record.id());
     }
 
     public long currentTermWithReadIndex() throws IOException {
@@ -493,7 +634,7 @@ public final class RaftGroup implements AutoCloseable {
             if (expectedEpoch >= 0 && expectedEpoch != ownershipEpoch)
                 throw new IOException("Stale shard owner: request epoch=" + expectedEpoch + ", current epoch=" + ownershipEpoch);
             int op = command.length == 0 ? -1 : command[0] & 0xff;
-            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21)
+            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21 && op != 26 && op != 30)
                 throw new IOException("Raft group is frozen for shard migration");
             if (role == Role.LEADER) validateOwnershipCommand(command);
             validateNoPreparedConflict(command);
@@ -582,11 +723,49 @@ public final class RaftGroup implements AutoCloseable {
         RaftLogEntry entry = log.append(term, command);
         refreshPendingConfiguration();
         Set<String> replicated = new java.util.HashSet<>(); replicated.add(nodeId);
-        for (Map.Entry<String, InetSocketAddress> peer : peers.entrySet()) {
-            try { if (replicate(peer.getKey(), peer.getValue(), entry)) replicated.add(peer.getKey()); }
-            catch (IOException ignored) { }
-            if (term != writeTerm || role != Role.LEADER) throw new IOException("Leadership changed while replicating write");
+        AtomicLong higherTerm = new AtomicLong(writeTerm);
+        ExecutorCompletionService<String> completed = new ExecutorCompletionService<>(replicationExecutor);
+        int submitted = 0;
+        for (Map.Entry<String, InetSocketAddress> peer : new LinkedHashMap<>(peers).entrySet()) {
+            AtomicBoolean inFlight = replicationInFlight.computeIfAbsent(peer.getKey(), ignored -> new AtomicBoolean());
+            if (!inFlight.compareAndSet(false, true)) continue;
+            try {
+                completed.submit(() -> {
+                    try { return replicate(peer.getKey(), peer.getValue(), entry, higherTerm) ? peer.getKey() : null; }
+                    catch (IOException unavailable) { return null; }
+                    finally { inFlight.set(false); }
+                });
+                submitted++;
+            } catch (java.util.concurrent.RejectedExecutionException saturated) {
+                // This peer cannot contribute to this write's quorum.
+                inFlight.set(false);
+            }
         }
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(1500, rpcReadTimeoutMillis + 250L));
+        for (int received = 0; received < submitted && !hasQuorumForCommand(replicated, command); received++) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) break;
+            try {
+                Future<String> result = completed.poll(remaining, TimeUnit.NANOSECONDS);
+                if (result == null) break;
+                String peer = result.get();
+                if (peer != null) replicated.add(peer);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while replicating Raft write", interrupted);
+            } catch (java.util.concurrent.ExecutionException failedRpc) {
+                // An unavailable peer cannot acknowledge this entry.
+            }
+            if (higherTerm.get() > writeTerm) {
+                stepDown(higherTerm.get());
+                throw new IOException("Leadership changed while replicating write");
+            }
+        }
+        if (higherTerm.get() > writeTerm) {
+            stepDown(higherTerm.get());
+            throw new IOException("Leadership changed while replicating write");
+        }
+        if (term != writeTerm || role != Role.LEADER) throw new IOException("Leadership changed while replicating write");
         if (!hasQuorumForCommand(replicated, command)) throw new IOException("Raft write did not reach the required voter quorum");
         commitIndex = entry.getIndex(); metadata.save(term, votedFor, commitIndex);
         // Notify the removed voters while the joint configuration still retains
@@ -608,14 +787,12 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     private ClientResult forwardClientCommand(byte[] command) throws IOException {
-        String currentLeader = leaderId;
-        InetSocketAddress address = currentLeader == null ? null : peers.get(currentLeader);
-        if (address == null) throw new IOException("Leader is not known yet");
+        LeaderEndpoint leader = awaitLeaderEndpoint();
         Long expectedEpoch = requestOwnershipEpoch.get();
         byte[] forwarded = expectedEpoch == null ? command : encode(out -> {
             out.writeByte(22); out.writeLong(expectedEpoch); out.writeInt(command.length); out.write(command);
         });
-        RpcMessage response = call(currentLeader, address, RpcMessage.Type.REQUEST, forwarded);
+        RpcMessage response = call(leader.nodeId(), leader.address(), RpcMessage.Type.REQUEST, forwarded);
         if (response.getType() != RpcMessage.Type.RESPONSE) throw new IOException("Invalid Raft client response");
         DataInputStream in = input(response);
         boolean success = in.readBoolean(); long index = in.readLong(); boolean keyExisted = in.readBoolean();
@@ -625,10 +802,8 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     private DataInputStream forwardClientRead(byte[] command) throws IOException {
-        String currentLeader = leaderId;
-        InetSocketAddress address = currentLeader == null ? null : peers.get(currentLeader);
-        if (address == null) throw new IOException("Leader is not known yet");
-        RpcMessage response = call(currentLeader, address, RpcMessage.Type.REQUEST, command);
+        LeaderEndpoint leader = awaitLeaderEndpoint();
+        RpcMessage response = call(leader.nodeId(), leader.address(), RpcMessage.Type.REQUEST, command);
         if (response.getType() != RpcMessage.Type.RESPONSE) throw new IOException("Invalid Raft read response");
         DataInputStream in = input(response);
         boolean success = in.readBoolean(); in.readLong(); in.readBoolean();
@@ -663,6 +838,26 @@ public final class RaftGroup implements AutoCloseable {
                         encode(out -> { out.writeBoolean(true); out.writeLong(commitIndex); out.writeBoolean(false); out.writeInt(0); }));
             } catch (IOException failure) {
                 String reason = failure.getMessage() == null ? "Snapshot installation failed" : failure.getMessage();
+                return response(request, RpcMessage.Type.RESPONSE,
+                        encode(out -> { out.writeBoolean(false); out.writeLong(-1); out.writeBoolean(false); out.writeInt(0); out.writeUTF(reason); }));
+            }
+        }
+        if (command.length > 0 && command[0] == 31) {
+            try {
+                DataInputStream requestIn = new DataInputStream(new ByteArrayInputStream(command));
+                requestIn.readUnsignedByte(); String id = requestIn.readUTF(), digest = requestIn.readUTF();
+                if (requestIn.available() != 0) throw new IOException("Malformed counted transaction apply request");
+                if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
+                TransactionRecord record = transactions.get(id);
+                if (record == null || !record.digest().equals(digest) || !record.prepared() && !record.applied())
+                    throw new IOException("Prepared transaction is missing: " + id);
+                int deleted = countExistingDeletes(record);
+                byte[] committed = encode(out -> { out.writeByte(30); out.writeUTF(id); out.writeUTF(digest); out.writeInt(deleted); });
+                long index = expectedEpoch == null ? commitCommand(committed) : commitCommand(committed, expectedEpoch);
+                return response(request, RpcMessage.Type.RESPONSE,
+                        encode(out -> { out.writeBoolean(true); out.writeLong(index); out.writeBoolean(false); out.writeInt(deleted); }));
+            } catch (IOException failure) {
+                String reason = failure.getMessage() == null ? "Counted transaction apply failed" : failure.getMessage();
                 return response(request, RpcMessage.Type.RESPONSE,
                         encode(out -> { out.writeBoolean(false); out.writeLong(-1); out.writeBoolean(false); out.writeInt(0); out.writeUTF(reason); }));
             }
@@ -722,6 +917,48 @@ public final class RaftGroup implements AutoCloseable {
                 }));
             } catch (IOException failure) {
                 String reason = failure.getMessage() == null ? "Transaction read failed" : failure.getMessage();
+                return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
+                    out.writeBoolean(false); out.writeLong(-1); out.writeBoolean(false); out.writeInt(0);
+                    out.writeUTF(reason);
+                }));
+            }
+        }
+        if (command.length > 0 && command[0] == 27) {
+            try {
+                if (command.length != 1) throw new IOException("Invalid unresolved transaction read command");
+                if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
+                long index = readIndex();
+                while (lastApplied < index) applyCommitted();
+                List<TransactionRecord> records = unresolvedTransactionRecords();
+                return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
+                    out.writeBoolean(true); out.writeLong(index); out.writeBoolean(false); out.writeInt(0);
+                    out.writeInt(records.size());
+                    for (TransactionRecord record : records) writeTransactionRecord(out, record);
+                }));
+            } catch (IOException failure) {
+                String reason = failure.getMessage() == null ? "Unresolved transaction read failed" : failure.getMessage();
+                return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
+                    out.writeBoolean(false); out.writeLong(-1); out.writeBoolean(false); out.writeInt(0);
+                    out.writeUTF(reason);
+                }));
+            }
+        }
+        if (command.length > 0 && command[0] == 28) {
+            try {
+                DataInputStream query = new DataInputStream(new ByteArrayInputStream(command));
+                query.readUnsignedByte(); String id = query.readUTF();
+                if (query.available() != 0) throw new IOException("Invalid transaction lookup command");
+                if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
+                long index = readIndex();
+                while (lastApplied < index) applyCommitted();
+                TransactionRecord record = transactions.get(id);
+                return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
+                    out.writeBoolean(true); out.writeLong(index); out.writeBoolean(false); out.writeInt(0);
+                    out.writeBoolean(record != null);
+                    if (record != null) writeTransactionRecord(out, record);
+                }));
+            } catch (IOException failure) {
+                String reason = failure.getMessage() == null ? "Transaction lookup failed" : failure.getMessage();
                 return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
                     out.writeBoolean(false); out.writeLong(-1); out.writeBoolean(false); out.writeInt(0);
                     out.writeUTF(reason);
@@ -790,7 +1027,7 @@ public final class RaftGroup implements AutoCloseable {
         try {
             if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
             int op = command.length == 0 ? -1 : command[0] & 0xff;
-            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21)
+            if (maintenanceFrozen && op != 7 && op != 8 && op != 9 && op != 13 && op != 14 && op != 15 && op != 20 && op != 21 && op != 30)
                 throw new IOException("Raft group is frozen for shard migration");
             long index = expectedEpoch == null ? commitCommand(command) : commitCommand(command, expectedEpoch);
             boolean existed = keyExisted;
@@ -805,6 +1042,25 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     private record ClientResult(long index, boolean keyExisted, int deleteCount) { }
+    private record LeaderEndpoint(String nodeId, InetSocketAddress address) { }
+
+    private LeaderEndpoint awaitLeaderEndpoint() throws IOException {
+        long timeoutMillis = Math.max(5000L, electionTimeoutMaxMillis * 3L);
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (true) {
+            String currentLeader = leaderId;
+            if (role == Role.LEADER) return new LeaderEndpoint(nodeId, selfEndpoint);
+            InetSocketAddress address = currentLeader == null ? null : peers.get(currentLeader);
+            if (address != null) return new LeaderEndpoint(currentLeader, address);
+            if (System.nanoTime() >= deadline)
+                throw new IOException("Raft leader was not elected before forwarding deadline");
+            try { Thread.sleep(10); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for a Raft leader", interrupted);
+            }
+        }
+    }
 
     private static void validateWriteCommand(byte[] command) throws IOException {
         if (command.length == 0 || command.length > MAX_COMMAND_BYTES)
@@ -843,22 +1099,24 @@ public final class RaftGroup implements AutoCloseable {
             for (int i = 0; i < count; i++) in.readUTF();
         } else if (operation == 11) {
             in.readUTF(); in.readUTF(); readStrings(in);
-        } else if (operation == 12) {
-            in.readUTF(); in.readUTF(); readStrings(in);
-            int count = in.readInt();
-            if (count < 0 || count > 1_000_000) throw new IOException("Invalid prepared change count");
-            for (int i = 0; i < count; i++) { in.readUTF(); if (in.readBoolean()) in.readUTF(); }
+        } else if (operation == 12 || operation == 29) {
+            readPreparedTransaction(in, operation);
         } else if (operation == 13) {
             in.readUTF(); in.readUTF(); readStrings(in); in.readBoolean();
         } else if (operation == 14 || operation == 15) {
+            in.readUTF(); in.readUTF();
+        } else if (operation == 30) {
+            in.readUTF(); in.readUTF();
+            if (in.readInt() < 0) throw new IOException("Invalid committed delete count");
+        } else if (operation == 26) {
             in.readUTF(); in.readUTF();
         } else if (operation == 20) {
             if (in.readLong() <= 0) throw new IOException("Invalid ownership epoch");
             List<String> groups = readStrings(in);
             if (groups.isEmpty()) throw new IOException("Ownership manifest cannot be empty");
         } else if (operation == 21) {
-            List<String> groups = readStrings(in);
-            if (groups.size() > 100_000 || new java.util.LinkedHashSet<>(groups).size() != groups.size())
+            List<String> groups = readStringList(in, 100_000);
+            if (new java.util.LinkedHashSet<>(groups).size() != groups.size())
                 throw new IOException("Invalid migration target group list");
         } else throw new IOException("Unknown state machine operation");
         if (in.available() != 0) throw new IOException("Trailing bytes in Raft command");
@@ -878,16 +1136,84 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     /** Linearizable read fence: a majority must confirm this leader's current term. */
-    public synchronized long readIndex() throws IOException {
-        if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
-        long readTerm = term; Set<String> confirmations = new java.util.HashSet<>(); confirmations.add(nodeId);
-        for (Map.Entry<String, InetSocketAddress> peer : peers.entrySet()) {
-            try { if (replicate(peer.getKey(), peer.getValue(), log.get(log.lastIndex()).orElse(null))) confirmations.add(peer.getKey()); }
-            catch (IOException ignored) { }
+    public long readIndex() throws IOException {
+        final long readTerm, readCommit;
+        final Map<String, InetSocketAddress> readPeers;
+        final Set<String> oldVoters, joint, pendingJoint, pendingFinal;
+        synchronized (this) {
+            if (role != Role.LEADER) throw new IOException("Not leader; leader=" + leaderId);
+            readTerm = term;
+            readCommit = commitIndex;
+            readPeers = new LinkedHashMap<>(peers);
+            oldVoters = Set.copyOf(voters);
+            joint = jointVoters == null ? null : Set.copyOf(jointVoters);
+            pendingJoint = uncommittedJointVoters == null ? null : Set.copyOf(uncommittedJointVoters);
+            pendingFinal = uncommittedFinalVoters == null ? null : Set.copyOf(uncommittedFinalVoters);
         }
-        if (role != Role.LEADER || term != readTerm || !hasQuorum(confirmations))
-            throw new IOException("ReadIndex failed to confirm leadership with a majority");
-        return commitIndex;
+
+        Set<String> confirmations = new java.util.HashSet<>();
+        confirmations.add(nodeId);
+        ExecutorCompletionService<String> completed = new ExecutorCompletionService<>(readIndexExecutor);
+        int submitted = 0;
+        byte[] heartbeat = encode(out -> out.writeLong(readTerm));
+        for (Map.Entry<String, InetSocketAddress> peer : readPeers.entrySet()) {
+            try {
+                completed.submit(() -> {
+                    RpcMessage response = call(peer.getKey(), peer.getValue(), RpcMessage.Type.HEARTBEAT, heartbeat);
+                    if (response.getType() != RpcMessage.Type.RESPONSE) return null;
+                    DataInputStream in = input(response);
+                    long responseTerm = in.readLong(); boolean success = in.readBoolean();
+                    if (responseTerm > readTerm) {
+                        synchronized (RaftGroup.this) { if (responseTerm > term) stepDown(responseTerm); }
+                        return null;
+                    }
+                    return success && responseTerm == readTerm ? peer.getKey() : null;
+                });
+                submitted++;
+            } catch (java.util.concurrent.RejectedExecutionException saturated) {
+                // A rejected confirmation is omitted; ReadIndex still requires quorum.
+            }
+        }
+
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(
+                Math.max(rpcReadTimeoutMillis, rpcConnectTimeoutMillis) + 100L);
+        for (int received = 0; received < submitted && !readQuorum(confirmations, oldVoters, joint, pendingJoint, pendingFinal); received++) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) break;
+            try {
+                Future<String> result = completed.poll(remaining, TimeUnit.NANOSECONDS);
+                if (result == null) break;
+                String peer = result.get();
+                if (peer != null) confirmations.add(peer);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while confirming ReadIndex", interrupted);
+            } catch (java.util.concurrent.ExecutionException failedRpc) {
+                // A failed peer cannot confirm the read fence; continue collecting other peers.
+            }
+        }
+        synchronized (this) {
+            if (role != Role.LEADER || term != readTerm || commitIndex < readCommit
+                    || !oldVoters.equals(voters) || !Objects.equals(joint, jointVoters)
+                    || !Objects.equals(pendingJoint, uncommittedJointVoters)
+                    || !Objects.equals(pendingFinal, uncommittedFinalVoters)
+                    || !readQuorum(confirmations, oldVoters, joint, pendingJoint, pendingFinal)) {
+                throw new IOException("ReadIndex failed: role=" + role + ", term=" + term + "/" + readTerm
+                        + ", commit=" + commitIndex + "/" + readCommit + ", confirmations=" + confirmations
+                        + ", voters=" + voters + ", joint=" + jointVoters + ", pendingJoint="
+                        + uncommittedJointVoters + ", pendingFinal=" + uncommittedFinalVoters);
+            }
+            return readCommit;
+        }
+    }
+
+    private boolean readQuorum(Set<String> acknowledgements, Set<String> oldVoters,
+                               Set<String> joint, Set<String> pendingJoint, Set<String> pendingFinal) {
+        if (pendingFinal != null)
+            return acknowledgements.stream().filter(pendingFinal::contains).count() >= majority(pendingFinal);
+        Set<String> newSet = pendingJoint != null ? pendingJoint : joint;
+        return acknowledgements.stream().filter(oldVoters::contains).count() >= majority(oldVoters)
+                && (newSet == null || acknowledgements.stream().filter(newSet::contains).count() >= majority(newSet));
     }
 
     /** Returns the locally applied value without a freshness guarantee. */
@@ -927,6 +1253,7 @@ public final class RaftGroup implements AutoCloseable {
                 throw new IOException("Leader could not confirm follower read position");
             if (lastApplied < observedLeaderCommit - maxCommitLag)
                 throw new IOException("Follower is outside configured commit-index lag bound");
+            ensureKeyNotPrepared(key);
             return get(key);
         }
     }
@@ -972,6 +1299,20 @@ public final class RaftGroup implements AutoCloseable {
     }
 
     private boolean replicate(String peerId, InetSocketAddress address, RaftLogEntry entry) throws IOException {
+        return replicate(peerId, address, entry, null);
+    }
+
+    private boolean replicate(String peerId, InetSocketAddress address, RaftLogEntry entry,
+                              AtomicLong observedHigherTerm) throws IOException {
+        // Client writes, commit notifications, and the heartbeat scheduler can all
+        // replicate to the same peer. Keep its snapshot transfer and nextIndex update
+        // sequence ordered across every caller.
+        Object peerLock = replicationLocks.computeIfAbsent(peerId, ignored -> new Object());
+        synchronized (peerLock) { return replicatePeer(peerId, address, entry, observedHigherTerm); }
+    }
+
+    private boolean replicatePeer(String peerId, InetSocketAddress address, RaftLogEntry entry,
+                                  AtomicLong observedHigherTerm) throws IOException {
         long throughIndex = entry == null ? 0 : entry.getIndex();
         long next;
         synchronized (nextIndexByPeer) { next = nextIndexByPeer.getOrDefault(peerId, 1L); }
@@ -1004,7 +1345,10 @@ public final class RaftGroup implements AutoCloseable {
             if (response.getType() != RpcMessage.Type.APPEND_ENTRIES_RESPONSE) return false;
             DataInputStream in = input(response); long responseTerm = in.readLong(); boolean success = in.readBoolean();
             long followerCommit = in.readLong();
-            if (responseTerm > term) { stepDown(responseTerm); return false; }
+            if (responseTerm > term) {
+                observeHigherTerm(responseTerm, observedHigherTerm);
+                return false;
+            }
             if (!success) {
                 if (followerCommit > log.lastIndex()) return false;
                 next = Math.max(1, Math.max(next - 1, followerCommit + 1));
@@ -1026,10 +1370,36 @@ public final class RaftGroup implements AutoCloseable {
         if (response.getType() != RpcMessage.Type.APPEND_ENTRIES_RESPONSE) return false;
         DataInputStream in = input(response); long responseTerm = in.readLong(); boolean success = in.readBoolean();
         in.readLong(); // leader commit index
-        if (responseTerm > term) { stepDown(responseTerm); return false; }
+        if (responseTerm > term) {
+            observeHigherTerm(responseTerm, observedHigherTerm);
+            return false;
+        }
         if (success) synchronized (nextIndexByPeer) { nextIndexByPeer.put(peerId, throughIndex + 1); }
         else synchronized (nextIndexByPeer) { nextIndexByPeer.put(peerId, Math.max(1, throughIndex)); }
         return success;
+    }
+
+    private void observeHigherTerm(long responseTerm, AtomicLong observedHigherTerm) throws IOException {
+        if (observedHigherTerm == null) {
+            stepDown(responseTerm);
+            return;
+        }
+        observedHigherTerm.accumulateAndGet(responseTerm, Math::max);
+        try {
+            scheduler.execute(() -> {
+                synchronized (RaftGroup.this) {
+                    if (responseTerm > term) {
+                        try { stepDown(responseTerm); }
+                        catch (IOException failure) {
+                            if (Boolean.getBoolean("kv.raft.debug"))
+                                System.err.println("Raft " + nodeId + " failed to step down for higher term " + responseTerm + ": " + failure);
+                        }
+                    }
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException closed) {
+            // close() already makes this node unable to accept leadership.
+        }
     }
 
     private record SnapshotHeader(long index, long term) { }
@@ -1043,7 +1413,7 @@ public final class RaftGroup implements AutoCloseable {
     private byte[] encodeSnapshot(long index, long includedTerm) throws IOException {
         ByteArrayOutputStream payload = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(payload)) {
-            out.writeInt(0x4b565331); out.writeLong(index); out.writeLong(includedTerm);
+            out.writeInt(SNAPSHOT_MAGIC_UTF8); out.writeLong(index); out.writeLong(includedTerm);
             out.writeBoolean(maintenanceFrozen); out.writeLong(ownershipEpoch);
             writeStringList(out, ownershipGroups);
             writeEndpointMap(out, voterEndpoints(voters, peers));
@@ -1084,10 +1454,17 @@ public final class RaftGroup implements AutoCloseable {
         else jointVoters = new java.util.LinkedHashSet<>(data.jointVoters().keySet());
         pendingVoterPeers = data.pendingVoters();
         if (jointVoters != null && pendingVoterPeers == null) pendingVoterPeers = data.jointVoters();
-        transactions.clear(); preparedKeyOwners.clear();
+        transactions.clear(); preparedKeyOwners.clear(); transactionRecoveryIndex.clear();
         for (TransactionRecord record : data.transactions()) {
             transactions.put(record.id(), record);
-            if (record.prepared()) for (String key : record.changes().keySet()) preparedKeyOwners.put(key, record.id());
+            refreshTransactionRecoveryIndex(record);
+            if (record.prepared()) {
+                try { store.reserveAtomicChanges(record.id(), record.changes()); }
+                catch (RuntimeException failure) {
+                    throw new IOException("Could not restore capacity reservation for prepared transaction " + record.id(), failure);
+                }
+                for (String key : record.changes().keySet()) preparedKeyOwners.put(key, record.id());
+            }
         }
         return data.header();
     }
@@ -1099,7 +1476,10 @@ public final class RaftGroup implements AutoCloseable {
         int supplied = java.nio.ByteBuffer.wrap(bytes, bodyLength, 4).getInt();
         if ((int) crc.getValue() != supplied) throw new IOException("Raft snapshot checksum mismatch");
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes, 0, bodyLength))) {
-            if (in.readInt() != 0x4b565331) throw new IOException("Unknown Raft snapshot format");
+            int magic = in.readInt();
+            boolean legacyTransactionEncoding = magic == SNAPSHOT_MAGIC_LEGACY;
+            if (!legacyTransactionEncoding && magic != SNAPSHOT_MAGIC_UTF8)
+                throw new IOException("Unknown Raft snapshot format");
             long index = in.readLong(), term = in.readLong();
             if (index < 0 || term < 0 || (index == 0 && term != 0)) throw new IOException("Invalid Raft snapshot boundary");
             boolean frozen = in.readBoolean(); long epoch = in.readLong();
@@ -1119,7 +1499,8 @@ public final class RaftGroup implements AutoCloseable {
             }
             int txnCount = in.readInt(); if (txnCount < 0 || txnCount > 1_000_000) throw new IOException("Invalid snapshot transaction count");
             List<TransactionRecord> records = new java.util.ArrayList<>(txnCount);
-            for (int i = 0; i < txnCount; i++) records.add(readTransactionRecord(in));
+            for (int i = 0; i < txnCount; i++)
+                records.add(legacyTransactionEncoding ? readLegacyTransactionRecord(in) : readTransactionRecord(in));
             List<String> migrationIntent = in.available() == 0 ? List.of() : readStringList(in, 100_000);
             if (in.available() != 0) throw new IOException("Trailing Raft snapshot data");
             return new SnapshotData(new SnapshotHeader(index, term), entries, frozen, epoch, groups,
@@ -1261,9 +1642,29 @@ public final class RaftGroup implements AutoCloseable {
                 request.getSourceNodeId(), request.getTargetNodeId(), payload);
         if (request.getType() == RpcMessage.Type.VOTE_REQUEST) return handleVote(scopedRequest);
         if (request.getType() == RpcMessage.Type.APPEND_ENTRIES_REQUEST) return handleAppend(scopedRequest);
+        if (request.getType() == RpcMessage.Type.HEARTBEAT) return handleReadIndexHeartbeat(scopedRequest);
         if (request.getType() == RpcMessage.Type.READ_FRESHNESS_REQUEST) return handleReadFreshness(scopedRequest);
         if (request.getType() == RpcMessage.Type.REQUEST) return handleClientCommand(scopedRequest);
         throw new IOException("Unsupported Raft RPC");
+    }
+
+    /** A non-mutating, current-term quorum acknowledgement for a linearizable read fence. */
+    private synchronized RpcMessage handleReadIndexHeartbeat(RpcMessage request) throws IOException {
+        DataInputStream in = input(request);
+        long leaderTerm = in.readLong();
+        if (in.available() != 0) throw new IOException("Malformed ReadIndex heartbeat");
+        if (leaderTerm > term) stepDown(leaderTerm);
+        boolean accepted = leaderTerm == term && isEligibleVoter(request.getSourceNodeId());
+        if (accepted) {
+            leaderId = request.getSourceNodeId();
+            role = Role.FOLLOWER;
+            resetElectionDeadline();
+        }
+        long currentTerm = term;
+        boolean result = accepted;
+        return response(request, RpcMessage.Type.RESPONSE, encode(out -> {
+            out.writeLong(currentTerm); out.writeBoolean(result);
+        }));
     }
 
     private synchronized RpcMessage handleReadFreshness(RpcMessage request) throws IOException {
@@ -1306,6 +1707,13 @@ public final class RaftGroup implements AutoCloseable {
                         || log.get(previousIndex).map(e -> e.getTerm() == previousTerm).orElse(false))) {
             leaderId = request.getSourceNodeId(); role = Role.FOLLOWER;
             resetElectionDeadline();
+            long committedPrefix = Math.min(leaderCommit, previousIndex);
+            if (committedPrefix > commitIndex) {
+                commitIndex = committedPrefix;
+                metadata.save(term, votedFor, commitIndex);
+                applyCommitted();
+                refreshPendingConfiguration();
+            }
             boolean hasEntry = in.readBoolean();
             if (hasEntry) {
                 RaftLogEntry incoming = readEntry(in);
@@ -1317,7 +1725,12 @@ public final class RaftGroup implements AutoCloseable {
                     if (incoming.getIndex() <= commitIndex) throw new IOException("Cannot overwrite committed entry");
                     log.truncateFrom(incoming.getIndex()); existing = java.util.Optional.empty();
                 }
-                if (existing.isEmpty()) log.append(incoming.getTerm(), incoming.getCommand());
+                if (existing.isEmpty()) {
+                    byte[] command = incoming.getCommand();
+                    if (command.length > 0 && ((command[0] & 0xff) == 12 || (command[0] & 0xff) == 29))
+                        validateTransactionCommand(command);
+                    log.append(incoming.getTerm(), command);
+                }
                 refreshPendingConfiguration();
             }
             long updatedCommit = Math.min(leaderCommit, log.lastIndex());
@@ -1387,7 +1800,10 @@ public final class RaftGroup implements AutoCloseable {
 
     private void applyCommitted() throws IOException {
         while (lastApplied < commitIndex) {
-            RaftLogEntry entry = log.get(++lastApplied).orElseThrow(() -> new IOException("Missing committed entry"));
+            long applyingIndex = lastApplied + 1;
+            RaftLogEntry entry = log.get(applyingIndex).orElseThrow(() -> new IOException("Missing committed entry"));
+            lastApplied = applyingIndex;
+            try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(entry.getCommand()));
             int op = in.readUnsignedByte();
             if (op == 0) continue;
@@ -1425,23 +1841,33 @@ public final class RaftGroup implements AutoCloseable {
                 if (existing != null && (!existing.digest().equals(digest)
                         || !existing.participants().equals(participants)))
                     throw new IOException("Transaction ID reused with different coordinator metadata: " + id);
-                if (existing == null) transactions.put(id,
-                        new TransactionRecord(id, digest, participants, Map.of(), null, false, false, entry.getTerm()));
+                if (existing == null) {
+                    TransactionRecord created = new TransactionRecord(id, digest, participants, Map.of(), null, false, false, entry.getTerm());
+                    transactions.put(id, created);
+                    refreshTransactionRecoveryIndex(created);
+                }
                 continue;
             }
-            if (op == 12) {
-                String id = in.readUTF(), digest = in.readUTF(); List<String> participants = readStrings(in);
-                int count = in.readInt(); Map<String, String> changes = new LinkedHashMap<>();
-                for (int i = 0; i < count; i++) changes.put(in.readUTF(), in.readBoolean() ? in.readUTF() : null);
+            if (op == 12 || op == 29) {
+                PreparedTransaction preparedCommand = readPreparedTransaction(in, op);
+                String id = preparedCommand.id(), digest = preparedCommand.digest();
+                List<String> participants = preparedCommand.participants();
+                Map<String, String> changes = preparedCommand.changes();
                 validatePrepareAvailable(id, changes.keySet());
                 TransactionRecord existing = transactions.get(id);
                 if (existing != null && (!existing.digest().equals(digest)
                         || !existing.participants().equals(participants)))
                     throw new IOException("Transaction prepare metadata mismatch: " + id);
+                try { store.reserveAtomicChanges(id, changes); }
+                catch (RuntimeException failure) {
+                    throw new IOException("Could not reserve participant capacity for transaction " + id, failure);
+                }
                 for (String key : changes.keySet()) preparedKeyOwners.put(key, id);
-                transactions.put(id, new TransactionRecord(id, digest, participants, changes,
+                TransactionRecord prepared = new TransactionRecord(id, digest, participants, changes,
                         existing == null ? null : existing.decision(), true, false,
-                        existing == null ? entry.getTerm() : existing.coordinatorTerm()));
+                        existing == null ? entry.getTerm() : existing.coordinatorTerm());
+                transactions.put(id, prepared);
+                refreshTransactionRecoveryIndex(prepared);
                 continue;
             }
             if (op == 13) {
@@ -1453,29 +1879,53 @@ public final class RaftGroup implements AutoCloseable {
                     throw new IOException("Transaction decision metadata mismatch: " + id);
                 if (existing != null && existing.decision() != null && existing.decision() != commit)
                     throw new IOException("Transaction decision cannot be changed: " + id);
-                transactions.put(id, new TransactionRecord(id, digest, participants,
+                TransactionRecord decided = new TransactionRecord(id, digest, participants,
                         existing == null ? Map.of() : existing.changes(), commit,
                         existing != null && existing.prepared(), existing != null && existing.applied(),
-                        existing == null ? entry.getTerm() : existing.coordinatorTerm()));
+                        existing == null ? entry.getTerm() : existing.coordinatorTerm());
+                transactions.put(id, decided);
+                refreshTransactionRecoveryIndex(decided);
                 continue;
             }
-            if (op == 14 || op == 15) {
+            if (op == 14 || op == 15 || op == 30) {
                 String id = in.readUTF(), digest = in.readUTF();
+                int committedDeleteCount = op == 30 ? in.readInt() : -1;
                 TransactionRecord existing = transactions.get(id);
                 if (existing == null || !existing.digest().equals(digest))
                     throw new IOException("Unknown or mismatched prepared transaction: " + id);
-                if (op == 14) {
+                if (op == 14 || op == 30) {
                     if (!existing.prepared() && existing.applied()) continue;
                     if (!existing.prepared()) throw new IOException("Commit has no prepared participant intent: " + id);
-                    store.applyAtomicChanges(existing.changes());
+                    if (op == 30 && committedDeleteCount != countExistingDeletes(existing))
+                        throw new IOException("Committed delete count does not match participant state: " + id);
+                    store.applyAtomicChanges(id, existing.changes());
                     for (String key : existing.changes().keySet()) preparedKeyOwners.remove(key, id);
-                    transactions.put(id, new TransactionRecord(id, digest, existing.participants(),
-                            existing.changes(), true, false, true, existing.coordinatorTerm()));
+                    TransactionRecord applied = new TransactionRecord(id, digest, existing.participants(),
+                            existing.changes(), true, false, true, existing.coordinatorTerm());
+                    transactions.put(id, applied);
+                    refreshTransactionRecoveryIndex(applied);
                 } else {
                     if (existing.applied()) throw new IOException("Cannot abort an applied transaction: " + id);
+                    store.releaseAtomicChangesReservation(id);
                     for (String key : existing.changes().keySet()) preparedKeyOwners.remove(key, id);
-                    transactions.put(id, new TransactionRecord(id, digest, existing.participants(),
-                            existing.changes(), false, false, false, existing.coordinatorTerm()));
+                    TransactionRecord aborted = new TransactionRecord(id, digest, existing.participants(),
+                            existing.changes(), false, false, false, existing.coordinatorTerm());
+                    transactions.put(id, aborted);
+                    refreshTransactionRecoveryIndex(aborted);
+                }
+                continue;
+            }
+            if (op == 26) {
+                String id = in.readUTF(), digest = in.readUTF();
+                TransactionRecord existing = transactions.get(id);
+                if (existing != null) {
+                    if (!existing.digest().equals(digest) || existing.participants().isEmpty()
+                            || !existing.participants().get(0).equals(groupId) || existing.prepared()
+                            || existing.decision() == null
+                            || Boolean.TRUE.equals(existing.decision()) && !existing.applied())
+                        throw new IOException("Cannot checkpoint an unresolved coordinator transaction: " + id);
+                    transactions.remove(id);
+                    transactionRecoveryIndex.remove(id);
                 }
                 continue;
             }
@@ -1513,6 +1963,10 @@ public final class RaftGroup implements AutoCloseable {
             String decoded = new String(value, java.nio.charset.StandardCharsets.UTF_8);
             if (op == 3 || (op == 8 && expiryAt > 0)) store.setWithAbsoluteExpiry(key, decoded, expiryAt);
             else store.set(key, decoded);
+            } catch (IOException | RuntimeException failure) {
+                lastApplied = applyingIndex - 1;
+                throw failure;
+            }
         }
     }
 
@@ -1589,14 +2043,19 @@ public final class RaftGroup implements AutoCloseable {
             TransactionRecord old = transactions.get(id);
             if (old != null && (!old.digest().equals(digest) || !old.participants().equals(participants)))
                 throw new IOException("Transaction ID already exists with different metadata: " + id);
-        } else if (op == 12) {
-            String id = in.readUTF(), digest = in.readUTF(); List<String> participants = readStrings(in);
-            int count = in.readInt(); Map<String, String> changes = new LinkedHashMap<>();
-            for (int i = 0; i < count; i++) changes.put(in.readUTF(), in.readBoolean() ? in.readUTF() : null);
+        } else if (op == 12 || op == 29) {
+            PreparedTransaction prepared = readPreparedTransaction(in, op);
+            String id = prepared.id(), digest = prepared.digest();
+            List<String> participants = prepared.participants();
+            Map<String, String> changes = prepared.changes();
             TransactionRecord old = transactions.get(id);
             if (old != null && (!old.digest().equals(digest) || !old.participants().equals(participants)))
                 throw new IOException("Transaction prepare metadata mismatch: " + id);
             validatePrepareAvailable(id, changes.keySet());
+            try { store.validateAtomicChangesCapacity(id, changes); }
+            catch (RuntimeException failure) {
+                throw new IOException("Transaction prepare exceeds participant capacity: " + id, failure);
+            }
         } else if (op == 13) {
             String id = in.readUTF(), digest = in.readUTF(); List<String> participants = readStrings(in);
             boolean decision = in.readBoolean(); TransactionRecord old = transactions.get(id);
@@ -1604,15 +2063,25 @@ public final class RaftGroup implements AutoCloseable {
                 throw new IOException("Transaction coordinator record is missing: " + id);
             if (old.decision() != null && old.decision() != decision)
                 throw new IOException("Transaction decision cannot be changed: " + id);
-        } else if (op == 14 || op == 15) {
+        } else if (op == 14 || op == 15 || op == 30) {
             String id = in.readUTF(), digest = in.readUTF(); TransactionRecord old = transactions.get(id);
+            int deleteCount = op == 30 ? in.readInt() : -1;
             if (old == null || !old.digest().equals(digest))
                 throw new IOException("Transaction participant intent is missing: " + id);
-            if (op == 14 && !old.prepared() && !old.applied())
+            if ((op == 14 || op == 30) && !old.prepared() && !old.applied())
                 throw new IOException("Commit has no prepared participant intent: " + id);
             if (op == 15 && !old.prepared() && !Boolean.FALSE.equals(old.decision()))
                 throw new IOException("Abort has no prepared participant intent: " + id);
             if (op == 15 && old.applied()) throw new IOException("Cannot abort an applied transaction: " + id);
+            if (op == 30 && (deleteCount < 0 || deleteCount != countExistingDeletes(old)))
+                throw new IOException("Committed delete count does not match participant state: " + id);
+        } else if (op == 26) {
+            String id = in.readUTF(), digest = in.readUTF(); TransactionRecord old = transactions.get(id);
+            if (old != null && (!old.digest().equals(digest) || old.participants().isEmpty()
+                    || !old.participants().get(0).equals(groupId) || old.prepared()
+                    || old.decision() == null
+                    || Boolean.TRUE.equals(old.decision()) && !old.applied()))
+                throw new IOException("Cannot checkpoint an unresolved coordinator transaction: " + id);
         }
     }
 
@@ -1654,18 +2123,96 @@ public final class RaftGroup implements AutoCloseable {
         return List.copyOf(values);
     }
 
+    private static void writeTransactionStrings(DataOutputStream out, List<String> values) throws IOException {
+        if (values.size() > 100_000) throw new IOException("Invalid transaction participant count");
+        out.writeInt(values.size());
+        for (String value : values) writeUtf8(out, value);
+    }
+
+    private static List<String> readTransactionStrings(DataInputStream in) throws IOException {
+        int count = in.readInt();
+        if (count <= 0 || count > 100_000) throw new IOException("Invalid transaction participant count");
+        List<String> values = new java.util.ArrayList<>(count);
+        for (int i = 0; i < count; i++) values.add(readUtf8(in));
+        if (new java.util.LinkedHashSet<>(values).size() != values.size())
+            throw new IOException("Duplicate transaction participant");
+        return List.copyOf(values);
+    }
+
+    private record PreparedTransaction(String id, String digest, List<String> participants,
+                                       Map<String, String> changes) { }
+
+    /** Op 12 is the persisted legacy modified-UTF format; op 29 uses bounded UTF-8 fields. */
+    private static PreparedTransaction readPreparedTransaction(DataInputStream in, int operation) throws IOException {
+        boolean legacy = operation == 12;
+        String id = legacy ? in.readUTF() : readUtf8(in);
+        String digest = legacy ? in.readUTF() : readUtf8(in);
+        List<String> participants = legacy ? readStrings(in) : readTransactionStrings(in);
+        int count = in.readInt();
+        if (count < 0 || count > 1_000_000) throw new IOException("Invalid prepared change count");
+        Map<String, String> changes = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            String key = operation == 12 ? in.readUTF() : readUtf8(in);
+            String value = in.readBoolean() ? (operation == 12 ? in.readUTF() : readUtf8(in)) : null;
+            if (changes.containsKey(key)) {
+                // Duplicate keys were not emitted by supported writers; reject ambiguous records.
+                throw new IOException("Duplicate key in prepared transaction");
+            }
+            changes.put(key, value);
+        }
+        return new PreparedTransaction(id, digest, participants, java.util.Collections.unmodifiableMap(changes));
+    }
+
+    private static void writeUtf8(DataOutputStream out, String value) throws IOException {
+        Objects.requireNonNull(value, "UTF-8 field");
+        if (value.length() > MAX_COMMAND_BYTES) throw new IOException("Transaction field exceeds Raft command limit");
+        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (bytes.length > MAX_COMMAND_BYTES) throw new IOException("Transaction field exceeds Raft command limit");
+        out.writeInt(bytes.length);
+        out.write(bytes);
+    }
+
+    private static String readUtf8(DataInputStream in) throws IOException {
+        int length = in.readInt();
+        if (length < 0 || length > MAX_COMMAND_BYTES || length > in.available())
+            throw new IOException("Invalid length-prefixed UTF-8 transaction field");
+        byte[] bytes = in.readNBytes(length);
+        try {
+            return java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+        } catch (java.nio.charset.CharacterCodingException malformed) {
+            throw new IOException("Malformed UTF-8 transaction field", malformed);
+        }
+    }
+
     private static void writeTransactionRecord(DataOutputStream out, TransactionRecord record) throws IOException {
-        out.writeUTF(record.id()); out.writeUTF(record.digest()); writeStrings(out, record.participants());
+        writeUtf8(out, record.id()); writeUtf8(out, record.digest());
+        writeTransactionStrings(out, record.participants());
         out.writeInt(record.changes().size());
         for (Map.Entry<String, String> change : record.changes().entrySet()) {
-            out.writeUTF(change.getKey()); out.writeBoolean(change.getValue() != null);
-            if (change.getValue() != null) out.writeUTF(change.getValue());
+            writeUtf8(out, change.getKey()); out.writeBoolean(change.getValue() != null);
+            if (change.getValue() != null) writeUtf8(out, change.getValue());
         }
         out.writeByte(record.decision() == null ? -1 : record.decision() ? 1 : 0);
         out.writeBoolean(record.prepared()); out.writeBoolean(record.applied()); out.writeLong(record.coordinatorTerm());
     }
 
     private static TransactionRecord readTransactionRecord(DataInputStream in) throws IOException {
+        String id = readUtf8(in), digest = readUtf8(in); List<String> participants = readTransactionStrings(in);
+        int count = in.readInt();
+        if (count < 0 || count > 1_000_000) throw new IOException("Invalid transaction change count");
+        Map<String, String> changes = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) changes.put(readUtf8(in), in.readBoolean() ? readUtf8(in) : null);
+        int decisionByte = in.readByte();
+        if (decisionByte < -1 || decisionByte > 1) throw new IOException("Invalid transaction decision");
+        Boolean decision = decisionByte < 0 ? null : decisionByte == 1;
+        return new TransactionRecord(id, digest, participants, changes, decision,
+                in.readBoolean(), in.readBoolean(), in.readLong());
+    }
+
+    private static TransactionRecord readLegacyTransactionRecord(DataInputStream in) throws IOException {
         String id = in.readUTF(), digest = in.readUTF(); List<String> participants = readStrings(in);
         int count = in.readInt();
         if (count < 0 || count > 1_000_000) throw new IOException("Invalid transaction change count");
@@ -1700,6 +2247,46 @@ public final class RaftGroup implements AutoCloseable {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(bytes)) { encoder.write(out); }
         return bytes.toByteArray();
+    }
+
+    private static byte[] encodeBounded(Encoder encoder, int maximumBytes, String limitMessage) throws IOException {
+        BoundedOutputStream bytes = new BoundedOutputStream(maximumBytes, limitMessage);
+        try (DataOutputStream out = new DataOutputStream(bytes)) { encoder.write(out); }
+        return bytes.toByteArray();
+    }
+
+    private static final class BoundedOutputStream extends java.io.OutputStream {
+        private final int maximumBytes;
+        private final String limitMessage;
+        private byte[] buffer = new byte[8192];
+        private int size;
+
+        private BoundedOutputStream(int maximumBytes, String limitMessage) {
+            this.maximumBytes = maximumBytes;
+            this.limitMessage = limitMessage;
+        }
+
+        @Override public void write(int value) throws IOException {
+            ensureCapacity(1);
+            buffer[size++] = (byte) value;
+        }
+
+        @Override public void write(byte[] value, int offset, int length) throws IOException {
+            Objects.checkFromIndexSize(offset, length, value.length);
+            ensureCapacity(length);
+            System.arraycopy(value, offset, buffer, size, length);
+            size += length;
+        }
+
+        private void ensureCapacity(int additional) throws IOException {
+            if (additional < 0 || additional > maximumBytes - size) throw new IOException(limitMessage);
+            int required = size + additional;
+            if (required <= buffer.length) return;
+            int grown = Math.min(maximumBytes, Math.max(required, Math.max(8192, buffer.length * 2)));
+            buffer = java.util.Arrays.copyOf(buffer, grown);
+        }
+
+        private byte[] toByteArray() { return java.util.Arrays.copyOf(buffer, size); }
     }
     private static void writeEntry(DataOutputStream out, RaftLogEntry e) throws IOException {
         byte[] command = e.getCommand(); out.writeLong(e.getIndex()); out.writeLong(e.getTerm()); out.writeInt(command.length); out.write(command);
@@ -1754,6 +2341,6 @@ public final class RaftGroup implements AutoCloseable {
 
     @Override public synchronized void close() throws IOException {
         running = false; role = Role.FOLLOWER; leaderId = null;
-        scheduler.shutdownNow(); transport.close(); log.close();
+        scheduler.shutdownNow(); readIndexExecutor.shutdownNow(); replicationExecutor.shutdownNow(); transport.close(); log.close();
     }
 }

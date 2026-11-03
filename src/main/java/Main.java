@@ -47,19 +47,6 @@ public class Main {
                         shardStoragePaths);
             }
             clusterConfig = ClusterRuntimeConfig.fromEnvironment(System.getenv()).orElse(null);
-            if (clusterConfig != null && !com.codecrafters.redis.rpc.TlsContext.configured()) {
-                for (int group = 0; group < clusterConfig.groupIds().size(); group++)
-                    for (var peer : clusterConfig.peers(group).values())
-                        if (!peer.address().getAddress().isLoopbackAddress())
-                            throw new IllegalArgumentException("Remote Raft peers require mutual TLS (KV_TLS_KEYSTORE/KV_TLS_TRUSTSTORE)");
-            }
-            if (clusterConfig != null) {
-                for (int group = 0; group < clusterConfig.groupIds().size(); group++)
-                    for (var peer : clusterConfig.peers(group).values())
-                        if (!peer.address().getAddress().isLoopbackAddress()
-                                && (System.getenv("KV_CLUSTER_TOKEN") == null || System.getenv("KV_CLUSTER_TOKEN").isBlank()))
-                            throw new IllegalArgumentException("Remote Raft peers require KV_CLUSTER_TOKEN");
-            }
             if (shardedStore != null && clusterConfig != null)
                 throw new IllegalArgumentException("KV_SHARD_NODES mode and Raft cluster mode cannot be combined yet");
             if (clusterConfig != null) {

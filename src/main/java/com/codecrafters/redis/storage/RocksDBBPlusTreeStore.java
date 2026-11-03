@@ -32,10 +32,12 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
     private final RocksDB database;
     private final Options options;
     private final WriteOptions writeOptions;
+    private final Path directory;
     private boolean closed;
 
     public RocksDBBPlusTreeStore(Path directory) throws IOException {
         Files.createDirectories(directory);
+        this.directory = directory.toAbsolutePath().normalize();
         options = new Options().setCreateIfMissing(true).setParanoidChecks(true);
         writeOptions = new WriteOptions().setSync(true).setDisableWAL(false);
         RocksDB opened = null;
@@ -48,6 +50,8 @@ public final class RocksDBBPlusTreeStore implements AutoCloseable {
             throw new IOException("Could not open RocksDB at " + directory, e);
         }
     }
+
+    public Path getPath() { return directory; }
 
     public synchronized void put(String key, String value) throws IOException {
         putEntry(key, new ValueEntry(value));

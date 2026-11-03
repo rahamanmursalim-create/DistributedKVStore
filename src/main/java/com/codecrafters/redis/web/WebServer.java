@@ -7,21 +7,31 @@ import com.codecrafters.redis.raft.RaftGroup;
 import com.codecrafters.redis.raft.MultiRaftStore;
 import com.codecrafters.redis.sharding.ShardAdminService;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.LongAdder;
+import java.lang.management.ManagementFactory;
 import javax.net.ssl.SSLContext;
 
 public final class WebServer implements AutoCloseable {
+    private static final int MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+    private static final double[] HTTP_LATENCY_BUCKETS = {0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5};
     private final RedisStore store;
     private final KeyValueAccess access;
     private final RaftGroup raftGroup;
@@ -31,6 +41,10 @@ public final class WebServer implements AutoCloseable {
     private final String clusterAdminToken;
     private final AtomicBoolean rebalanceInProgress = new AtomicBoolean();
     private final long startedAtMillis = System.currentTimeMillis();
+    private final LongAdder httpRequests = new LongAdder();
+    private final LongAdder httpErrors = new LongAdder();
+    private final LongAdder httpDurationNanos = new LongAdder();
+    private final AtomicLongArray httpLatencyBuckets = new AtomicLongArray(HTTP_LATENCY_BUCKETS.length + 1);
     private final HttpServer server;
     private final ExecutorService httpExecutor;
 
@@ -81,25 +95,46 @@ public final class WebServer implements AutoCloseable {
                 ? null : clusterAdminToken;
         String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
         if (tlsContext != null) {
-            HttpsServer https = HttpsServer.create(new InetSocketAddress(bindHost, port), 0);
+            HttpsServer https = HttpsServer.create(new InetSocketAddress(bindHost, port), 128);
             https.setHttpsConfigurator(new HttpsConfigurator(tlsContext));
             this.server = https;
-        } else this.server = HttpServer.create(new InetSocketAddress(bindHost, port), 0);
+        } else this.server = HttpServer.create(new InetSocketAddress(bindHost, port), 128);
 
-        server.createContext("/api/health", this::health);
-        server.createContext("/api/raft/status", this::raftStatus);
-        server.createContext("/api/raft/rebalance", this::raftRebalance);
-        server.createContext("/api/metrics", this::metrics);
-        server.createContext("/api/keys", this::keys);
-        server.createContext("/api/shards", this::shards);
-        server.createContext("/", this::dashboard);
+        createContext("/api/health", this::health);
+        createContext("/api/raft/status", this::raftStatus);
+        createContext("/api/raft/rebalance", this::raftRebalance);
+        createContext("/api/metrics", this::metrics);
+        createContext("/api/keys", this::keys);
+        createContext("/api/shards", this::shards);
+        createContext("/", this::dashboard);
 
-        this.httpExecutor = Executors.newCachedThreadPool(r -> {
-            Thread thread = new Thread(r, "kv-http");
-            thread.setDaemon(true);
-            return thread;
-        });
+        int workers = readPositiveInt("kv.http.workers", 32);
+        int queueCapacity = readPositiveInt("kv.http.queue.capacity", 128);
+        this.httpExecutor = new ThreadPoolExecutor(workers, workers, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity), task -> {
+                    Thread thread = new Thread(task, "kv-http");
+                    thread.setDaemon(true);
+                    return thread;
+                }, new ThreadPoolExecutor.CallerRunsPolicy());
         server.setExecutor(httpExecutor);
+    }
+
+    private void createContext(String path, HttpHandler handler) {
+        server.createContext(path, exchange -> {
+            long started = System.nanoTime();
+            try { handler.handle(exchange); }
+            catch (IOException | RuntimeException failure) {
+                if (exchange.getAttribute("kv.http.status") == null) httpErrors.increment();
+                throw failure;
+            } finally {
+                long elapsed = Math.max(0, System.nanoTime() - started);
+                httpRequests.increment(); httpDurationNanos.add(elapsed);
+                double seconds = elapsed / 1_000_000_000.0;
+                int bucket = 0;
+                while (bucket < HTTP_LATENCY_BUCKETS.length && seconds > HTTP_LATENCY_BUCKETS[bucket]) bucket++;
+                httpLatencyBuckets.incrementAndGet(bucket);
+            }
+        });
     }
 
     public void start() {
@@ -115,7 +150,7 @@ public final class WebServer implements AutoCloseable {
             return;
         }
         send(exchange, 200, "application/json",
-                "{\"status\":\"ok\",\"keys\":" + access.size() + "}");
+                "{\"status\":\"ok\"}");
     }
 
     private void raftStatus(HttpExchange exchange) throws IOException {
@@ -217,12 +252,29 @@ public final class WebServer implements AutoCloseable {
                 .append("# HELP kv_process_uptime_seconds Process uptime in seconds.\n")
                 .append("# TYPE kv_process_uptime_seconds gauge\nkv_process_uptime_seconds ")
                 .append(Math.max(0, System.currentTimeMillis() - startedAtMillis) / 1000.0).append('\n');
+        body.append("# HELP kv_wal_size_bytes Current WAL file size.\n# TYPE kv_wal_size_bytes gauge\n")
+                .append("# HELP kv_wal_enabled Whether this store uses the file WAL.\n# TYPE kv_wal_enabled gauge\n")
+                .append("# HELP kv_storage_disk_total_bytes Total bytes on the storage filesystem.\n# TYPE kv_storage_disk_total_bytes gauge\n")
+                .append("# HELP kv_storage_disk_available_bytes Available bytes on the storage filesystem.\n# TYPE kv_storage_disk_available_bytes gauge\n")
+                .append("# HELP kv_storage_disk_used_bytes Used bytes on the storage filesystem.\n# TYPE kv_storage_disk_used_bytes gauge\n");
+        body.append("# HELP kv_raft_replication_lag_entries Leader log entries not yet acknowledged by a peer.\n")
+                .append("# TYPE kv_raft_replication_lag_entries gauge\n");
+        appendHttpMetrics(body);
+        appendRuntimeMetrics(body);
         if (access instanceof MultiRaftStore multi) {
             appendRaftMetrics(body, multi.leadershipStatus());
+            multi.replicationLagByPeer().forEach((group, peers) -> peers.forEach((peer, lag) ->
+                    body.append("kv_raft_replication_lag_entries{group=\"").append(promEscape(group))
+                            .append("\",peer=\"").append(promEscape(peer)).append("\"} ").append(lag).append('\n')));
             body.append("# HELP kv_raft_group_local_keys Locally applied key count; replicas may contain duplicate keys.\n")
                     .append("# TYPE kv_raft_group_local_keys gauge\n");
             multi.localStoreKeyCounts().forEach((group, count) -> body.append("kv_raft_group_local_keys{group=\"")
                     .append(promEscape(group)).append("\"} ").append(count).append('\n'));
+            body.append("# HELP kv_transaction_recovery_failures_total Failed Multi-Raft transaction recovery attempts.\n")
+                    .append("# TYPE kv_transaction_recovery_failures_total counter\nkv_transaction_recovery_failures_total ")
+                    .append(multi.transactionRecoveryFailures()).append('\n');
+            for (var entry : multi.groupStorageUsage().entrySet())
+                appendStorageMetrics(body, "group=\"" + promEscape(entry.getKey()) + "\"", entry.getValue());
         } else if (raftGroup != null) {
             body.append("# HELP kv_raft_group_local_keys Locally applied key count.\n")
                     .append("# TYPE kv_raft_group_local_keys gauge\nkv_raft_group_local_keys{group=\"")
@@ -237,11 +289,74 @@ public final class WebServer implements AutoCloseable {
                     .append("\"} ").append(raftGroup.getCommitIndex()).append('\n')
                     .append("kv_raft_group_ownership_epoch{group=\"").append(promEscape(raftGroup.getGroupId()))
                     .append("\"} ").append(raftGroup.getOwnershipEpoch()).append('\n');
+            raftGroup.replicationLagByPeer().forEach((peer, lag) -> body.append("kv_raft_replication_lag_entries{group=\"")
+                    .append(promEscape(raftGroup.getGroupId())).append("\",peer=\"").append(promEscape(peer))
+                    .append("\"} ").append(lag).append('\n'));
+            appendStorageMetrics(body, "group=\"" + promEscape(raftGroup.getGroupId()) + "\"", raftGroup.getStorageUsage());
+            body.append("# HELP kv_transaction_recovery_failures_total Failed Multi-Raft transaction recovery attempts.\n")
+                    .append("# TYPE kv_transaction_recovery_failures_total counter\nkv_transaction_recovery_failures_total 0\n");
         } else {
             body.append("# HELP kv_store_keys Number of live keys in the local access path.\n")
                     .append("# TYPE kv_store_keys gauge\nkv_store_keys ").append(access.size()).append('\n');
+            if (store != null) appendStorageMetrics(body, "scope=\"local\"", store.storageUsage());
         }
         send(exchange, 200, "text/plain; version=0.0.4; charset=utf-8", body.toString());
+    }
+
+    private void appendHttpMetrics(StringBuilder body) {
+        body.append("# HELP kv_http_requests_total HTTP requests served by this process.\n")
+                .append("# TYPE kv_http_requests_total counter\nkv_http_requests_total ").append(httpRequests.sum()).append('\n')
+                .append("# HELP kv_http_request_errors_total HTTP error responses and unhandled handler failures.\n")
+                .append("# TYPE kv_http_request_errors_total counter\nkv_http_request_errors_total ").append(httpErrors.sum()).append('\n')
+                .append("# HELP kv_http_request_duration_seconds HTTP request latency distribution.\n")
+                .append("# TYPE kv_http_request_duration_seconds histogram\n");
+        long cumulative = 0;
+        for (int i = 0; i < HTTP_LATENCY_BUCKETS.length; i++) {
+            cumulative += httpLatencyBuckets.get(i);
+            body.append("kv_http_request_duration_seconds_bucket{le=\"").append(HTTP_LATENCY_BUCKETS[i])
+                    .append("\"} ").append(cumulative).append('\n');
+        }
+        cumulative += httpLatencyBuckets.get(HTTP_LATENCY_BUCKETS.length);
+        body.append("kv_http_request_duration_seconds_bucket{le=\"+Inf\"} ").append(cumulative).append('\n')
+                .append("kv_http_request_duration_seconds_count ").append(httpRequests.sum()).append('\n')
+                .append("kv_http_request_duration_seconds_sum ").append(httpDurationNanos.sum() / 1_000_000_000.0).append('\n');
+    }
+
+    private void appendRuntimeMetrics(StringBuilder body) {
+        java.lang.management.MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        java.lang.management.ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+        java.lang.management.OperatingSystemMXBean operatingSystem = ManagementFactory.getOperatingSystemMXBean();
+        long cpuNanos = operatingSystem instanceof com.sun.management.OperatingSystemMXBean processBean
+                ? processBean.getProcessCpuTime() : -1;
+        body.append("# HELP kv_process_cpu_seconds_total CPU time used by this process.\n")
+                .append("# TYPE kv_process_cpu_seconds_total counter\nkv_process_cpu_seconds_total ")
+                .append(cpuNanos < 0 ? 0 : cpuNanos / 1_000_000_000.0).append('\n')
+                .append("# HELP kv_process_heap_used_bytes JVM heap bytes currently used.\n")
+                .append("# TYPE kv_process_heap_used_bytes gauge\nkv_process_heap_used_bytes ").append(heap.getUsed()).append('\n')
+                .append("# HELP kv_process_heap_max_bytes Maximum JVM heap bytes.\n")
+                .append("# TYPE kv_process_heap_max_bytes gauge\nkv_process_heap_max_bytes ").append(heap.getMax()).append('\n')
+                .append("# HELP kv_process_threads_live Current live JVM threads.\n")
+                .append("# TYPE kv_process_threads_live gauge\nkv_process_threads_live ").append(threads.getThreadCount()).append('\n')
+                .append("# HELP kv_process_threads_daemon Current daemon JVM threads.\n")
+                .append("# TYPE kv_process_threads_daemon gauge\nkv_process_threads_daemon ").append(threads.getDaemonThreadCount()).append('\n')
+                .append("# HELP kv_process_threads_peak Peak live JVM threads since startup.\n")
+                .append("# TYPE kv_process_threads_peak gauge\nkv_process_threads_peak ").append(threads.getPeakThreadCount()).append('\n');
+        if (httpExecutor instanceof ThreadPoolExecutor pool) {
+            body.append("# HELP kv_http_executor_active_threads Active HTTP worker threads.\n")
+                    .append("# TYPE kv_http_executor_active_threads gauge\nkv_http_executor_active_threads ").append(pool.getActiveCount()).append('\n')
+                    .append("# HELP kv_http_executor_queued_requests Queued HTTP tasks.\n")
+                    .append("# TYPE kv_http_executor_queued_requests gauge\nkv_http_executor_queued_requests ").append(pool.getQueue().size()).append('\n');
+        }
+    }
+
+    private static void appendStorageMetrics(StringBuilder body, String labels,
+                                             com.codecrafters.redis.storage.RedisStore.StorageUsage usage) {
+        body.append("kv_wal_size_bytes{").append(labels).append("} ").append(usage.walBytes()).append('\n')
+                .append("kv_wal_enabled{").append(labels).append("} ").append(usage.walEnabled() ? 1 : 0).append('\n')
+                .append("kv_storage_disk_total_bytes{").append(labels).append("} ").append(usage.diskTotalBytes()).append('\n')
+                .append("kv_storage_disk_available_bytes{").append(labels).append("} ").append(usage.diskAvailableBytes()).append('\n')
+                .append("kv_storage_disk_used_bytes{").append(labels).append("} ")
+                .append(Math.max(0, usage.diskTotalBytes() - usage.diskAvailableBytes())).append('\n');
     }
 
     private static void appendRaftMetrics(StringBuilder body,
@@ -314,9 +429,9 @@ public final class WebServer implements AutoCloseable {
                 break;
             }
             case "PUT": {
-                String value = new String(
-                        exchange.getRequestBody().readAllBytes(),
-                        StandardCharsets.UTF_8);
+                byte[] body = readLimitedBody(exchange);
+                if (body == null) return;
+                String value = new String(body, StandardCharsets.UTF_8);
                 try {
                     if (raftGroup == null) access.set(key, value);
                     else raftGroup.put(key, value.getBytes(StandardCharsets.UTF_8));
@@ -1409,8 +1524,7 @@ public final class WebServer implements AutoCloseable {
                         const data = await r.json();
                         const ms = Math.round(performance.now() - start);
                         if (r.ok && data.status === 'ok') {
-                          healthText.textContent = 'Cluster Online (' + data.keys + ' keys)';
-                          statKeyCount.textContent = data.keys;
+                          healthText.textContent = 'Server Online';
                           document.getElementById('statLatency').textContent = ms + 'ms response';
                         }
                       } catch (e) {
@@ -1707,8 +1821,51 @@ public final class WebServer implements AutoCloseable {
                 .replace("\f", "\\f");
     }
 
-    private static void send(HttpExchange exchange, int status,
-                             String contentType, String body) throws IOException {
+    /** Checks declared size first, then caps streaming/chunked bodies without readAllBytes. */
+    private byte[] readLimitedBody(HttpExchange exchange) throws IOException {
+        String declaredLength = exchange.getRequestHeaders().getFirst("Content-Length");
+        if (declaredLength != null) {
+            try {
+                long length = Long.parseLong(declaredLength);
+                if (length < 0) {
+                    send(exchange, 400, "application/json", "{\"error\":\"Invalid Content-Length\"}");
+                    return null;
+                }
+                if (length > MAX_REQUEST_BODY_BYTES) {
+                    send(exchange, 413, "application/json", "{\"error\":\"Request body too large\"}");
+                    return null;
+                }
+            } catch (NumberFormatException invalidLength) {
+                send(exchange, 400, "application/json", "{\"error\":\"Invalid Content-Length\"}");
+                return null;
+            }
+        }
+        try (InputStream body = exchange.getRequestBody()) {
+            byte[] bytes = body.readNBytes(MAX_REQUEST_BODY_BYTES + 1);
+            if (bytes.length > MAX_REQUEST_BODY_BYTES) {
+                send(exchange, 413, "application/json", "{\"error\":\"Request body too large\"}");
+                return null;
+            }
+            return bytes;
+        }
+    }
+
+    private static int readPositiveInt(String property, int fallback) {
+        String raw = System.getProperty(property);
+        if (raw == null || raw.isBlank()) return fallback;
+        try {
+            int value = Integer.parseInt(raw);
+            if (value <= 0) throw new IllegalArgumentException(property + " must be positive");
+            return value;
+        } catch (NumberFormatException invalid) {
+            throw new IllegalArgumentException(property + " must be an integer", invalid);
+        }
+    }
+
+    private void send(HttpExchange exchange, int status,
+                      String contentType, String body) throws IOException {
+        exchange.setAttribute("kv.http.status", status);
+        if (status >= 400) httpErrors.increment();
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", contentType);
         exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");

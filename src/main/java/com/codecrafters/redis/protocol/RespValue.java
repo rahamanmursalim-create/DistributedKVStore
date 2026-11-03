@@ -18,12 +18,18 @@ public final class RespValue {
 
     private final RespType type;
     private final String stringValue;
+    private final byte[] bulkBytes;
     private final Long integerValue;
     private final List<RespValue> arrayValue;
 
     private RespValue(RespType type, String stringValue, Long integerValue, List<RespValue> arrayValue) {
+        this(type, stringValue, null, integerValue, arrayValue);
+    }
+
+    private RespValue(RespType type, String stringValue, byte[] bulkBytes, Long integerValue, List<RespValue> arrayValue) {
         this.type = type;
         this.stringValue = stringValue;
+        this.bulkBytes = bulkBytes == null ? null : bulkBytes.clone();
         this.integerValue = integerValue;
         this.arrayValue = arrayValue != null ? Collections.unmodifiableList(new ArrayList<>(arrayValue)) : null;
     }
@@ -49,6 +55,11 @@ public final class RespValue {
         return new RespValue(RespType.BULK_STRING, value, null, null);
     }
 
+    public static RespValue bulkString(byte[] value) {
+        if (value == null) return NULL_BULK_STRING;
+        return new RespValue(RespType.BULK_STRING, null, value, null, null);
+    }
+
     public static RespValue nullBulkString() {
         return NULL_BULK_STRING;
     }
@@ -65,7 +76,14 @@ public final class RespValue {
     }
 
     public String getStringValue() {
+        if (stringValue == null && bulkBytes != null)
+            return new String(bulkBytes, StandardCharsets.UTF_8);
         return stringValue;
+    }
+
+    public byte[] getBytesValue() {
+        if (bulkBytes != null) return bulkBytes.clone();
+        return stringValue == null ? null : stringValue.getBytes(StandardCharsets.UTF_8);
     }
 
     public Long getIntegerValue() {
@@ -100,7 +118,7 @@ public final class RespValue {
                 return sb.toString().getBytes(StandardCharsets.UTF_8);
 
             case BULK_STRING:
-                byte[] bytes = stringValue.getBytes(StandardCharsets.UTF_8);
+                byte[] bytes = getBytesValue();
                 sb.append('$').append(bytes.length).append(CRLF);
                 byte[] header = sb.toString().getBytes(StandardCharsets.UTF_8);
                 byte[] result = new byte[header.length + bytes.length + CRLF_BYTES.length];

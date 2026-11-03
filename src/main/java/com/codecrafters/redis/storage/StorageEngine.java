@@ -137,7 +137,7 @@ public final class StorageEngine implements AutoCloseable {
             }
 
             try (WriteAheadLog recoveryWal = new WriteAheadLog(path)) {
-                for (WriteAheadLog.Record record : recoveryWal.replay()) {
+                recoveryWal.replay(record -> {
                     if (record.getOperation()
                             == WriteAheadLog.Operation.PUT) {
                         long expiry = record.getExpiryEpochMillis();
@@ -152,7 +152,7 @@ public final class StorageEngine implements AutoCloseable {
                             == WriteAheadLog.Operation.DELETE) {
                         memTable.delete(record.getKey());
                     }
-                }
+                });
             }
         }
     }

@@ -14,6 +14,8 @@ public final class ClusterRuntimeConfigTest {
                 "KV_RAFT_BIND_HOST", "0.0.0.0",
                 "KV_RAFT_PORT", "7101",
                 "KV_RAFT_PEERS", "node-a=10.0.0.1:7101,node-b=10.0.0.2:7102,node-c=[2001:db8::3]:7103",
+                "KV_TLS_KEYSTORE", "identity.p12",
+                "KV_CLUSTER_TOKEN", "test-cluster-secret",
                 "KV_FOLLOWER_READS", "true",
                 "KV_FOLLOWER_MAX_COMMIT_LAG", "3")).orElseThrow();
         assert "node-a".equals(config.nodeId());
@@ -33,7 +35,26 @@ public final class ClusterRuntimeConfigTest {
         rejects(Map.of("KV_NODE_ID", "node-a", "KV_RAFT_PEERS", "node-a=host:7001,node-a=host:7001,node-b=host:7002"));
         rejects(Map.of("KV_NODE_ID", "node-a", "KV_RAFT_PORT", "7001",
                 "KV_RAFT_PEERS", "node-a=host:7002,node-b=host:7003"));
+        rejects(raftEnvironment("0.0.0.0", "127.0.0.1", "127.0.0.2", false, false));
+        rejects(raftEnvironment("0.0.0.0", "127.0.0.1", "127.0.0.2", true, false));
+        rejects(raftEnvironment("0.0.0.0", "127.0.0.1", "127.0.0.2", false, true));
+        rejects(raftEnvironment("10.0.0.1", "10.0.0.1", "10.0.0.2", false, true));
+        rejects(raftEnvironment("127.0.0.1", "127.0.0.1", "10.0.0.2", false, false));
+        ClusterRuntimeConfig.fromEnvironment(raftEnvironment(
+                "127.0.0.1", "127.0.0.1", "127.0.0.2", false, false)).orElseThrow();
         System.out.println("ClusterRuntimeConfigTest passed");
+    }
+
+    private static Map<String, String> raftEnvironment(String bindHost, String selfHost,
+                                                       String peerHost, boolean tls, boolean token) {
+        Map<String, String> values = new java.util.HashMap<>();
+        values.put("KV_NODE_ID", "node-a");
+        values.put("KV_RAFT_BIND_HOST", bindHost);
+        values.put("KV_RAFT_PORT", "7101");
+        values.put("KV_RAFT_PEERS", "node-a=" + selfHost + ":7101,node-b=" + peerHost + ":7102");
+        if (tls) values.put("KV_TLS_KEYSTORE", "identity.p12");
+        if (token) values.put("KV_CLUSTER_TOKEN", "test-cluster-secret");
+        return values;
     }
 
     private static void rejects(Map<String, String> environment) {

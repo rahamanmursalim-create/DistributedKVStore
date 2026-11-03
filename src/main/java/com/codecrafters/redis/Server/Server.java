@@ -12,9 +12,12 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import javax.net.ssl.SSLContext;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Server implements AutoCloseable {
@@ -26,7 +29,11 @@ public class Server implements AutoCloseable {
     private final RaftGroup raftGroup;
     private final CommandHandler commandHandler;
     private final AsyncWriteBatcher writeBatcher;
-    private final ExecutorService executor;
+    private final ThreadPoolExecutor executor;
+    private final Set<Socket> clientSockets = ConcurrentHashMap.newKeySet();
+    private final int clientReadTimeoutMillis;
+    private final String clientToken;
+    private final SSLContext configuredTls;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
 
@@ -35,45 +42,51 @@ public class Server implements AutoCloseable {
     }
 
     public Server(int port) {
-        this(port, new RedisStore(), null, true, null, false);
+        this(port, new RedisStore(), null, true, null, false, null, null);
     }
 
     public Server(int port, RedisStore store) {
-        this(port, store, store, false, null, false);
+        this(port, store, store, false, null, false, null, null);
+    }
+
+    /** Creates an embedded server with explicit client AUTH and optional TLS settings. */
+    public Server(int port, RedisStore store, String clientToken, SSLContext tlsContext) {
+        this(port, store, store, false, null, false, clientToken, tlsContext);
     }
 
     /** Creates a server whose SET/PUT/GET/DEL operations are backed by one Raft group. */
     public Server(int port, RedisStore store, RaftGroup raftGroup, boolean followerReads) {
-        this(port, store, store, false, raftGroup, followerReads);
+        this(port, store, store, false, raftGroup, followerReads, null, null);
     }
 
     /** Creates a server using an alternate key router such as {@code ShardedStore}. */
     public Server(int port, RedisStore store, KeyValueAccess access) {
-        this(port, store, access, false, null, false);
+        this(port, store, access, false, null, false, null, null);
     }
 
     private Server(int port, RedisStore store, KeyValueAccess access, boolean ownsStore,
-                   RaftGroup raftGroup, boolean followerReads) {
+                   RaftGroup raftGroup, boolean followerReads, String clientToken, SSLContext configuredTls) {
         this.port = port;
         this.store = store;
         this.ownsStore = ownsStore;
         this.raftGroup = raftGroup;
+        this.clientToken = clientToken;
+        this.configuredTls = configuredTls;
         this.writeBatcher = new AsyncWriteBatcher(access,
                 readIntSetting("redis.write.queue.capacity", 4096, 1),
                 readIntSetting("redis.write.batch.maxSize", 128, 1),
                 readLongSetting("redis.write.batch.maxDelayMillis", 2, 0));
-        this.commandHandler = new CommandHandler(store, access, writeBatcher, raftGroup, followerReads);
-        this.executor = createExecutorService();
-    }
-
-    private static ExecutorService createExecutorService() {
-        try {
-            return (ExecutorService) Executors.class
-                    .getMethod("newVirtualThreadPerTaskExecutor")
-                    .invoke(null);
-        } catch (Throwable ignored) {
-            return Executors.newCachedThreadPool();
-        }
+        this.commandHandler = new CommandHandler(store, access, writeBatcher, raftGroup, followerReads,
+                port, () -> clientSockets.size());
+        int workers = readIntSetting("redis.connection.workers", 64, 1);
+        int queueCapacity = readIntSetting("redis.connection.queue.capacity", 128, 1);
+        this.clientReadTimeoutMillis = readIntSetting("redis.client.readTimeoutMillis", 30_000, 1);
+        this.executor = new ThreadPoolExecutor(workers, workers, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity), task -> {
+                    Thread thread = new Thread(task, "redis-client");
+                    thread.setDaemon(true);
+                    return thread;
+                }, new ThreadPoolExecutor.AbortPolicy());
     }
 
     private static int readIntSetting(String name, int fallback, int minimum) {
@@ -103,7 +116,7 @@ public class Server implements AutoCloseable {
     public void start() throws IOException {
         if (raftGroup != null) raftGroup.start();
         try {
-            SSLContext tls = com.codecrafters.redis.rpc.TlsContext.fromEnvironment();
+            SSLContext tls = configuredTls == null ? com.codecrafters.redis.rpc.TlsContext.fromEnvironment() : configuredTls;
             serverSocket = tls == null ? new ServerSocket() : tls.getServerSocketFactory().createServerSocket();
             serverSocket.setReuseAddress(true);
             String bindHost = System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1");
@@ -119,7 +132,21 @@ public class Server implements AutoCloseable {
         try {
             while (running.get() && !serverSocket.isClosed()) {
                 Socket clientSocket = serverSocket.accept();
-                executor.submit(new ClientHandler(clientSocket, commandHandler, System.getenv("KV_CLIENT_TOKEN")));
+                try {
+                    clientSocket.setSoTimeout(clientReadTimeoutMillis);
+                    clientSockets.add(clientSocket);
+                    executor.execute(() -> {
+                        try { new ClientHandler(clientSocket, commandHandler,
+                                clientToken == null ? System.getenv("KV_CLIENT_TOKEN") : clientToken).run(); }
+                        finally { clientSockets.remove(clientSocket); }
+                    });
+                } catch (RejectedExecutionException saturated) {
+                    clientSockets.remove(clientSocket);
+                    try { clientSocket.close(); } catch (IOException ignored) { }
+                } catch (IOException socketSetupFailure) {
+                    clientSockets.remove(clientSocket);
+                    try { clientSocket.close(); } catch (IOException ignored) { }
+                }
             }
         } catch (IOException e) {
             if (running.get()) {
@@ -153,6 +180,9 @@ public class Server implements AutoCloseable {
         }
 
         executor.shutdown();
+        for (Socket clientSocket : clientSockets) {
+            try { clientSocket.close(); } catch (IOException ignored) { }
+        }
         try {
             if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
