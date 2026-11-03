@@ -465,19 +465,22 @@ Review the cycle logs and final summary before treating a validation run as succ
 
 ---
 
-## Current Limitations
+## Limitations
 
-- The `KV_SHARD_NODES` and `/api/shards` modes remain local to one process. Distributed sharding and RPC-based migration use the Multi-Raft ownership groups and `/api/raft/rebalance`.
-- Multi-Raft provides the distributed sharding path: `/api/raft/rebalance` elects the current first-group leader as coordinator, quorum-commits the migration intent and freezes, copies moved values through Raft RPC, commits ownership epochs, and live routers adopt the new manifest. Only already-provisioned groups can be selected.
-- Every Multi-Raft process watches the first group for a committed migration intent. After coordinator failure and Raft leader election, the new leader resumes the same target automatically; retries rescan every group's committed data before cutover and cleanup. Routing stays frozen until the migration completes, so clients may see temporary unavailability while quorum or coordinator leadership recovers.
-- Active Raft snapshot creation, chunked installation, recovery, and committed-prefix log compaction are implemented in `RaftGroup`/`RaftLog`. The archived `com.distributedkv` implementation has been moved to `legacy/` and is outside Maven source roots; its TODOs are not part of the active runtime.
-- Raft snapshots are bounded to 128 MiB. A snapshot that exceeds the limit is not compacted; monitor retained log growth for large state machines.
-- The LSM-style `StorageEngine` is a separate component and is not selected by `Main.java` as the active `RedisStore` backend.
-- Maven Surefire discovers JUnit Jupiter tests. Existing integration scenario bodies are wrapped by JUnit methods and run in separate forks; migrate individual assertions and fixtures to idiomatic JUnit as follow-up cleanup.
-- An archived parallel `com.distributedkv` implementation is stored under `legacy/` and is intentionally outside Maven source roots. Only maintained `com.codecrafters.redis` sources compile into the executable.
-- The recorded one-hour soak and current clean build are local-environment evidence. A 24-hour soak and production-hardware benchmark run have not been recorded; follow the procedures in `scripts/PHYSICAL_CLUSTER_VALIDATION.md` and keep their reports with the deployment evidence.
+The following improvements are not yet implemented:
 
-Three physical-host validation, end-to-end firewall-scope review from trusted and untrusted network vantage points, zero-downtime certificate rotation against deployed hosts, production Alertmanager/on-call delivery, production-hardware capacity measurements, and a 24-hour soak remain pending and require separate evidence. The repository includes runbooks and scripts for these procedures, but a script or prepared procedure is not itself proof that the procedure passed. Local JVM tests and a three-container single-host cluster check are not substitutes for genuine multi-host validation.
+**1. Redis Compatibility**
+- More complete Redis-compatible `COMMAND` and `CONFIG` responses.
+- Accurate Redis `INFO` reporting.
+- Binary-safe value support.
+- TLS/AUTH support in the built-in client.
+
+**2. Remote Sharding Architecture**
+- Actual remote-node shard routing.
+- Automated shard placement.
+- Automated shard rebalancing.
+
+**Important:** The current local sharding implementation uses partitions within a process. It should not be described as a fully distributed remote-node storage architecture.
 
 ---
 

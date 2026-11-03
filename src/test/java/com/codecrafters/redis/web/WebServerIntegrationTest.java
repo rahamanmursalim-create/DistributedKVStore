@@ -3,10 +3,10 @@ package com.codecrafters.redis.web;
 import org.junit.jupiter.api.Test;
 
 import com.codecrafters.redis.storage.RedisStore;
+import com.codecrafters.redis.storage.KeyValueAccess;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.ConnectException;
 import java.net.http.HttpConnectTimeoutException;
@@ -14,6 +14,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.codecrafters.redis.rpc.TlsContext;
 import javax.net.ssl.SSLContext;
 import java.nio.file.Files;
@@ -26,20 +29,29 @@ public class WebServerIntegrationTest {
 
     public static void main(String[] args) throws Exception {
         int dashboardPort;
+        AtomicInteger sizeCalls = new AtomicInteger();
         try (RedisStore store = new RedisStore();
-             WebServer webServer = new WebServer(store, 0)) {
+             WebServer webServer = new WebServer(store, new KeyValueAccess() {
+                 @Override public String get(String key) { return store.get(key); }
+                 @Override public void set(String key, String value) { store.set(key, value); }
+                 @Override public void set(String key, String value, long expiryMillis) { store.set(key, value, expiryMillis); }
+                 @Override public List<String> keys(String pattern) { return store.keys(pattern); }
+                 @Override public int size() { sizeCalls.incrementAndGet(); return store.size(); }
+                 @Override public void setBatch(Map<String, String> values) { store.setBatch(values); }
+                 @Override public int delete(String... keys) { return store.del(keys); }
+             }, 0, null, false)) {
 
             webServer.start();
             dashboardPort = webServer.getPort();
-            awaitListener(dashboardPort);
-
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(5))
                     .build();
 
             testDashboardHtml(client, dashboardPort);
             testHealthEndpoint(client, dashboardPort);
+            assert sizeCalls.get() == 0 : "Health endpoint must not count store keys";
             testPutAndGetKey(client, dashboardPort);
+            testRequestBodyLimits(client, dashboardPort);
             testListKeys(client, dashboardPort);
             testDeleteKey(client, dashboardPort);
         }
@@ -47,7 +59,6 @@ public class WebServerIntegrationTest {
         try (RedisStore protectedStore = new RedisStore();
              WebServer protectedServer = new WebServer(protectedStore, protectedStore, 0, null, false, null, "test-secret")) {
             protectedServer.start();
-            awaitListener(protectedServer.getPort());
             HttpClient client = plainClient();
             URI health = URI.create("http://" + LOOPBACK + ":" + protectedServer.getPort() + "/api/health");
             HttpResponse<String> denied = client.send(HttpRequest.newBuilder(health).GET().build(), HttpResponse.BodyHandlers.ofString());
@@ -64,6 +75,19 @@ public class WebServerIntegrationTest {
             assert metricsAllowed.body().contains("kv_process_up 1") : "Metrics must expose process availability";
             assert java.util.regex.Pattern.compile("(?m)^kv_store_keys \\d+$").matcher(metricsAllowed.body()).find()
                     : "Metrics must expose a numeric live key count";
+            assert metricsAllowed.body().contains("kv_http_request_duration_seconds_bucket")
+                    && metricsAllowed.body().contains("kv_http_request_errors_total")
+                    : "Metrics must expose HTTP latency and errors";
+            assert metricsAllowed.body().contains("kv_wal_size_bytes{scope=\"local\"}")
+                    && metricsAllowed.body().contains("kv_storage_disk_used_bytes{scope=\"local\"}")
+                    : "Metrics must expose WAL and filesystem usage";
+            assert metricsAllowed.body().contains("kv_process_cpu_seconds_total")
+                    && metricsAllowed.body().contains("kv_process_heap_used_bytes")
+                    && metricsAllowed.body().contains("kv_process_threads_live")
+                    : "Metrics must expose CPU, memory, and thread usage";
+            assert metricsAllowed.body().contains("kv_http_executor_active_threads")
+                    && metricsAllowed.body().contains("kv_http_executor_queued_requests")
+                    : "Metrics must expose HTTP worker activity";
         }
 
         testHttpsAuthenticationAndCertificateRotation();
@@ -86,7 +110,6 @@ public class WebServerIntegrationTest {
             try (RedisStore store = new RedisStore();
                  WebServer server = new WebServer(store, store, 0, null, false, null, "https-secret", firstContext)) {
                 server.start();
-                awaitListener(server.getPort());
                 URI health = URI.create("https://" + LOOPBACK + ":" + server.getPort() + "/api/health");
                 HttpClient trusted = client(firstOnlyTrust);
                 HttpClient untrusted = client(secondOnlyTrust);
@@ -103,7 +126,6 @@ public class WebServerIntegrationTest {
             try (RedisStore store = new RedisStore();
                  WebServer rotated = new WebServer(store, store, 0, null, false, null, "https-secret", secondContext)) {
                 rotated.start();
-                awaitListener(rotated.getPort());
                 URI health = URI.create("https://" + LOOPBACK + ":" + rotated.getPort() + "/api/health");
                 expectCertificateRejection(client(firstOnlyTrust), health, "previous certificate after rotation");
                 assert client(secondOnlyTrust).send(HttpRequest.newBuilder(health).header("Authorization", "Bearer https-secret").GET().build(), HttpResponse.BodyHandlers.ofString()).statusCode() == 200;
@@ -115,27 +137,27 @@ public class WebServerIntegrationTest {
         }
     }
 
+    private static void testRequestBodyLimits(HttpClient client, int port) throws Exception {
+        byte[] oversized = new byte[1024 * 1024 + 1];
+        URI fixedLength = URI.create("http://" + LOOPBACK + ":" + port + "/api/keys/too-large-fixed");
+        HttpResponse<String> fixedResponse = client.send(HttpRequest.newBuilder(fixedLength)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(oversized)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assert fixedResponse.statusCode() == 413 : "Oversized Content-Length body was not rejected early";
+
+        URI chunked = URI.create("http://" + LOOPBACK + ":" + port + "/api/keys/too-large-chunked");
+        HttpResponse<String> chunkedResponse = client.send(HttpRequest.newBuilder(chunked)
+                        .PUT(HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(oversized))).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assert chunkedResponse.statusCode() == 413 : "Oversized chunked body was not capped while reading";
+    }
+
     private static HttpClient client(SSLContext context) {
         return HttpClient.newBuilder().sslContext(context).connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     private static HttpClient plainClient() {
         return HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-    }
-
-    private static void awaitListener(int port) throws Exception {
-        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
-        IOException lastFailure = null;
-        while (System.nanoTime() < deadline) {
-            try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress(LOOPBACK, port), 500);
-                return;
-            } catch (ConnectException notReady) {
-                lastFailure = notReady;
-                Thread.sleep(25);
-            }
-        }
-        throw new AssertionError("Web listener did not accept loopback connections on port " + port, lastFailure);
     }
 
     private static void expectCertificateRejection(HttpClient client, URI uri, String scenario) throws Exception {
@@ -150,7 +172,6 @@ public class WebServerIntegrationTest {
     }
 
     private static void expectPlaintextRejection(URI httpsUri, int port) throws Exception {
-        awaitListener(port);
         URI plaintextUri = URI.create("http://" + LOOPBACK + ":" + port + "/api/health");
         try {
             HttpResponse<String> response = plainClient().send(HttpRequest.newBuilder(plaintextUri).GET().build(),
@@ -201,6 +222,8 @@ public class WebServerIntegrationTest {
         assert body.contains("copyValue()") : "Dashboard should contain Copy Value button";
         assert body.contains("copyToClipboard") : "Dashboard should contain copyToClipboard helper";
         assert body.contains("formatJson()") : "Dashboard should contain formatJson helper";
+        assert body.contains("statKeyCount.textContent = allKeys.length;")
+                : "Dashboard key count must continue to refresh from the key listing";
     }
 
     private static void testHealthEndpoint(HttpClient client, int port) throws Exception {
@@ -211,7 +234,7 @@ public class WebServerIntegrationTest {
 
         HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
         assert resp.statusCode() == 200 : "Health should return 200";
-        assert resp.body().contains("\"status\":\"ok\"") : "Health body should contain ok status";
+        assert "{\"status\":\"ok\"}".equals(resp.body()) : "Health should report liveness without key counts";
     }
 
     private static void testPutAndGetKey(HttpClient client, int port) throws Exception {

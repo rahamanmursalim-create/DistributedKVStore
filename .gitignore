@@ -22,3 +22,10 @@ MANIFEST
 CURRENT
 OPTIONS-*
 *.lock
+
+# Local Maven validation cache
+.m2-validation/
+
+# Python cache
+__pycache__/
+*.py[cod]

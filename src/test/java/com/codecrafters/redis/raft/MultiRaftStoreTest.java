@@ -11,6 +11,10 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public final class MultiRaftStoreTest {
     public static void main(String[] args) throws Exception {
@@ -100,8 +104,14 @@ public final class MultiRaftStoreTest {
             coordinator.decideTransaction(transactionId, transactionDigest, participants, true);
             // Simulate a coordinator process crash after applying locally but before applying the other group.
             coordinator.applyCommittedTransaction(transactionId, transactionDigest);
+            assert coordinator.hasUnresolvedLocalTransactions()
+                    : "Coordinator recovery checkpoint disappeared before every participant was confirmed";
+            assert leaders.get(groupIds[1]).hasUnresolvedLocalTransactions()
+                    : "Prepared participant was missing from its active recovery index";
             assert "committed-b".equals(routed.get(recoveryKeyB));
             assert "committed-a".equals(routed.get(recoveryKeyA));
+            assert !coordinator.hasUnresolvedLocalTransactions()
+                    : "Coordinator checkpoint was not cleared after participant recovery";
             for (int node = 0; node < nodeIds.length; node++) {
                 assert "committed-a".equals(stores[0][node].get(recoveryKeyA));
                 assert "committed-b".equals(stores[1][node].get(recoveryKeyB));
@@ -116,11 +126,80 @@ public final class MultiRaftStoreTest {
             assert routed.get(abortKeyB) == null;
             leaders.get(groupIds[1]).put(abortKeyB, "after-abort".getBytes(java.nio.charset.StandardCharsets.UTF_8));
             assert "after-abort".equals(routed.get(abortKeyB));
+
+            String capacityKeyA = "tx-capacity-a";
+            while (!groupIds[0].equals(routed.groupFor(capacityKeyA))) capacityKeyA += "a";
+            String capacityKeyB = null;
+            for (int i = 0; capacityKeyB == null; i++) {
+                String candidate = "x".repeat(1025) + i;
+                if (groupIds[1].equals(routed.groupFor(candidate))) capacityKeyB = candidate;
+            }
+            boolean capacityRejected = false;
+            try { routed.setBatch(Map.of(capacityKeyA, "must-abort", capacityKeyB, "invalid-key-capacity")); }
+            catch (java.io.UncheckedIOException expected) { capacityRejected = true; }
+            assert capacityRejected : "Participant capacity failure was not rejected";
+            assert routed.get(capacityKeyA) == null : "Failed distributed transaction became visible";
+            routed.set(capacityKeyA, "key-lock-released");
+            assert "key-lock-released".equals(routed.get(capacityKeyA))
+                    : "Coordinator abort did not release the prepared key lock";
+
             String deleteKeyA = batch.keySet().stream().skip(1).findFirst().orElseThrow();
             String deleteKeyB = batch.keySet().stream().skip(2).findFirst().orElseThrow();
             int sameGroupDeleteCount = routed.delete(deleteKeyA, deleteKeyB);
             assert sameGroupDeleteCount == 2 : "same group delete count=" + sameGroupDeleteCount;
             assert routed.get(deleteKeyA) == null;
+
+            ExecutorService races = Executors.newFixedThreadPool(2);
+            MultiRaftStore concurrentStore = routed;
+            try {
+                for (int iteration = 0; iteration < 20; iteration++) {
+                    String[] crossKeys = keysOnDifferentGroups(concurrentStore, "concurrent-set-" + iteration);
+                    String keyA = crossKeys[0], keyB = crossKeys[1];
+                    concurrentStore.set(keyA, "initial-a"); concurrentStore.set(keyB, "initial-b");
+                    CyclicBarrier start = new CyclicBarrier(2);
+                    Future<Integer> delete = races.submit(() -> { start.await(); return concurrentStore.delete(keyA, keyB); });
+                    Future<Boolean> write = races.submit(() -> {
+                        start.await();
+                        try { concurrentStore.set(keyA, "raced-write"); return true; }
+                        catch (java.io.UncheckedIOException transactionLockWon) { return false; }
+                    });
+                    int deleted = delete.get();
+                    boolean writeSucceeded = write.get();
+                    String finalValue = concurrentStore.get(keyA);
+                    assert (deleted == 1 && "raced-write".equals(finalValue))
+                            || (deleted == 2 && finalValue == null)
+                            : "Cross-group delete count disagreed with concurrent write: count=" + deleted
+                                    + ", value=" + finalValue + ", writeSucceeded=" + writeSucceeded;
+                    assert concurrentStore.get(keyB) == null;
+                }
+
+                for (int iteration = 0; iteration < 20; iteration++) {
+                    String[] crossKeys = keysOnDifferentGroups(concurrentStore, "concurrent-delete-" + iteration);
+                    String keyA = crossKeys[0], keyB = crossKeys[1];
+                    concurrentStore.set(keyA, "initial-a"); concurrentStore.set(keyB, "initial-b");
+                    CyclicBarrier start = new CyclicBarrier(2);
+                    Future<Integer> crossDelete = races.submit(() -> { start.await(); return concurrentStore.delete(keyA, keyB); });
+                    Future<Integer> singleDelete = races.submit(() -> { start.await(); return concurrentStore.delete(keyA); });
+                    int totalDeleted = crossDelete.get() + singleDelete.get();
+                    assert totalDeleted == 2 : "Concurrent deletes counted a key more or less than once: " + totalDeleted;
+                    assert concurrentStore.get(keyA) == null && concurrentStore.get(keyB) == null;
+                }
+            } finally { races.shutdownNow(); }
+
+            try (com.codecrafters.redis.web.WebServer metricsServer = new com.codecrafters.redis.web.WebServer(
+                    stores[0][leaderIndexes[0]], routed, 0, null, false)) {
+                metricsServer.start();
+                java.net.http.HttpClient http = java.net.http.HttpClient.newHttpClient();
+                java.net.URI metricsUri = java.net.URI.create("http://127.0.0.1:" + metricsServer.getPort() + "/api/metrics");
+                String metrics = http.send(java.net.http.HttpRequest.newBuilder(metricsUri).GET().build(),
+                        java.net.http.HttpResponse.BodyHandlers.ofString()).body();
+                assert metrics.contains("kv_raft_replication_lag_entries{group=\"shard-a\"")
+                        : "Multi-Raft peer replication lag metric is missing";
+                assert metrics.contains("kv_transaction_recovery_failures_total 0")
+                        : "Multi-Raft transaction recovery failure counter is missing";
+                assert metrics.contains("kv_wal_size_bytes{group=\"shard-a\"}")
+                        : "Per-group WAL size metric is missing";
+            }
             System.out.println("MultiRaftStoreTest passed");
         } finally {
             for (RaftGroup[] group : groups) for (RaftGroup node : group)
@@ -137,6 +216,12 @@ public final class MultiRaftStoreTest {
                 if (reserved.add(port)) return port;
             }
         }
+    }
+
+    private static String[] keysOnDifferentGroups(MultiRaftStore store, String prefix) {
+        String first = prefix + "-a", second = prefix + "-b";
+        while (store.groupFor(first).equals(store.groupFor(second))) second += "b";
+        return new String[] {first, second};
     }
 
     private static int awaitLeader(RaftGroup[] nodes) throws InterruptedException {

@@ -97,6 +97,7 @@ public final class RaftRebalanceIntegrationTest {
             }, "rebalance-concurrent-writer");
             writer.start();
             Thread failedNode = new Thread(() -> {
+                ServerSocket stalledFollower = null;
                 try {
                     migrationStarted.await();
                     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
@@ -107,11 +108,22 @@ public final class RaftRebalanceIntegrationTest {
                         if (!frozen) Thread.sleep(1);
                     }
                     if (!frozen) throw new AssertionError("Migration never reached its quorum-frozen phase");
-                    for (int group = 0; group < groupIds.length; group++) {
+                    groups[0][replicaToFail].close();
+                    groups[0][replicaToFail] = null;
+                    stalledFollower = new ServerSocket();
+                    stalledFollower.setReuseAddress(true);
+                    stalledFollower.bind(new InetSocketAddress("127.0.0.1", ports[0][replicaToFail]));
+                    long readStarted = System.nanoTime();
+                    long fencedIndex = coordinatorGroups.get("a").readIndex();
+                    long readMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - readStarted);
+                    if (fencedIndex < 0 || readMillis >= 900)
+                        throw new AssertionError("ReadIndex waited for the stalled follower despite a healthy majority; elapsed=" + readMillis + "ms");
+                    for (int group = 1; group < groupIds.length; group++) {
                         groups[group][replicaToFail].close();
                         groups[group][replicaToFail] = null;
                     }
                 } catch (Throwable failure) { writerFailure.compareAndSet(null, failure); }
+                finally { if (stalledFollower != null) try { stalledFollower.close(); } catch (Exception ignored) { } }
             }, "rebalance-replica-failure");
             failedNode.start();
             migrationStarted.countDown();
@@ -135,6 +147,9 @@ public final class RaftRebalanceIntegrationTest {
                 groups[group][replicaToFail].start();
             }
             awaitReplicas(groups, stores, 10_000);
+            for (int node = 0; node < nodeIds.length; node++)
+                if (!groups[0][node].getMigrationIntent().isEmpty())
+                    throw new AssertionError("Completed rebalance left a committed migration intent on " + nodeIds[node]);
 
             if (!"a".equals(staleRouter.groupFor(expiringKey)))
                 throw new AssertionError("A live router did not adopt the quorum-committed ownership manifest");

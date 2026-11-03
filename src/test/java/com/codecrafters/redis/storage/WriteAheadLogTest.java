@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class WriteAheadLogTest {
 
@@ -100,6 +102,33 @@ public class WriteAheadLogTest {
             System.out.println(
                     "TEST 3B PASSED: Recovery survives another restart");
         }
+
+        // TEST 3C: Compaction keeps a recoverable replacement and replay streams rows.
+        long beforeCompaction = Files.size(walPath);
+        try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
+            wal.replaceWithSnapshot(Map.of(
+                    "language", new ValueEntry("Java"),
+                    "afterCrash", new ValueEntry("recovered")));
+            AtomicInteger streamed = new AtomicInteger();
+            wal.replay(record -> streamed.incrementAndGet());
+            check(streamed.get() == 2, "Streaming replay returned an unexpected row count");
+            check(Files.size(walPath) < beforeCompaction, "WAL compaction did not reduce file size");
+        }
+
+        // Simulate a crash during a non-atomic replacement: restore the durable backup.
+        Path backup = walPath.resolveSibling(walPath.getFileName() + ".snapshot.bak");
+        Path temporary = walPath.resolveSibling(walPath.getFileName() + ".snapshot.tmp");
+        Files.copy(walPath, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        Files.writeString(walPath, "partial replacement");
+        Files.writeString(temporary, "uncommitted replacement");
+        try (WriteAheadLog wal = new WriteAheadLog(walPath)) {
+            List<WriteAheadLog.Record> recovered = wal.replay();
+            check(recovered.size() == 2, "Interrupted compaction lost the prior WAL state");
+            check(recovered.stream().anyMatch(record -> "language".equals(record.getKey())
+                    && "Java".equals(record.getValue())), "Compacted value was not recovered");
+            check(!Files.exists(backup) && !Files.exists(temporary), "Stale compaction files were not cleaned");
+        }
+        System.out.println("TEST 3C PASSED: WAL compaction and interrupted replacement recovery");
 
         // TEST 4: Corrupted checksummed record must be rejected.
         try (WriteAheadLog wal = new WriteAheadLog(walPath)) {

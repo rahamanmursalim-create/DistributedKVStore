@@ -11,6 +11,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Base64;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntSupplier;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -18,11 +27,34 @@ import java.util.concurrent.ExecutionException;
  */
 public class CommandHandler {
 
+    private static final String BINARY_VALUE_PREFIX = "\u0000KV-BINARY:";
+    private static final String ESCAPED_VALUE_PREFIX = "\u0000KV-STRING:";
+    private record CommandInfo(String name, int arity, List<String> flags, int firstKey, int lastKey, int keyStep,
+                               List<String> aclCategories) { }
+    private static final List<CommandInfo> COMMANDS = List.of(
+            command("ping", -1, List.of("fast", "connection"), 0, 0, 0, "@fast", "@connection"),
+            command("echo", 2, List.of("fast"), 0, 0, 0, "@fast"),
+            command("get", 2, List.of("readonly", "fast"), 1, 1, 1, "@read", "@string"),
+            command("set", -3, List.of("write", "denyoom"), 1, 1, 1, "@write", "@string"),
+            command("put", 3, List.of("write", "denyoom"), 1, 1, 1, "@write", "@string"),
+            command("del", -2, List.of("write"), 1, -1, 1, "@write", "@keyspace"),
+            command("delete", -2, List.of("write"), 1, -1, 1, "@write", "@keyspace"),
+            command("exists", -2, List.of("readonly", "fast"), 1, -1, 1, "@read", "@keyspace"),
+            command("keys", 2, List.of("readonly", "sort_for_script"), 0, 0, 0, "@read", "@keyspace", "@dangerous"),
+            command("command", -1, List.of("loading", "stale", "only", "no_async_loading", "allow_busy"), 0, 0, 0, "@slow", "@connection"),
+            command("config", -2, List.of("admin", "noscript"), 0, 0, 0, "@slow", "@admin"),
+            command("info", -1, List.of("loading", "stale", "fast"), 0, 0, 0, "@slow", "@dangerous"),
+            command("auth", -2, List.of("no_auth", "loading", "stale", "fast", "connection"), 0, 0, 0, "@fast", "@connection"));
+
     private final RedisStore store;
     private final KeyValueAccess access;
     private final AsyncWriteBatcher writeBatcher;
     private final RaftGroup raftGroup;
     private final boolean followerReads;
+    private final int tcpPort;
+    private final IntSupplier connectedClients;
+    private final long startedAtMillis = System.currentTimeMillis();
+    private final AtomicLong commandsProcessed = new AtomicLong();
 
     public CommandHandler(RedisStore store) {
         this(store, null);
@@ -39,11 +71,18 @@ public class CommandHandler {
 
     public CommandHandler(RedisStore store, KeyValueAccess access, AsyncWriteBatcher writeBatcher,
                           RaftGroup raftGroup, boolean followerReads) {
+        this(store, access, writeBatcher, raftGroup, followerReads, 6379, () -> 0);
+    }
+
+    public CommandHandler(RedisStore store, KeyValueAccess access, AsyncWriteBatcher writeBatcher,
+                          RaftGroup raftGroup, boolean followerReads, int tcpPort, IntSupplier connectedClients) {
         this.store = store;
         this.access = access;
         this.writeBatcher = writeBatcher;
         this.raftGroup = raftGroup;
         this.followerReads = followerReads;
+        this.tcpPort = tcpPort;
+        this.connectedClients = connectedClients;
     }
 
     public RespValue execute(Command command) {
@@ -52,6 +91,7 @@ public class CommandHandler {
         }
 
         String name = command.getName().toUpperCase(Locale.ROOT);
+        commandsProcessed.incrementAndGet();
 
         switch (name) {
             case "PING":
@@ -80,10 +120,10 @@ public class CommandHandler {
                 return handleKeys(command);
 
             case "COMMAND":
-                return handleCommand();
+                return handleCommand(command);
 
             case "INFO":
-                return handleInfo();
+                return handleInfo(command);
 
             case "CONFIG":
                 return handleConfig(command);
@@ -116,7 +156,7 @@ public class CommandHandler {
             );
         }
 
-        return RespValue.bulkString(command.getArg(0));
+        return RespValue.bulkString(command.getArgBytes(0));
     }
 
     /**
@@ -132,7 +172,7 @@ public class CommandHandler {
         }
 
         String key = command.getArg(0);
-        String value = command.getArg(1);
+        String value = storeRedisBytes(command.getArgBytes(1));
 
         if (!write(key, value)) return RespValue.error("ERR write failed");
 
@@ -150,7 +190,7 @@ public class CommandHandler {
         }
 
         String key = command.getArg(0);
-        String value = command.getArg(1);
+        String value = storeRedisBytes(command.getArgBytes(1));
         Long expiryMillis = null;
 
         for (int i = 2; i < command.getArgCount(); i++) {
@@ -254,7 +294,7 @@ public class CommandHandler {
             return RespValue.nullBulkString();
         }
 
-        return RespValue.bulkString(value);
+        return RespValue.bulkString(redisBytes(value));
     }
 
     /**
@@ -319,32 +359,134 @@ public class CommandHandler {
         return value == null ? null : new String(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private RespValue handleCommand() {
-        return RespValue.array(new ArrayList<>());
+    private RespValue handleCommand(Command command) {
+        if (command.getArgCount() == 0) return commandInfos(COMMANDS);
+        String subcommand = command.getArg(0).toUpperCase(Locale.ROOT);
+        if ("COUNT".equals(subcommand) && command.getArgCount() == 1) return RespValue.integer(COMMANDS.size());
+        if ("LIST".equals(subcommand) && command.getArgCount() == 1)
+            return RespValue.array(COMMANDS.stream().map(info -> RespValue.bulkString(info.name())).toList());
+        if ("INFO".equals(subcommand) && command.getArgCount() >= 2) {
+            List<RespValue> results = new ArrayList<>();
+            for (int i = 1; i < command.getArgCount(); i++) {
+                String requested = command.getArg(i).toLowerCase(Locale.ROOT);
+                CommandInfo info = COMMANDS.stream().filter(candidate -> candidate.name().equals(requested)).findFirst().orElse(null);
+                results.add(info == null ? RespValue.nullBulkString() : commandInfo(info));
+            }
+            return RespValue.array(results);
+        }
+        return RespValue.error("ERR unknown subcommand or wrong number of arguments for 'COMMAND'");
     }
 
-    private RespValue handleInfo() {
-        String info =
-            "# Server\r\n" +
-            "redis_version:7.0.0\r\n" +
-            "role:master\r\n";
-
-        return RespValue.bulkString(info);
+    private RespValue handleInfo(Command command) {
+        if (command.getArgCount() > 1) return RespValue.error("ERR wrong number of arguments for 'INFO' command");
+        String requested = command.getArgCount() == 0 ? "all" : command.getArg(0).toLowerCase(Locale.ROOT);
+        StringBuilder info = new StringBuilder();
+        if ("all".equals(requested) || "default".equals(requested) || "server".equals(requested)) {
+            info.append("# Server\r\nserver_name:DistributedKVStore\r\nserver_version:1.0.0\r\n")
+                    .append("os:").append(System.getProperty("os.name", "unknown")).append('\r').append('\n')
+                    .append("arch_bits:").append(System.getProperty("sun.arch.data.model", "unknown")).append("\r\n")
+                    .append("process_id:").append(ProcessHandle.current().pid()).append("\r\n")
+                    .append("tcp_port:").append(tcpPort).append("\r\n")
+                    .append("uptime_in_seconds:").append(Math.max(0, (System.currentTimeMillis() - startedAtMillis) / 1000)).append("\r\n\r\n");
+        }
+        if ("all".equals(requested) || "default".equals(requested) || "clients".equals(requested))
+            info.append("# Clients\r\nconnected_clients:").append(Math.max(0, connectedClients.getAsInt()))
+                    .append("\r\n\r\n");
+        if ("all".equals(requested) || "default".equals(requested) || "memory".equals(requested)) {
+            Runtime runtime = Runtime.getRuntime();
+            info.append("# Memory\r\nused_memory:").append(runtime.totalMemory() - runtime.freeMemory())
+                    .append("\r\nused_memory_peak:").append(runtime.totalMemory())
+                    .append("\r\nmaxmemory:0\r\n\r\n");
+        }
+        if ("all".equals(requested) || "default".equals(requested) || "stats".equals(requested))
+            info.append("# Stats\r\ntotal_commands_processed:").append(commandsProcessed.get())
+                    .append("\r\n\r\n");
+        if ("all".equals(requested) || "default".equals(requested) || "replication".equals(requested))
+            info.append("# Replication\r\nrole:").append(raftGroup == null || raftGroup.isLeader() ? "master" : "slave")
+                    .append("\r\n\r\n");
+        if ("all".equals(requested) || "default".equals(requested) || "keyspace".equals(requested)) {
+            RedisStore.KeyspaceStats stats = store.keyspaceStats();
+            if (stats.keys() > 0) info.append("# Keyspace\r\ndb0:keys=").append(stats.keys())
+                    .append(",expires=").append(stats.expiringKeys())
+                    .append(",avg_ttl=").append(stats.averageTtlMillis()).append("\r\n");
+        }
+        if (info.length() == 0 && !List.of("all", "default", "server", "clients", "memory", "stats", "replication", "keyspace").contains(requested))
+            return RespValue.error("ERR invalid INFO section");
+        return RespValue.bulkString(info.toString());
     }
 
     private RespValue handleConfig(Command command) {
-        if (command.getArgCount() >= 2
-                && "GET".equalsIgnoreCase(command.getArg(0))) {
-
-            String parameter = command.getArg(1);
+        if (command.getArgCount() == 2 && "GET".equalsIgnoreCase(command.getArg(0))) {
+            Map<String, String> values = new LinkedHashMap<>();
+            values.put("port", Integer.toString(tcpPort));
+            values.put("bind", System.getenv().getOrDefault("KV_BIND_HOST", "127.0.0.1"));
+            values.put("databases", "1");
+            values.put("timeout", System.getProperty("redis.client.readTimeoutMillis", "30000"));
+            values.put("maxmemory", "0");
+            values.put("maxmemory-policy", "noeviction");
+            try { values.put("appendonly", store.storageUsage().walEnabled() ? "yes" : "no"); }
+            catch (IOException e) { values.put("appendonly", "unknown"); }
+            String pattern = command.getArg(1).toLowerCase(Locale.ROOT);
             List<RespValue> result = new ArrayList<>();
-
-            result.add(RespValue.bulkString(parameter));
-            result.add(RespValue.bulkString(""));
-
+            values.forEach((key, value) -> {
+                if (matchesGlob(pattern, key)) { result.add(RespValue.bulkString(key)); result.add(RespValue.bulkString(value)); }
+            });
             return RespValue.array(result);
         }
+        if (command.getArgCount() == 1 && "RESETSTAT".equalsIgnoreCase(command.getArg(0))) {
+            commandsProcessed.set(0);
+            return RespValue.simpleString("OK");
+        }
+        return RespValue.error("ERR unsupported CONFIG subcommand or invalid arguments");
+    }
 
-        return RespValue.array(new ArrayList<>());
+    private static CommandInfo command(String name, int arity, List<String> flags, int first, int last, int step, String... acl) {
+        return new CommandInfo(name, arity, flags, first, last, step, List.of(acl));
+    }
+
+    private static RespValue commandInfos(List<CommandInfo> infos) {
+        return RespValue.array(infos.stream().map(CommandHandler::commandInfo).toList());
+    }
+
+    private static RespValue commandInfo(CommandInfo info) {
+        List<RespValue> fields = new ArrayList<>();
+        fields.add(RespValue.bulkString(info.name())); fields.add(RespValue.integer(info.arity()));
+        fields.add(RespValue.array(info.flags().stream().map(RespValue::bulkString).toList()));
+        fields.add(RespValue.integer(info.firstKey())); fields.add(RespValue.integer(info.lastKey()));
+        fields.add(RespValue.integer(info.keyStep()));
+        fields.add(RespValue.array(info.aclCategories().stream().map(RespValue::bulkString).toList()));
+        fields.add(RespValue.array(List.of())); fields.add(RespValue.array(List.of())); fields.add(RespValue.array(List.of()));
+        return RespValue.array(fields);
+    }
+
+    private static boolean matchesGlob(String pattern, String value) {
+        StringBuilder regex = new StringBuilder("^");
+        for (int i = 0; i < pattern.length(); i++) {
+            char c = pattern.charAt(i);
+            if (c == '*') regex.append(".*"); else if (c == '?') regex.append('.');
+            else regex.append(java.util.regex.Pattern.quote(String.valueOf(c)));
+        }
+        return value.matches(regex.append('$').toString());
+    }
+
+    private static String storeRedisBytes(byte[] bytes) {
+        try {
+            String decoded = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
+            return decoded.startsWith(BINARY_VALUE_PREFIX) || decoded.startsWith(ESCAPED_VALUE_PREFIX)
+                    ? ESCAPED_VALUE_PREFIX + decoded : decoded;
+        } catch (CharacterCodingException malformedUtf8) {
+            return BINARY_VALUE_PREFIX + Base64.getEncoder().encodeToString(bytes);
+        }
+    }
+
+    private static byte[] redisBytes(String stored) {
+        if (stored.startsWith(ESCAPED_VALUE_PREFIX))
+            return stored.substring(ESCAPED_VALUE_PREFIX.length()).getBytes(StandardCharsets.UTF_8);
+        if (stored.startsWith(BINARY_VALUE_PREFIX)) {
+            try { return Base64.getDecoder().decode(stored.substring(BINARY_VALUE_PREFIX.length())); }
+            catch (IllegalArgumentException malformedMarker) { /* Treat an ordinary string as UTF-8. */ }
+        }
+        return stored.getBytes(StandardCharsets.UTF_8);
     }
 }

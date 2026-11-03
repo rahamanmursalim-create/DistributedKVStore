@@ -22,19 +22,26 @@ import java.util.regex.Pattern;
  * Default WAL location: ./data/wal.log (relative to the process working directory).
  */
 public class RedisStore implements AutoCloseable, KeyValueAccess {
+    public record StorageUsage(boolean walEnabled, long walBytes, long diskTotalBytes, long diskAvailableBytes) { }
+    public record KeyspaceStats(int keys, int expiringKeys, long averageTtlMillis) { }
     private static final int MAX_LIVE_KEYS = positiveIntSetting("KV_MAX_LIVE_KEYS", 100_000);
     private static final long MAX_LIVE_BYTES = positiveLongSetting("KV_MAX_LIVE_BYTES", 64L * 1024 * 1024);
     private static final int MAX_KEY_BYTES = positiveIntSetting("KV_MAX_KEY_BYTES", 1024);
     private static final int MAX_VALUE_BYTES = positiveIntSetting("KV_MAX_VALUE_BYTES", 1024 * 1024);
+    private static final long WAL_COMPACT_THRESHOLD_BYTES = positiveLongSetting("KV_WAL_COMPACT_BYTES", 128L * 1024 * 1024);
+    private static final System.Logger LOGGER = System.getLogger(RedisStore.class.getName());
     private final BPlusTree<ValueEntry> store = new BPlusTree<>();
     private final Map<String, Long> keyVersions = new HashMap<>();
     private final PriorityQueue<Expiry> expirations = new PriorityQueue<>(
             java.util.Comparator.comparingLong(Expiry::timestamp));
     private record Expiry(String key, long timestamp) { }
     private record Usage(long bytes, int keys) { }
+    private record CapacityReservation(Map<String, String> changes, long bytes, int keys) { }
     private long commitVersion;
     private long liveBytes;
     private int liveKeys;
+    private long nextWalCompactionCheck = WAL_COMPACT_THRESHOLD_BYTES;
+    private final Map<String, CapacityReservation> capacityReservations = new HashMap<>();
     private final ScheduledExecutorService cleanupExecutor;
     private final WriteAheadLog wal;
     private final RocksDBBPlusTreeStore rocksDb;
@@ -101,7 +108,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
             });
             return;
         }
-        for (WriteAheadLog.Record record : wal.replay()) {
+        wal.replay(record -> {
             commitVersion++;
             keyVersions.put(record.getKey(), commitVersion);
             if (record.getOperation() == WriteAheadLog.Operation.DELETE) {
@@ -123,7 +130,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
                     expirations.add(new Expiry(record.getKey(), expiry));
                 }
             }
-        }
+        });
     }
 
     /** Stores a key without expiration. */
@@ -133,6 +140,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         liveBytes = usage.bytes(); liveKeys = usage.keys();
         if (rocksDb == null) store.put(key, new ValueEntry(value));
         recordMutation(key);
+        maybeCompactWal();
     }
 
     /** Durably writes a batch with one WAL force, then publishes all values. */
@@ -156,6 +164,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         if (rocksDb == null) for (Map.Entry<String, String> entry : values.entrySet())
             store.put(entry.getKey(), new ValueEntry(entry.getValue()));
         recordMutations(values.keySet());
+        maybeCompactWal();
     }
 
     /** Stores a key with TTL relative to now, in milliseconds. */
@@ -171,6 +180,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         if (rocksDb == null) store.put(key, new ValueEntry(value, expiryTimestamp));
         expirations.add(new Expiry(key, expiryTimestamp));
         recordMutation(key);
+        maybeCompactWal();
     }
 
     /** Stores a key with an absolute Unix expiry timestamp in milliseconds. */
@@ -186,6 +196,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         if (rocksDb == null) store.put(key, new ValueEntry(value, expiryTimestampMillis));
         expirations.add(new Expiry(key, expiryTimestampMillis));
         recordMutation(key);
+        maybeCompactWal();
     }
 
     private void appendPut(String key, String value, long expiryTimestamp) {
@@ -253,6 +264,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
             }
             recordMutation(key);
         }
+        if (keys.length > 0) maybeCompactWal();
         return count;
     }
 
@@ -274,7 +286,91 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
     /** Applies puts and deletes as one checksummed WAL record or RocksDB batch. */
     public synchronized void applyAtomicChanges(Map<String, String> changes) {
         Objects.requireNonNull(changes, "changes");
-        commitTransaction(commitVersion, new LinkedHashMap<>(changes));
+        commitTransaction(commitVersion, new LinkedHashMap<>(changes), null);
+    }
+
+    /** Reserves this participant's positive capacity delta while its Raft prepare is unresolved. */
+    public synchronized void reserveAtomicChanges(String transactionId, Map<String, String> changes) {
+        Objects.requireNonNull(transactionId, "transactionId");
+        Objects.requireNonNull(changes, "changes");
+        CapacityReservation existing = capacityReservations.get(transactionId);
+        if (existing != null) {
+            if (!existing.changes().equals(changes))
+                throw new IllegalStateException("Transaction capacity reservation changed: " + transactionId);
+            return;
+        }
+        CapacityReservation reservation = measureReservation(changes);
+        validateAtomicChangesCapacity(transactionId, changes);
+        capacityReservations.put(transactionId, reservation);
+    }
+
+    /** Checks the eventual state-machine write against live data and outstanding reservations. */
+    public synchronized void validateAtomicChangesCapacity(String transactionId, Map<String, String> changes) {
+        ensureCapacity(changes, transactionId);
+    }
+
+    /** Applies the prepared transaction and releases its reservation only after durable success. */
+    public synchronized void applyAtomicChanges(String transactionId, Map<String, String> changes) {
+        Objects.requireNonNull(transactionId, "transactionId");
+        Objects.requireNonNull(changes, "changes");
+        CapacityReservation reservation = capacityReservations.get(transactionId);
+        if (reservation == null || !reservation.changes().equals(changes))
+            throw new IllegalStateException("Prepared transaction has no matching capacity reservation: " + transactionId);
+        commitTransaction(commitVersion, new LinkedHashMap<>(changes), transactionId);
+    }
+
+    /** Releases a reservation after a committed abort. */
+    public synchronized void releaseAtomicChangesReservation(String transactionId) {
+        capacityReservations.remove(transactionId);
+    }
+
+    /** Rewrites the active WAL to the current live dataset and forces the replacement to disk. */
+    public synchronized void compactWal() throws IOException {
+        if (wal == null) return;
+        cleanupExpiredKeys();
+        wal.replaceWithSnapshot(snapshotEntries());
+        nextWalCompactionCheck = WAL_COMPACT_THRESHOLD_BYTES;
+    }
+
+    private void maybeCompactWal() {
+        if (wal == null) return;
+        try {
+            long length = wal.sizeBytes();
+            if (length < WAL_COMPACT_THRESHOLD_BYTES || length < nextWalCompactionCheck) return;
+            nextWalCompactionCheck = length + Math.max(1L, WAL_COMPACT_THRESHOLD_BYTES / 4);
+            long snapshotUpperBound = liveBytes * 2L + liveKeys * 64L + 1024L * 1024;
+            if (length <= snapshotUpperBound) return;
+            compactWal();
+        } catch (IOException failure) {
+            LOGGER.log(System.Logger.Level.WARNING, "WAL compaction failed; durable log retained at {0}: {1}",
+                    wal.getPath(), failure.toString());
+        }
+    }
+
+    private CapacityReservation measureReservation(Map<String, String> changes) {
+        long reservedBytes = 0;
+        int reservedKeys = 0;
+        for (Map.Entry<String, String> change : changes.entrySet()) {
+            String key = Objects.requireNonNull(change.getKey(), "key");
+            String value = change.getValue();
+            int keyBytes = key.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (keyBytes == 0 || keyBytes > MAX_KEY_BYTES)
+                throw new IllegalArgumentException("Key exceeds KV_MAX_KEY_BYTES");
+            if (value == null) continue;
+            int valueBytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (valueBytes > MAX_VALUE_BYTES)
+                throw new IllegalArgumentException("Value exceeds KV_MAX_VALUE_BYTES");
+            ValueEntry previous = getEntry(key);
+            long nextEntryBytes = keyBytes + (long) valueBytes;
+            if (previous == null) {
+                reservedKeys++;
+                reservedBytes += nextEntryBytes;
+            } else {
+                reservedBytes += Math.max(0, nextEntryBytes - entryBytes(key, previous));
+            }
+        }
+        return new CapacityReservation(java.util.Collections.unmodifiableMap(new LinkedHashMap<>(changes)),
+                reservedBytes, reservedKeys);
     }
 
     /** Starts a repeatable-read snapshot transaction. */
@@ -294,13 +390,21 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
     }
 
     synchronized void commitTransaction(long snapshotVersion, Map<String, String> changes) {
+        commitTransaction(snapshotVersion, changes, null);
+    }
+
+    private synchronized void commitTransaction(long snapshotVersion, Map<String, String> changes,
+                                                String reservationToRelease) {
         for (String key : changes.keySet()) {
             if (keyVersions.getOrDefault(key, 0L) > snapshotVersion) {
                 throw new TransactionConflictException(key);
             }
         }
-        if (changes.isEmpty()) return;
-        Usage usage = ensureCapacity(changes);
+        if (changes.isEmpty()) {
+            if (reservationToRelease != null) capacityReservations.remove(reservationToRelease);
+            return;
+        }
+        Usage usage = ensureCapacity(changes, reservationToRelease);
         try {
             if (rocksDb != null) {
                 Map<String, ValueEntry> puts = new java.util.LinkedHashMap<>();
@@ -321,6 +425,8 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
                 else store.put(change.getKey(), new ValueEntry(change.getValue()));
             }
         }
+        if (reservationToRelease != null) capacityReservations.remove(reservationToRelease);
+        maybeCompactWal();
     }
 
     private void recordMutation(String key) {
@@ -373,6 +479,30 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         catch (IOException e) { throw new UncheckedIOException("Could not count RocksDB keys", e); }
     }
 
+    /** Returns live key and TTL statistics for Redis INFO keyspace reporting. */
+    public synchronized KeyspaceStats keyspaceStats() {
+        cleanupExpiredKeys();
+        int expiring = 0;
+        long ttlTotal = 0;
+        long now = System.currentTimeMillis();
+        for (ValueEntry entry : entriesSnapshot().values()) {
+            if (entry.hasExpiry() && !entry.isExpired()) {
+                expiring++;
+                ttlTotal += Math.max(0, entry.getExpiryTimestampMillis() - now);
+            }
+        }
+        return new KeyspaceStats(size(), expiring, expiring == 0 ? 0 : ttlTotal / expiring);
+    }
+
+    /** Bounded storage gauges for monitoring; does not scan keys or database contents. */
+    public synchronized StorageUsage storageUsage() throws IOException {
+        Path path = wal != null ? wal.getPath() : rocksDb != null ? rocksDb.getPath() : null;
+        if (path == null) return new StorageUsage(false, 0, 0, 0);
+        java.nio.file.FileStore fileStore = java.nio.file.Files.getFileStore(path);
+        return new StorageUsage(wal != null, wal == null ? 0 : wal.sizeBytes(),
+                fileStore.getTotalSpace(), fileStore.getUsableSpace());
+    }
+
     private Map<String, ValueEntry> entriesSnapshot() {
         if (rocksDb == null) return store.snapshot();
         try { return rocksDb.entriesSnapshot(); }
@@ -407,6 +537,7 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
             throw new IllegalStateException("Snapshot exceeds configured live storage limits");
         if (wal != null) wal.replaceWithSnapshot(live);
         else rocksDb.replaceAll(live);
+        capacityReservations.clear();
         store.clear(); keyVersions.clear(); expirations.clear(); liveBytes = 0; liveKeys = 0;
         commitVersion++;
         for (Map.Entry<String, ValueEntry> entry : live.entrySet()) {
@@ -417,14 +548,16 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         }
     }
 
-    private Usage ensureCapacity(Map<String, String> changes) {
+    private Usage ensureCapacity(Map<String, String> changes) { return ensureCapacity(changes, null); }
+
+    private Usage ensureCapacity(Map<String, String> changes, String excludedReservation) {
         long nextBytes = liveBytes; int nextKeys = liveKeys;
         for (Map.Entry<String, String> change : changes.entrySet()) {
             String key = Objects.requireNonNull(change.getKey(), "key");
             String value = change.getValue();
             int keyBytes = key.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
             if (keyBytes == 0 || keyBytes > MAX_KEY_BYTES) throw new IllegalArgumentException("Key exceeds KV_MAX_KEY_BYTES");
-            ValueEntry previous = readCurrent(key);
+            ValueEntry previous = getEntry(key);
             if (previous != null) { nextBytes -= entryBytes(key, previous); }
             else if (value != null) nextKeys++;
             if (value == null) { if (previous != null) nextKeys--; }
@@ -436,6 +569,17 @@ public class RedisStore implements AutoCloseable, KeyValueAccess {
         }
         if (nextKeys > MAX_LIVE_KEYS) throw new IllegalStateException("Live key limit reached (KV_MAX_LIVE_KEYS)");
         if (nextBytes > MAX_LIVE_BYTES) throw new IllegalStateException("Live storage byte limit reached (KV_MAX_LIVE_BYTES)");
+        long reservedBytes = 0;
+        int reservedKeys = 0;
+        for (Map.Entry<String, CapacityReservation> entry : capacityReservations.entrySet()) {
+            if (entry.getKey().equals(excludedReservation)) continue;
+            reservedBytes = Math.addExact(reservedBytes, entry.getValue().bytes());
+            reservedKeys = Math.addExact(reservedKeys, entry.getValue().keys());
+        }
+        if (nextBytes + reservedBytes > MAX_LIVE_BYTES)
+            throw new IllegalStateException("Live storage byte limit is reserved by prepared transactions (KV_MAX_LIVE_BYTES)");
+        if (nextKeys + reservedKeys > MAX_LIVE_KEYS)
+            throw new IllegalStateException("Live key limit is reserved by prepared transactions (KV_MAX_LIVE_KEYS)");
         return new Usage(nextBytes, nextKeys);
     }
 

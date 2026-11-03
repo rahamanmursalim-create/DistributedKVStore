@@ -36,6 +36,16 @@ public class RedisStoreRecoveryTest {
                 try { store.set("oversized", "x".repeat(1024 * 1024 + 1)); }
                 catch (IllegalArgumentException expected) { rejected = true; }
                 check("Per-value memory quota rejects oversized input", rejected);
+                long beforeCompaction = Files.size(wal);
+                store.compactWal();
+                check("WAL compaction reduces obsolete history", Files.size(wal) < beforeCompaction);
+            }
+
+            try (RedisStore store = new RedisStore(wal, false)) {
+                check("Live value survives WAL compaction and restart",
+                        "value".equals(store.get("persistent")));
+                check("Expired value remains absent after WAL compaction",
+                        store.get("expired") == null);
             }
 
             System.out.println("RedisStore recovery tests completed.");

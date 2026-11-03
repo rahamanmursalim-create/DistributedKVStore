@@ -86,6 +86,10 @@ public final class ClusterRuntimeConfig {
                 throw new IllegalArgumentException("Peer group port range exceeds 65535");
         members.remove(nodeId);
         if (members.isEmpty()) throw new IllegalArgumentException("Raft cluster must contain at least two members");
+        List<InetSocketAddress> peerAddresses = members.values().stream()
+                .map(Endpoint::address).toList();
+        RaftTransportSecurity.validate(RaftTransportSecurity.resolve(bindHost, bindPort), peerAddresses,
+                nonBlank(environment.get("KV_TLS_KEYSTORE")), environment.get("KV_CLUSTER_TOKEN"));
         String followerValue = environment.getOrDefault("KV_FOLLOWER_READS", "false");
         if (!followerValue.equalsIgnoreCase("true") && !followerValue.equalsIgnoreCase("false"))
             throw new IllegalArgumentException("KV_FOLLOWER_READS must be true or false");
@@ -123,6 +127,7 @@ public final class ClusterRuntimeConfig {
     private static void validatePort(int value, String name) {
         if (value < 1 || value > 65535) throw new IllegalArgumentException("Invalid " + name + ": " + value);
     }
+    private static boolean nonBlank(String value) { return value != null && !value.isBlank(); }
 
     public String nodeId() { return nodeId; }
     public String groupId() { return groupId; }
